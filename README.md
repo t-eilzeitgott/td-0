@@ -37,11 +37,16 @@ BBTAN, mit dem Ablauf von Bloons TD. Die gesamte Spiellogik ist in **Java** gesc
 Die Web-Version ist eine statische Seite. Das Repository enthält einen GitHub-Workflow, der sie baut und auf
 **GitHub Pages** veröffentlicht:
 
-1. Änderungen in den Hauptzweig (`main`) bringen.
-2. Im Repository **Settings → Pages → Source: „GitHub Actions“** einmalig auswählen
+1. Im Repository **Settings → Pages → Source: „GitHub Actions“** einmalig auswählen
    (bei privaten Repositories hängt die Verfügbarkeit von deinem GitHub-Tarif ab).
-3. Nach dem ersten Durchlauf des Workflows *Build und Veröffentlichung* liegt das Spiel unter
-   `https://<dein-name>.github.io/<repository>/`.
+2. Der Workflow *Build und Veröffentlichung* läuft bei jedem Push, führt alle Tests aus und veröffentlicht die Seite,
+   sobald etwas im **Standard-Branch** des Repositories landet. Ist Pages erst nach dem ersten Lauf aktiviert worden:
+   unter **Actions** den letzten Lauf öffnen und **Re-run all jobs** wählen.
+3. Danach liegt das Spiel unter `https://<dein-name>.github.io/<repository>/` – bei diesem Repository
+   `https://t-eilzeitgott.github.io/td-0/`.
+
+Die Artefakte jedes Laufs (Web-Version als Ordner, Desktop-Paket als ZIP) lassen sich außerdem direkt auf der
+Actions-Seite herunterladen.
 
 **iPhone:** Adresse in **Safari** öffnen → **Teilen** → **„Zum Home-Bildschirm“**. Danach startet Neon TD im
 Vollbild wie eine App und funktioniert nach dem ersten Laden auch **ohne Internet**. Das Querformat bietet die

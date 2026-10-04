@@ -1,12 +1,13 @@
 name: Build und Veröffentlichung
 
 # Baut bei jedem Push und Pull Request, führt alle Tests aus und legt die Web-Version sowie die Desktop-Version
-# als herunterladbare Artefakte ab. Auf dem Haupt-Branch wird die Web-Version zusätzlich auf GitHub Pages
-# veröffentlicht (einmalig aktivieren: Repository → Settings → Pages → Source: "GitHub Actions").
+# als herunterladbare Artefakte ab. Auf dem Standard-Branch des Repositories (egal wie er heißt) wird die
+# Web-Version zusätzlich auf GitHub Pages veröffentlicht.
+# Einmalig aktivieren: Repository → Settings → Pages → Source: "GitHub Actions"
+# (bis dahin schlägt nur der Schritt "deploy" fehl; nach dem Aktivieren genügt "Re-run all jobs").
 
 on:
   push:
-    branches: [main]
   pull_request:
   workflow_dispatch:
 
@@ -53,13 +54,13 @@ jobs:
           path: desktop/build/distributions/*.zip
 
       - name: Seite für GitHub Pages vorbereiten
-        if: github.ref == 'refs/heads/main'
+        if: github.ref_name == github.event.repository.default_branch && github.event_name != 'pull_request'
         uses: actions/upload-pages-artifact@v3
         with:
           path: web/build/dist
 
   deploy:
-    if: github.ref == 'refs/heads/main'
+    if: github.ref_name == github.event.repository.default_branch && github.event_name != 'pull_request'
     needs: build
     runs-on: ubuntu-latest
     permissions:
