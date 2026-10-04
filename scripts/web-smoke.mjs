@@ -147,7 +147,7 @@ console.log('2. iPhone quer: kompaktes Layout, Spielen, Speichern, Fortsetzen â€
   let page = await open(ctx, errors);
   let t = touch(page, await ctx.newCDPSession(page));
 
-  await call(page, 'go select');
+  await call(page, 'go chapter');
   await page.waitForTimeout(1800);
   await t.tap(120, 150);                               // Level 1 (ohne Lauf und ohne Sieg: Direktstart)
   await page.waitForTimeout(1800);
@@ -205,7 +205,7 @@ console.log('2. iPhone quer: kompaktes Layout, Spielen, Speichern, Fortsetzen â€
   await page.waitForFunction(() => window.__ntd, null, { timeout: 15000 });
   await page.waitForTimeout(1000);
   t = touch(page, await ctx.newCDPSession(page));
-  await call(page, 'go select');
+  await call(page, 'go chapter');
   await page.waitForTimeout(1800);
   await t.tap(120, 150);
   await page.waitForTimeout(1200);

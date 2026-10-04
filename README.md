@@ -20,7 +20,7 @@ BBTAN, mit dem Ablauf von Bloons TD. Die gesamte Spiellogik ist in **Java** gesc
   → violett → indigo), die Form zeigt die Art.
 - **Feuerwerk**, wenn ein Gegner zerstört wird – mit Funken-Schweifen, Ringen und knisternden Nachzündern.
 - **Hauptmenü** mit lebendigem Hintergrund (ein Bot verteidigt dort im Dauerlauf Level 1) und **Levelauswahl**.
-- **10 eingebaute Level** von einfach bis komplex mit je 20 handgebauten Wellen, Titan-Bossen in Welle 10 und 20 und **Medaillen** (Bronze 20 · Silber 50 · Gold 100 · Platin 250 Wellen) – siehe [Level und Medaillen](#level-und-medaillen).
+- **150 eingebaute Level in 10 Kapiteln** (je 15, von einfach bis komplex) mit je 20 handgebauten Wellen, Titan-Bossen in Welle 10 und 20 und **Medaillen** (Bronze 20 · Silber 50 · Gold 100 · Platin 250 Wellen) – siehe [Level und Medaillen](#level-und-medaillen).
 - **Level-Editor**: eigene Pfade per Punkten *oder freihändig* zeichnen, Pfade glätten sich zu Kurven, Rückgängig,
   Probespielen, Speichern. Eigene Level erscheinen in der Levelauswahl.
 - **Spielerprofil mit Fortschritt**: Du startest auf Level 1 mit nur *einem* Turm (PULS). Jede besiegte Welle bringt XP,
@@ -158,7 +158,7 @@ Geld; ein Gegner, der das Ziel erreicht, kostet Leben.
 
 ## Level und Medaillen
 
-| Nr. | Level | Aufbau |
+| Kapitel | Thema | Aufbau (Level 1 von Hand, 2–15 wachsen in Windungen und Schwierigkeit) |
 |---:|---|---|
 | 1 | Serpentine | ein ruhig geschwungener Pfad – zum Einstieg |
 | 2 | Zickzack | vier lange Bahnen im Wechsel |
@@ -171,18 +171,25 @@ Geld; ein Gegner, der das Ziel erreicht, kostet Leben.
 | 9 | Festung | drei Bahnen aus drei Richtungen auf eine Basis zu |
 | 10 | Chaos | drei lange, sich kreuzende Bahnen mit engen Kurven |
 
-Die schwereren Level haben mehrere Pfade (Gegner verteilen sich, die Verteidigung muss mehrere Bahnen decken) und einen
-eigenen Lebenspunkte-Faktor; dafür gibt es mehr Startgeld. Ein Level wird frei, sobald im Level davor mindestens
-**Bronze** erreicht ist.
+Jedes Kapitel hat 15 Level (**Serpentine 1 … Chaos 15**): Level 1 ist von Hand gebaut, die Level 2–15 werden
+deterministisch aus Formparametern erzeugt (mehr Gänge, Windungen, zusätzliche Bahnen) und werden von Level zu Level
+schwerer (Lebenspunkte-Faktor). Der Faktor ist mit dem Test-Bot kalibriert (`Calibrate`): Jedes Level ist schaffbar,
+die späten Level eines Kapitels liegen knapp unter dem, was der Bot gerade noch besteht. Die schwereren Kapitel haben
+mehrere Pfade und mehr Startgeld.
+
+In der **Levelauswahl** siehst du zuerst die **Kapitelübersicht** (Fortschrittsbalken, Bronze/Silber/Gold je Kapitel,
+dazu „Eigene Level“) und tippst ein Kapitel an, um seine 15 Karten zu sehen. Ein Level wird frei, sobald im Level davor
+mindestens **Bronze** erreicht ist; ein neues Kapitel öffnet mit Bronze im **10.** Level des vorigen (die letzten fünf
+sind Zugabe). Bereits gespielte Level bleiben offen.
 
 **Medaillen** gibt es je Level nach der weitesten besiegten Welle (Normalspiel und Endlosmodus zusammen):
 **Bronze ab Welle 20** (das ist der Sieg über die handgebauten Wellen), **Silber ab 50**, **Gold ab 100** und
 **Platin ab 250**. Silber, Gold und Platin spielst du im Endlosmodus (**ENDLOS WEITER** nach dem Sieg). Jede Medaille
-bringt einmalig XP (150 · 400 · 1000 · 3000); auf der Levelkarte leuchten die erreichten Medaillen. Alle zehn Level
-fertig bedeutet 40 Medaillen.
+bringt einmalig XP (150 · 400 · 1000 · 3000); auf der Levelkarte leuchten die erreichten Medaillen. Alle 150 Level
+fertig bedeuten 600 Medaillen.
 
 <p align="center">
-  <img src="docs/screenshots/levels.png" alt="Levelauswahl mit Medaillen und gesperrten Leveln" width="640">
+  <img src="docs/screenshots/chapters.png" alt="Kapitelübersicht" width="420"> <img src="docs/screenshots/levels.png" alt="Level eines Kapitels mit Medaillen und gesperrten Leveln" width="420">
 </p>
 
 ## Fortschritt

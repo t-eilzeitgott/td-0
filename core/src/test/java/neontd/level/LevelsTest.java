@@ -19,20 +19,24 @@ import org.junit.jupiter.api.Test;
 /** Die zehn eingebauten Level und ihre Medaillen. */
 class LevelsTest {
     @Test
-    void tenValidLevelsFromEasyToComplex() {
+    void tenChaptersWithFifteenValidLevelsEach() {
         List<LevelDef> all = Levels.builtins();
-        assertEquals(10, all.size());
+        assertEquals(150, all.size());
         Set<String> ids = new HashSet<>();
-        int paths = 0;
+        Set<String> sigs = new HashSet<>();
         for (int i = 0; i < all.size(); i++) {
             LevelDef l = all.get(i);
             assertTrue(ids.add(l.id), "Kennung doppelt: " + l.id);
             assertNull(l.validate(), l.name);
-            assertEquals(i + 1, l.difficulty);
+            assertEquals(i / 15 + 1, l.chapter);
+            assertEquals(i % 15 + 1, l.number);
+            assertEquals(l.chapter, l.difficulty);
             assertTrue(l.builtin);
             assertEquals(20, l.waveCount);
             assertEquals(i, Levels.indexOf(l.id));
             assertEquals(20, l.buildWaves().size());
+            assertTrue(l.hpMul > 0.3 && l.hpMul < 5, l.name + ": hpMul " + l.hpMul);
+            sigs.add(java.util.Arrays.deepToString(l.paths.toArray()));
             // jedes Level lässt Bauplätze neben der Bahn frei
             World w = new World(l, SimListener.NONE);
             int spots = 0;
@@ -44,11 +48,17 @@ class LevelsTest {
                 }
             }
             assertTrue(spots > 60, l.name + ": nur " + spots + " Bauplätze");
-            paths = Math.max(paths, l.paths.size());
         }
-        assertEquals(3, paths, "die späten Level haben mehrere Pfade");
+        assertTrue(sigs.size() >= 120, "zu viele identische Pfade: nur " + sigs.size() + " verschiedene");
+        assertEquals("serpentine", all.get(0).id);
+        assertEquals("zickzack", all.get(15).id);
+        assertEquals(15, Levels.chapter(10).size());
+        assertEquals(3, all.get(149).paths.size());
         assertEquals(1, all.get(0).paths.size());
-        assertTrue(all.get(9).totalLength() > all.get(0).totalLength());
+        for (int c = 1; c <= 10; c++) {
+            List<LevelDef> ch = Levels.chapter(c);
+            assertTrue(ch.get(14).hpMul > ch.get(1).hpMul, "Schwierigkeit steigt im Kapitel " + c);
+        }
     }
 
     @Test
@@ -85,18 +95,30 @@ class LevelsTest {
     void levelsUnlockWithBronzeOfThePreviousOne() {
         Progress p = new Progress();
         assertTrue(p.levelUnlocked("serpentine"));
-        assertFalse(p.levelUnlocked("zickzack"));
+        assertFalse(p.levelUnlocked("serpentine-02"));
         assertTrue(p.levelUnlocked("c12eigenes"), "eigene Level sind immer offen");
         p.onRecord("serpentine", 19, false);
-        assertFalse(p.levelUnlocked("zickzack"));
+        assertFalse(p.levelUnlocked("serpentine-02"));
         p.onRecord("serpentine", 20, false);
-        assertTrue(p.levelUnlocked("zickzack"));
-        assertFalse(p.levelUnlocked("spirale"));
+        assertTrue(p.levelUnlocked("serpentine-02"));
+        assertFalse(p.levelUnlocked("serpentine-03"));
         // Endlos-Wellen zählen für die Medaille mit
-        p.onRecord("zickzack", 55, true);
-        assertEquals(2, p.medal("zickzack"));
-        assertTrue(p.levelUnlocked("spirale"));
+        p.onRecord("serpentine-02", 55, true);
+        assertEquals(2, p.medal("serpentine-02"));
+        assertTrue(p.levelUnlocked("serpentine-03"));
         assertEquals(3, p.totalMedals());
+        // das nächste Kapitel öffnet mit Bronze im 10. Level des vorigen
+        assertFalse(p.chapterUnlocked(2));
+        for (int n = 3; n <= 10; n++) {
+            p.onRecord(Levels.chapter(1).get(n - 1).id, 20, false);
+        }
+        assertEquals(10, p.chapterMedals(1, 1));
+        assertTrue(p.chapterUnlocked(2));
+        assertEquals(1, p.chapterMedals(1, 2));
+        // schon gespielte Level bleiben offen (alte Spielstände)
+        Progress old = new Progress();
+        old.onRecord("zickzack", 25, false);
+        assertTrue(old.levelUnlocked("zickzack"));
     }
 
     @Test
@@ -113,6 +135,7 @@ class LevelsTest {
                 steps++;
             }
             assertEquals(World.State.WON, w.state, l.name + ": Welle " + w.waveIndex + ", Leben " + w.lives);
+            assertTrue(w.lives >= 5, l.name + ": nur " + w.lives + " Leben übrig");
             assertTrue(Medals.tier(w.clearedWaves()) >= 1);
         }
     }

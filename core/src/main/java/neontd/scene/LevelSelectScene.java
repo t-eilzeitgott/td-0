@@ -23,13 +23,18 @@ import neontd.ui.Smooth;
 import neontd.ui.Ui;
 import neontd.ui.Viewport;
 
-/** Levelauswahl: Karten mit Pfad-Vorschau – Level 1, eigene Level und "Neues Level". */
+/**
+ * Levelauswahl in zwei Stufen: die Übersicht der 10 Kapitel (plus "Eigene Level") und je Kapitel die 15 Karten mit
+ * Pfad-Vorschau und Medaillen.
+ */
 public final class LevelSelectScene extends Scene {
     /** Eine Karte im scrollbaren Raster (Koordinaten im Inhaltsraum, ohne Scroll-Versatz). */
     private static final class Card {
         LevelDef level;
         Path[] paths;
         boolean isNew;
+        /** Kapitelkarte der Übersicht (1–10, {@link Levels#CUSTOM} für die eigenen Level), sonst 0. */
+        int chapter;
         double x;
         double y;
         double w;
@@ -42,6 +47,8 @@ public final class LevelSelectScene extends Scene {
 
     private final Ui ui = new Ui();
     private final Button back;
+    /** 0 = Kapitelübersicht, 1–10 = ein Kapitel, {@link Levels#CUSTOM} = eigene Level. */
+    private final int chapter;
     private final List<Card> cards = new ArrayList<>();
     private Card pressedCard;
     private Card hoverCard;
@@ -73,21 +80,46 @@ public final class LevelSelectScene extends Scene {
     private double toastTime;
 
     public LevelSelectScene(App app) {
+        this(app, 0);
+    }
+
+    public LevelSelectScene(App app, int chapter) {
         super(app);
-        back = ui.add(new Button("", Icon.BACK, Theme.CYAN, () -> app.goTo(new MenuScene(app))));
+        this.chapter = chapter;
+        back = ui.add(new Button("", Icon.BACK, Theme.CYAN, this::goBack));
         buildCards();
+    }
+
+    private void goBack() {
+        app.goTo(chapter == 0 ? new MenuScene(app) : new LevelSelectScene(app, 0));
     }
 
     private void buildCards() {
         cards.clear();
         double delay = 0.1;
-        for (LevelDef l : Levels.builtins()) {
-            cards.add(card(l, false, delay));
-            delay += 0.07;
+        double step = chapter == 0 ? 0.05 : 0.035;
+        if (chapter == 0) {
+            for (int c = 1; c <= Levels.CHAPTERS; c++) {
+                Card k = card(Levels.chapter(c).get(0), false, delay);
+                k.chapter = c;
+                cards.add(k);
+                delay += step;
+            }
+            Card own = card(null, false, delay);
+            own.chapter = Levels.CUSTOM;
+            cards.add(own);
+            return;
+        }
+        if (chapter != Levels.CUSTOM) {
+            for (LevelDef l : Levels.chapter(chapter)) {
+                cards.add(card(l, false, delay));
+                delay += step;
+            }
+            return;
         }
         for (LevelDef l : app.levels.loadAll()) {
             cards.add(card(l, false, delay));
-            delay += 0.07;
+            delay += step;
         }
         Card plus = new Card();
         plus.isNew = true;
@@ -102,6 +134,10 @@ public final class LevelSelectScene extends Scene {
         c.isNew = isNew;
         c.delay = delay;
         c.appear.target = 1;
+        if (l == null) {
+            c.paths = new Path[0];
+            return c;
+        }
         try {
             c.paths = l.buildPaths();
         } catch (RuntimeException e) {
@@ -129,7 +165,7 @@ public final class LevelSelectScene extends Scene {
         cols = Math.min(cols, 4);
         cardW = (gridW - gap * (cols - 1)) / cols;
         cardW = Math.min(cardW, 420 * u);
-        cardH = cardW * 0.78;
+        cardH = cardW * (chapter == 0 ? 0.7 : 0.78);
         for (int i = 0; i < cards.size(); i++) {
             Card c = cards.get(i);
             int row = i / cols;
@@ -223,7 +259,10 @@ public final class LevelSelectScene extends Scene {
         g.restore();
         drawScrollBar(g, u);
 
-        NeonText.draw(g, "LEVEL WÄHLEN", vp.w / 2, titleY, Math.min(34 * u, vp.safeW() * 0.7 / 7.0), Theme.CYAN, 8, 0.4, time);
+        String title = chapter == 0 ? "KAPITEL WÄHLEN" : chapter == Levels.CUSTOM ? "EIGENE LEVEL"
+                : "KAPITEL " + chapter + " - " + Levels.chapterName(chapter).toUpperCase();
+        double titleW = vp.safeW() - 2 * (46 * u + 28 * u);
+        NeonText.draw(g, title, vp.w / 2, titleY, Math.min(34 * u, titleW / (title.length() * 0.85)), Theme.CYAN, 8, 0.4, time);
         ui.render(g);
 
         if (toastTime > 0 && toast != null) {
@@ -307,7 +346,8 @@ public final class LevelSelectScene extends Scene {
         double h = c.h;
         double hv = c.hover.value;
         double pr = c.press.value;
-        int accent = c.isNew ? Theme.GREEN : (c.level.builtin ? Theme.CYAN : Theme.MAGENTA);
+        int accent = c.isNew ? Theme.GREEN : c.chapter == Levels.CUSTOM ? Theme.MAGENTA
+                : (c.chapter > 0 || c.level.builtin) ? chapterColor(c.chapter > 0 ? c.chapter : c.level.chapter) : Theme.MAGENTA;
         g.save();
         g.alpha(ap);
         g.translate(x + w / 2, y + h / 2);
@@ -319,7 +359,9 @@ public final class LevelSelectScene extends Scene {
         g.fillRoundRect(0, 0, w, h, r, Colors.withAlpha(accent, 0.04 + 0.08 * hv + 0.12 * pr));
         Neon.roundRect(g, 0, 0, w, h, r, 2, accent, 4 + 8 * hv);
 
-        if (c.isNew) {
+        if (c.chapter > 0) {
+            drawChapterCard(g, c, w, h, u, accent, hv);
+        } else if (c.isNew) {
             double cx = w / 2;
             double cy = h * 0.42;
             double pulse = 0.5 + 0.5 * Math.sin(time * 2.2);
@@ -339,7 +381,7 @@ public final class LevelSelectScene extends Scene {
             int tier = app.progress.medal(c.level.id);
             String info;
             if (c.level.builtin) {
-                info = "Stufe " + c.level.difficulty + "/10" + (overall > 0 ? "  ·  Rekord " + overall : "")
+                info = "Nr. " + c.level.number + "/" + Levels.PER_CHAPTER + (overall > 0 ? "  ·  Rekord " + overall : "")
                         + (tier < 4 ? "  ·  " + Medals.NAMES[tier] + " ab " + Medals.WAVES[tier] : "");
             } else {
                 info = c.level.waveCount + " Wellen  ·  eigenes Level" + (best > 0 ? "  ·  Rekord " + best : "")
@@ -353,8 +395,8 @@ public final class LevelSelectScene extends Scene {
                 // gesperrt: abgedunkelt, Schloss und Hinweis
                 g.fillRoundRect(0, 0, w, h, r, Colors.withAlpha(0x000000, 0.78));
                 Icons.draw(g, Icon.LOCK, w / 2, h * 0.38, Math.min(w, h) * 0.12, Theme.TEXT_DIM, 0);
-                int idx = Levels.indexOf(c.level.id);
-                String prev = idx > 0 ? Levels.builtins().get(idx - 1).name : "";
+                LevelDef need = Levels.prerequisite(c.level);
+                String prev = need != null ? need.name : "";
                 double fs = Math.max(10, 13 * u);
                 String t = "Erst BRONZE in „" + prev + "“";
                 double tw = g.textWidth(t, fs, true);
@@ -385,6 +427,61 @@ public final class LevelSelectScene extends Scene {
             }
         }
         g.restore();
+    }
+
+    private static final int[] CHAPTER_COLORS = {Theme.CYAN, 0x39FF88, 0xFFD23F, 0xFF7A3D, 0xFF4F9A, 0xB26BFF,
+        0x4DA3FF, 0x3DF2E0, 0xFF5E5E, 0xE8FF3D};
+
+    private static int chapterColor(int ch) {
+        return ch >= 1 && ch <= CHAPTER_COLORS.length ? CHAPTER_COLORS[ch - 1] : Theme.CYAN;
+    }
+
+    /** Kapitelkarte: Pfad-Vorschau des ersten Levels, Name, Fortschrittsbalken (Bronze von 15) und Medaillenzahlen. */
+    private void drawChapterCard(Gfx g, Card c, double w, double h, double u, int accent, double hv) {
+        double pad = 14 * u;
+        boolean custom = c.chapter == Levels.CUSTOM;
+        if (custom) {
+            double cx = w / 2;
+            double cy = h * 0.34;
+            double pulse = 0.5 + 0.5 * Math.sin(time * 2.2);
+            Neon.circle(g, cx, cy, h * 0.2, 2.4, accent, 8 + 4 * pulse);
+            Icons.draw(g, Icon.PENCIL, cx, cy, h * 0.11, accent, 5);
+        } else {
+            LevelPreview.draw(g, c.paths, c.level.width, c.level.height, pad, pad, w - 2 * pad, h * 0.50,
+                    accent, hv > 0.3 ? time : 0);
+        }
+        double ty = h * 0.50 + pad + 14 * u;
+        String name = custom ? "Eigene Level" : "Kapitel " + c.chapter + " - " + Levels.chapterName(c.chapter);
+        g.text(name, pad, ty, Math.max(14, 18 * u), Theme.TEXT, Gfx.ALIGN_LEFT, true);
+        if (custom) {
+            g.text("Zeichne und spiele deine eigenen Pfade", pad, ty + 22 * u, Math.max(10, 12 * u), Theme.TEXT_DIM,
+                    Gfx.ALIGN_LEFT, false);
+            return;
+        }
+        int bronze = app.progress.chapterMedals(c.chapter, 1);
+        int silver = app.progress.chapterMedals(c.chapter, 2);
+        int gold = app.progress.chapterMedals(c.chapter, 3);
+        int plat = app.progress.chapterMedals(c.chapter, 4);
+        String info = bronze + "/" + Levels.PER_CHAPTER + " Bronze  ·  " + silver + " Silber  ·  " + gold + " Gold"
+                + (plat > 0 ? "  ·  " + plat + " Platin" : "");
+        g.text(info, pad, ty + 22 * u, Math.max(10, 12 * u), Theme.TEXT_DIM, Gfx.ALIGN_LEFT, false);
+        double by = ty + 38 * u;
+        double bw = w - 2 * pad;
+        g.fillRoundRect(pad, by, bw, 6 * u, 3 * u, Colors.withAlpha(0xFFFFFF, 0.1));
+        if (bronze > 0) {
+            g.fillRoundRect(pad, by, bw * bronze / Levels.PER_CHAPTER, 6 * u, 3 * u, accent);
+        }
+        if (!app.progress.chapterUnlocked(c.chapter)) {
+            double r = 18 * u;
+            g.fillRoundRect(0, 0, w, h, r, Colors.withAlpha(0x000000, 0.78));
+            Icons.draw(g, Icon.LOCK, w / 2, h * 0.24, Math.min(w, h) * 0.1, Theme.TEXT_DIM, 0);
+            LevelDef need = Levels.prerequisite(c.level);
+            double fs = Math.max(10, 13 * u);
+            String t = "Erst BRONZE in „" + (need == null ? "" : need.name) + "“";
+            double tw = g.textWidth(t, fs, true);
+            double sh = Math.min(1, (w - 2 * pad) / Math.max(1, tw));
+            g.text(t, w / 2, h * 0.24 + Math.min(w, h) * 0.17, fs * sh, Theme.TEXT_DIM, Gfx.ALIGN_CENTER, true);
+        }
     }
 
     /** Vier Medaillen-Scheiben (Bronze … Platin) rechtsbündig; erreichte leuchten, die übrigen sind nur umrandet. */
@@ -441,7 +538,7 @@ public final class LevelSelectScene extends Scene {
     }
 
     private int iconAt(Card c, double x, double y) {
-        if (c == null || c.isNew || c.level.builtin) {
+        if (c == null || c.isNew || c.chapter > 0 || c.level.builtin) {
             return 0;
         }
         double u = app.vp.u;
@@ -568,6 +665,16 @@ public final class LevelSelectScene extends Scene {
     }
 
     private void activate(Card c, int icon) {
+        if (c.chapter > 0) {
+            if (c.chapter != Levels.CUSTOM && !app.progress.chapterUnlocked(c.chapter)) {
+                LevelDef need = Levels.prerequisite(c.level);
+                toast = "Erst Bronze (Welle 20) in „" + (need == null ? "" : need.name) + "“ erreichen";
+                toastTime = 2.6;
+                return;
+            }
+            app.goTo(new LevelSelectScene(app, c.chapter));
+            return;
+        }
         if (c.isNew) {
             app.goTo(new EditorScene(app, null));
             return;
@@ -578,8 +685,8 @@ public final class LevelSelectScene extends Scene {
             askDelete(c);
         } else {
             if (!app.progress.levelUnlocked(c.level.id)) {
-                int idx = Levels.indexOf(c.level.id);
-                toast = "Erst Bronze (Welle 20) in „" + Levels.builtins().get(idx - 1).name + "“ erreichen";
+                LevelDef need = Levels.prerequisite(c.level);
+                toast = "Erst Bronze (Welle 20) in „" + (need == null ? "" : need.name) + "“ erreichen";
                 toastTime = 2.6;
                 return;
             }
@@ -663,6 +770,10 @@ public final class LevelSelectScene extends Scene {
         }
         if (confirmDelete != null) {
             confirmDelete = null;
+            return true;
+        }
+        if (chapter != 0) {
+            app.goTo(new LevelSelectScene(app, 0));
             return true;
         }
         return false;

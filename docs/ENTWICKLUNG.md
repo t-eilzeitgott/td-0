@@ -248,3 +248,7 @@ damit der Test nicht von Pixelmaßen abhängt; ohne `?debug` gibt es diese Schni
 ## Leistung bei hohen Wellen
 
 Die Simulation selbst ist billig (≈0,01 ms pro Schritt); teuer sind Effekte und Glühpässe, die mit Abschussrate × Spielgeschwindigkeit wachsen. Gegenmaßnahmen: `Effects.beginFrame()` setzt pro gezeichnetem Bild Budgets (Feuerwerke, Funken, Popups, Ringe) und einen `detail`-Faktor nach Partikelauslastung; `GameFx` überspringt Trefferfunken/Schweife bei hoher Auslastung; `GameScene.render` senkt bei >45/>90 Gegnern oder vielen Partikeln `Neon.quality` temporär.
+
+## Kapitel und Level-Generator
+
+`Levels.builtins()` liefert einmalig (gecacht) 150 Level: `chapter(c)` die 15 eines Kapitels, `prerequisite(level)` das Level, dessen Bronze nötig ist. Level 1 jedes Kapitels sind die handgebauten (IDs unverändert, alte Spielstände bleiben gültig), Level 2–15 entstehen in `generate`/`gen*` aus Formparametern und ganzzahlig gerundeten Punkten (überall identisch, auch in TeaVM). Der Lebenspunkte-Faktor kommt aus der Tabelle `LIMIT` (größter Faktor, den der Bot noch mit ≥ 10 Leben besteht) × Rampe 40 %→80 % (+1,5 % je Kapitel). Nach Änderungen an Pfaden, Wirtschaft oder `AutoPlayer` die Tabelle neu erzeugen: `java -cp core/build/classes/java/main:core/build/classes/java/test neontd.sim.Calibrate` (≈ 2 Minuten, parallel) und die Zahlen in `LIMIT` ersetzen; `LevelsTest` prüft alle 150 Level (gültig, Bauplätze, Bot gewinnt mit ≥ 5 Leben).

@@ -34,6 +34,9 @@ public final class LevelDef {
     public double hpMul = 1;
     /** Anzeige: Schwierigkeitsstufe 1–10 bei eingebauten Leveln, sonst 0. */
     public int difficulty;
+    /** Kapitel (1–10) und Nummer im Kapitel (1–15) bei eingebauten Leveln, sonst 0. */
+    public int chapter;
+    public int number;
 
     public LevelDef() {
     }
@@ -56,6 +59,8 @@ public final class LevelDef {
         c.waveCount = waveCount;
         c.hpMul = hpMul;
         c.difficulty = difficulty;
+        c.chapter = chapter;
+        c.number = number;
         return c;
     }
 

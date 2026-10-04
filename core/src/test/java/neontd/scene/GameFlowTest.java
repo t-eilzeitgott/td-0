@@ -275,7 +275,7 @@ class GameFlowTest {
     void levelSelectOffersContinueAndEndlessWhenAvailable() {
         Harness h = new Harness(852, 393, true);
         // Ohne Lauf und ohne Sieg: direkt ins Spiel
-        h.app.goTo(new LevelSelectScene(h.app));
+        h.app.goTo(new LevelSelectScene(h.app, 1));
         h.run(1.5);
         h.tap(120, 150);
         h.run(1.5);
@@ -283,7 +283,7 @@ class GameFlowTest {
 
         // Mit freigeschaltetem Endlos: Dialog statt Direktstart
         h.app.progress.won.add("serpentine");
-        h.app.goTo(new LevelSelectScene(h.app));
+        h.app.goTo(new LevelSelectScene(h.app, 1));
         h.run(1.5);
         h.tap(120, 150);
         h.run(1.0);

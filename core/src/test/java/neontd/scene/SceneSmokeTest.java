@@ -149,6 +149,11 @@ class SceneSmokeTest {
             h.app.goTo(new LevelSelectScene(h.app));
             h.run(1.5);
             assertEquals("LevelSelectScene", h.scene());
+            h.app.goTo(new LevelSelectScene(h.app, 3));
+            h.run(1.5);
+            h.app.goTo(new LevelSelectScene(h.app, Levels.CUSTOM));
+            h.run(1.5);
+            assertEquals("LevelSelectScene", h.scene());
             h.app.goTo(new GameScene(h.app, Levels.serpentine()));
             h.run(1.5);
             assertEquals("GameScene", h.scene());
@@ -177,6 +182,9 @@ class SceneSmokeTest {
         Harness h = new Harness(852, 393, true);
         h.run(1.0);
         h.tap(426, 220); // SPIELEN
+        h.run(1.2);
+        assertEquals("LevelSelectScene", h.scene());
+        h.tap(120, 150); // Kapitel 1
         h.run(1.2);
         assertEquals("LevelSelectScene", h.scene());
         h.tap(120, 150); // Level 1

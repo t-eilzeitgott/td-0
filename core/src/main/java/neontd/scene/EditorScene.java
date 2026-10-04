@@ -586,7 +586,7 @@ public final class EditorScene extends Scene {
         if (dirty && !(count(active) == 0 && paths.size() == 1 && !saved)) {
             askLeave();
         } else {
-            app.goTo(new LevelSelectScene(app));
+            app.goTo(new LevelSelectScene(app, neontd.level.Levels.CUSTOM));
         }
     }
 
@@ -595,11 +595,11 @@ public final class EditorScene extends Scene {
         confirmUi.clear();
         Button s = new Button("SPEICHERN", Icon.SAVE, Theme.CYAN, () -> {
             if (save(false)) {
-                app.goTo(new LevelSelectScene(app));
+                app.goTo(new LevelSelectScene(app, neontd.level.Levels.CUSTOM));
             }
             confirming = false;
         });
-        Button d = new Button("VERWERFEN", Icon.TRASH, Theme.RED, () -> app.goTo(new LevelSelectScene(app)));
+        Button d = new Button("VERWERFEN", Icon.TRASH, Theme.RED, () -> app.goTo(new LevelSelectScene(app, neontd.level.Levels.CUSTOM)));
         Button c = new Button("WEITER BEARBEITEN", Icon.PENCIL, Theme.TEXT_DIM, () -> confirming = false);
         s.neonFont = true;
         d.neonFont = true;

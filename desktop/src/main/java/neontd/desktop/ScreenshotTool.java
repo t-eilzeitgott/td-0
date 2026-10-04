@@ -81,6 +81,9 @@ public final class ScreenshotTool {
             case "select":
                 app.goTo(new neontd.scene.LevelSelectScene(app));
                 break;
+            case "chapter3":
+                app.goTo(new neontd.scene.LevelSelectScene(app, 3));
+                break;
             case "editor":
                 app.goTo(new neontd.scene.EditorScene(app, null));
                 break;

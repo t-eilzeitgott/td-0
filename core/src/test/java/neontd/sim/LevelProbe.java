@@ -12,7 +12,20 @@ public final class LevelProbe {
         int cap = args.length > 0 ? Integer.parseInt(args[0]) : 300;
         for (LevelDef def : Levels.builtins()) {
             String problem = def.validate();
+            if (args.length > 1 && !def.id.matches(args[1])) {
+                continue;
+            }
             World w = new World(def, SimListener.NONE);
+            int spots = 0;
+            if (problem == null) {
+                for (double y = 40; y < w.height - 30; y += 30) {
+                    for (double x = 40; x < w.width - 30; x += 30) {
+                        if (w.checkPlacement(x, y) == World.PlaceCheck.OK) {
+                            spots++;
+                        }
+                    }
+                }
+            }
             w.enableEndless();
             AutoPlayer bot = new AutoPlayer(w, true, 40, null);
             int steps = 0;
@@ -27,8 +40,8 @@ public final class LevelProbe {
                     w20 = w.lives;
                 }
             }
-            System.out.printf("%-10s diff=%2d hp×%.2f pfade=%d länge=%5.0f  %s  Welle %3d geschafft, Leben bei 20: %2d, Ende: %s (Leben %d)%n",
-                    def.name, def.difficulty, def.hpMul, def.paths.size(), def.totalLength(), problem == null ? "ok " : problem,
+            System.out.printf("%-14s diff=%2d hp×%.2f pfade=%d länge=%5.0f spots=%3d %s  Welle %3d geschafft, Leben bei 20: %2d, Ende: %s (Leben %d)%n",
+                    def.name, def.difficulty, def.hpMul, def.paths.size(), def.totalLength(), spots, problem == null ? "ok " : problem,
                     w.clearedWaves(), w20, w.state, w.lives);
         }
     }

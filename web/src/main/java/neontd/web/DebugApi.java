@@ -46,6 +46,9 @@ final class DebugApi {
                     case "select":
                         app.goTo(new LevelSelectScene(app));
                         break;
+                    case "chapter":
+                        app.goTo(new LevelSelectScene(app, 1));
+                        break;
                     case "profile":
                         app.goTo(new ProfileScene(app));
                         break;

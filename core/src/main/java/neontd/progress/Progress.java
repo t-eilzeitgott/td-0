@@ -174,15 +174,32 @@ public final class Progress {
     }
 
     /**
-     * Ist das Level spielbar? Das erste eingebaute Level und eigene Level immer; jedes weitere, sobald im Level davor
-     * mindestens Bronze erreicht ist.
+     * Ist das Level spielbar? Das allererste eingebaute Level und eigene Level immer; sonst, sobald im Vorgänger
+     * Bronze erreicht ist (siehe {@link neontd.level.Levels#prerequisite}) oder das Level schon einmal gespielt wurde.
      */
     public boolean levelUnlocked(String levelId) {
-        int idx = neontd.level.Levels.indexOf(levelId);
-        if (idx <= 0) {
+        neontd.level.LevelDef l = neontd.level.Levels.find(levelId);
+        if (l == null) {
             return true;
         }
-        return medal(neontd.level.Levels.builtins().get(idx - 1).id) >= 1;
+        neontd.level.LevelDef need = neontd.level.Levels.prerequisite(l);
+        return need == null || medal(need.id) >= 1 || bestOverall(levelId) > 0;
+    }
+
+    /** Anzahl Level eines Kapitels mit mindestens dieser Medaillenstufe (1 = Bronze). */
+    public int chapterMedals(int chapter, int minTier) {
+        int n = 0;
+        for (neontd.level.LevelDef l : neontd.level.Levels.chapter(chapter)) {
+            if (medal(l.id) >= minTier) {
+                n++;
+            }
+        }
+        return n;
+    }
+
+    /** Ein Kapitel ist offen, sobald sein erstes Level spielbar ist. */
+    public boolean chapterUnlocked(int chapter) {
+        return levelUnlocked(neontd.level.Levels.chapter(chapter).get(0).id);
     }
 
     /** Der Endlosmodus eines Levels ist nach dem ersten Sieg offen. */
