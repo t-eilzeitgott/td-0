@@ -40,8 +40,8 @@ Die Web-Version ist eine statische Seite. Das Repository enthält einen GitHub-W
 1. Im Repository **Settings → Pages → Source: „GitHub Actions“** einmalig auswählen
    (bei privaten Repositories hängt die Verfügbarkeit von deinem GitHub-Tarif ab).
 2. Der Workflow *Build und Veröffentlichung* läuft bei jedem Push, führt alle Tests aus und veröffentlicht die Seite,
-   sobald etwas im **Standard-Branch** des Repositories landet. Ist Pages erst nach dem ersten Lauf aktiviert worden:
-   unter **Actions** den letzten Lauf öffnen und **Re-run all jobs** wählen.
+   sobald etwas im **Standard-Branch** des Repositories landet. Solange Pages nicht aktiviert ist, meldet der Lauf nur
+   eine Warnung; nach dem Aktivieren unter **Actions** den letzten Lauf öffnen und **Re-run all jobs** wählen.
 3. Danach liegt das Spiel unter `https://<dein-name>.github.io/<repository>/` – bei diesem Repository
    `https://t-eilzeitgott.github.io/td-0/`.
 
