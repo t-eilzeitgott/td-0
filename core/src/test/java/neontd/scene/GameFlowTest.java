@@ -107,7 +107,8 @@ class GameFlowTest {
         // Verschieben: erneut auf die Karte ziehen
         double[] spot2 = validSpot(w, 800, 400);
         double[] to2 = gs.anchor("world:" + spot2[0] + "," + spot2[1]);
-        h.drag(to2[0], to2[1] + 56 * h.app.vp.u, to2[0], to2[1] + 56 * h.app.vp.u);
+        // Den schwebenden Turm direkt anfassen und ziehen: kein Sprung, er folgt dem Finger genau.
+        h.drag(to[0], to[1] + 56 * h.app.vp.u - 56 * h.app.vp.u, to2[0], to2[1]);
         assertEquals(0, w.towers.size());
         h.tap(gs.anchor("confirm"));
         assertEquals(1, w.towers.size());

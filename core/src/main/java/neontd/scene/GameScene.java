@@ -110,6 +110,14 @@ public final class GameScene extends Scene {
     private boolean mapPressed;
     /** Touch: Der Turm schwebt an seiner Stelle und wird erst mit dem Haken fest gebaut. */
     private boolean pending;
+    /** Der schwebende Turm wird direkt gegriffen und mit dem Finger gezogen (ohne Sprung). */
+    private boolean grabbing;
+    private double grabDX;
+    private double grabDY;
+    /** Angezeigte (weich nachgeführte) Position des schwebenden Turms. */
+    private double shownX;
+    private double shownY;
+    private boolean shownInit;
     private double sellArmed;
     private double time;
     private double celebrate;
@@ -677,6 +685,18 @@ public final class GameScene extends Scene {
             }
         }
         listener.update(dt);
+        if (placing != null && ghostOnMap) {
+            if (!shownInit) {
+                shownX = ghostX;
+                shownY = ghostY;
+                shownInit = true;
+            } else {
+                shownX = Mathx.expDecay(shownX, ghostX, 34, dt);
+                shownY = Mathx.expDecay(shownY, ghostY, 34, dt);
+            }
+        } else {
+            shownInit = false;
+        }
 
         if (world.state != World.State.RUNNING && overlay == Overlay.NONE) {
             endDelay += dt;
@@ -782,7 +802,7 @@ public final class GameScene extends Scene {
 
         // Wellen-Banner über der Karte
         drawBanner(g);
-        if (pending && placing != null && ghostOnMap) {
+        if (pending && placing != null && ghostOnMap && !mapPressed) {
             drawConfirm(g);
         }
 
@@ -850,16 +870,18 @@ public final class GameScene extends Scene {
             return;
         }
         double pulse = 0.5 + 0.5 * Math.sin(time * 6);
-        WorldView.drawRange(g, ghostX, ghostY, placing.range, placing.color, time, ghostValid);
+        double gx = shownInit ? shownX : ghostX;
+        double gy = shownInit ? shownY : ghostY;
+        WorldView.drawRange(g, gx, gy, placing.range, placing.color, time, ghostValid);
         g.save();
         g.alpha(ghostValid ? 0.85 : 0.55);
         int tint = ghostValid ? placing.color : Theme.RED;
         double bob = pending ? Math.sin(time * 4) * 1.6 : 0;
-        TowerArt.drawIcon(g, placing, ghostX, ghostY + bob, World.TOWER_RADIUS * (pending ? 1.06 : 1), time);
+        TowerArt.drawIcon(g, placing, gx, gy + bob, World.TOWER_RADIUS * (pending ? 1.06 : 1), time);
         g.restore();
         if (!ghostValid) {
-            Neon.circle(g, ghostX, ghostY, World.TOWER_RADIUS + 3 + pulse * 2, 2.2, tint, 6);
-            Icons.draw(g, Icon.CROSS, ghostX, ghostY, 11, Theme.RED, 3);
+            Neon.circle(g, gx, gy, World.TOWER_RADIUS + 3 + pulse * 2, 2.2, tint, 6);
+            Icons.draw(g, Icon.CROSS, gx, gy, 11, Theme.RED, 3);
         }
     }
 
@@ -1604,6 +1626,18 @@ public final class GameScene extends Scene {
             double wx = toWorldX(x, y);
             double wy = toWorldY(x, y);
             if (placing != null) {
+                if (pending && touch && ghostOnMap) {
+                    double gsx = lay.screenX(ghostX, ghostY, world.height);
+                    double gsy = lay.screenY(ghostX, ghostY);
+                    if (Mathx.dist(x, y, gsx, gsy) <= 64 * Math.max(app.vp.u, 1.05)) {
+                        // Den schwebenden Turm direkt anfassen: er bleibt unter dem Finger, ohne zu springen.
+                        grabbing = true;
+                        grabDX = gsx - x;
+                        grabDY = gsy - y;
+                        return;
+                    }
+                }
+                grabbing = false;
                 pending = false;
                 updateGhost(x, y, touch ? 56 * app.vp.u : 0);
                 return;
@@ -1671,7 +1705,11 @@ public final class GameScene extends Scene {
         }
         if (placing != null) {
             if (touch && pressed && mapPressed) {
-                updateGhost(x, y, 56 * u);
+                if (grabbing) {
+                    updateGhost(x + grabDX, y + grabDY, 0);
+                } else {
+                    updateGhost(x, y, 56 * u);
+                }
             } else if (!touch) {
                 updateGhost(x, y, 0);
             }
@@ -1734,6 +1772,7 @@ public final class GameScene extends Scene {
         }
         if (mapPressed) {
             mapPressed = false;
+            grabbing = false;
             if (placing != null && touch && ghostOnMap) {
                 pending = true;
             } else if (placing != null && onMap(x, y)) {
@@ -1764,6 +1803,7 @@ public final class GameScene extends Scene {
         cardDown = false;
         dragging = false;
         mapPressed = false;
+        grabbing = false;
         pressedPanel = null;
         if (placing != null && ghostOnMap) {
             ghostOnMap = false;
