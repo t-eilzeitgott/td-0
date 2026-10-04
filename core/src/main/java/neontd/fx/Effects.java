@@ -15,7 +15,15 @@ public final class Effects {
     private static final int MAX_BOLT_POINTS = 12;
     private static final int MAX_DELAYED = 48;
 
-    public final Particles particles = new Particles(2600);
+    private static final int CAPACITY = 2600;
+    public final Particles particles = new Particles(CAPACITY);
+    // Pro gezeichnetem Bild begrenzte Effekt-Mengen: bei hohen Wellen und hoher Spielgeschwindigkeit sterben
+    // viele Gegner pro Bild; mehr als ein paar Feuerwerke sieht man ohnehin nicht, kostet aber viel Zeichenzeit.
+    private int fireworkBudget = 5;
+    private int sparkBudget = 12;
+    private int popupBudget = 5;
+    private int ringBudget = 14;
+    private double detail = 1;
     private final Rng rng = particles.rng();
 
     // Strahlen (Sniper)
@@ -58,6 +66,21 @@ public final class Effects {
         return MONEY_TEXT[v];
     }
 
+    /** Pro gezeichnetem Bild einmal aufrufen (vor den Simulationsschritten). */
+    public void beginFrame() {
+        fireworkBudget = 5;
+        sparkBudget = 12;
+        popupBudget = 5;
+        ringBudget = 14;
+        double load = particles.count() / (double) CAPACITY;
+        detail = Mathx.clamp(1 - (load - 0.25) / 0.6, 0.2, 1);
+    }
+
+    /** Anteil der Partikelkapazität, der gerade belegt ist (0..1). */
+    public double load() {
+        return particles.count() / (double) CAPACITY;
+    }
+
     public void clear() {
         particles.clear();
         beamCount = 0;
@@ -74,12 +97,20 @@ public final class Effects {
      * @param power 1 = normaler Gegner, größer = größeres Feuerwerk
      */
     public void firework(double x, double y, int rgb, double power) {
+        if (fireworkBudget <= 0) {
+            if (ringBudget > 0) {
+                ringBudget--;
+                particles.add(Particles.FLASH, x, y, 0, 0, 0.18, 30 * Math.sqrt(power), Colors.lighten(rgb, 0.35));
+            }
+            return;
+        }
+        fireworkBudget--;
         double sp = Math.sqrt(power);
         particles.add(Particles.FLASH, x, y, 0, 0, 0.3, 58 * sp, Colors.lighten(rgb, 0.35));
         particles.add(Particles.FLASH, x, y, 0, 0, 0.12, 22 * sp, 0xFFFFFF);
         particles.add(Particles.RING, x, y, 0, 0, 0.45, 40 * sp, rgb);
         particles.add(Particles.RING, x, y, 0, 0, 0.3, 24 * sp, Colors.lighten(rgb, 0.6));
-        int sparks = (int) (18 + 14 * power);
+        int sparks = Math.max(6, (int) ((18 + 14 * power) * detail));
         double a0 = rng.angle();
         for (int i = 0; i < sparks; i++) {
             double a = a0 + Mathx.TAU * i / sparks + rng.range(-0.16, 0.16);
@@ -88,7 +119,7 @@ public final class Effects {
             particles.add(Particles.SPARK, x, y, Math.cos(a) * speed, Math.sin(a) * speed, rng.range(0.5, 1.0),
                     2.8, c);
         }
-        int pops = (int) (3 + power * 1.5);
+        int pops = detail < 0.5 ? 0 : (int) (3 + power * 1.5);
         for (int i = 0; i < pops; i++) {
             double a = rng.angle();
             double speed = rng.range(60, 140) * sp;
@@ -115,7 +146,7 @@ public final class Effects {
         particles.add(Particles.FLASH, x, y, 0, 0, 0.25, radius * 1.1, Colors.lighten(rgb, 0.3));
         particles.add(Particles.RING, x, y, 0, 0, 0.38, radius, rgb);
         particles.add(Particles.RING, x, y, 0, 0, 0.5, radius * 0.6, Colors.lighten(rgb, 0.5));
-        int n = 18;
+        int n = Math.max(5, (int) (18 * detail));
         for (int i = 0; i < n; i++) {
             double a = rng.angle();
             double sp = rng.range(60, 220);
@@ -126,15 +157,28 @@ public final class Effects {
     }
 
     public void ring(double x, double y, double radius, int rgb, double life) {
+        if (ringBudget <= 0) {
+            return;
+        }
+        ringBudget--;
         particles.add(Particles.RING, x, y, 0, 0, life, radius, rgb);
     }
 
     public void flash(double x, double y, double radius, int rgb, double life) {
+        if (ringBudget <= 0) {
+            return;
+        }
+        ringBudget--;
         particles.add(Particles.FLASH, x, y, 0, 0, life, radius, rgb);
     }
 
     /** Funkenstoß in eine Richtung (Mündungsfeuer, Treffer). */
     public void sparks(double x, double y, double angle, double spread, int count, double speed, int rgb) {
+        if (sparkBudget <= 0) {
+            return;
+        }
+        sparkBudget--;
+        count = Math.max(1, (int) (count * detail + 0.5));
         for (int i = 0; i < count; i++) {
             double a = angle + rng.range(-spread, spread);
             double sp = speed * rng.range(0.4, 1.0);
@@ -174,6 +218,10 @@ public final class Effects {
     }
 
     public void moneyPopup(double x, double y, int amount, int rgb, double fontSize) {
+        if (popupBudget <= 0) {
+            return;
+        }
+        popupBudget--;
         particles.addText(x, y, moneyText(amount), rgb, fontSize);
     }
 

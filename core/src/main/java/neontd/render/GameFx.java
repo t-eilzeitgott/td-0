@@ -28,6 +28,9 @@ public class GameFx implements SimListener {
 
     @Override
     public void onEnemyDamaged(Enemy e, int damage) {
+        if (fx.load() > 0.5) {
+            return;
+        }
         double a = fx.particles.rng().angle();
         fx.sparks(e.x, e.y, a, 3.2, 2, 120, Theme.enemyColor(e.hp));
     }
@@ -129,7 +132,7 @@ public class GameFx implements SimListener {
 
     /** Schweif für ein fliegendes Geschoss; pro Frame aufrufen. */
     public void trail(Projectile p, double x, double y) {
-        if (p.kind == Projectile.Kind.SHELL) {
+        if (p.kind == Projectile.Kind.SHELL && fx.load() < 0.6) {
             double h = p.arc() * 46;
             fx.particles.add(neontd.fx.Particles.DOT, x, y - h, 0, 0, 0.32, 3.6, Colors.lighten(p.color, 0.1));
         }

@@ -244,3 +244,7 @@ hoch (gedrehte Karte: Turm landet genau dort, wo er losgelassen wird, Upgrade im
 eingeben, Abgleich gegen ein per `page.route` nachgebautes `api.github.com`, zweites Gerät, falsches Token,
 Export-/Import-Code, Trennen). Mit `?debug` bietet die Seite `window.__ntd.call("anchor tile0")` u. ä. (`web/DebugApi`),
 damit der Test nicht von Pixelmaßen abhängt; ohne `?debug` gibt es diese Schnittstelle nicht.
+
+## Leistung bei hohen Wellen
+
+Die Simulation selbst ist billig (≈0,01 ms pro Schritt); teuer sind Effekte und Glühpässe, die mit Abschussrate × Spielgeschwindigkeit wachsen. Gegenmaßnahmen: `Effects.beginFrame()` setzt pro gezeichnetem Bild Budgets (Feuerwerke, Funken, Popups, Ringe) und einen `detail`-Faktor nach Partikelauslastung; `GameFx` überspringt Trefferfunken/Schweife bei hoher Auslastung; `GameScene.render` senkt bei >45/>90 Gegnern oder vielen Partikeln `Neon.quality` temporär.

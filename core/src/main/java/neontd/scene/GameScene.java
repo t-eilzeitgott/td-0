@@ -684,6 +684,7 @@ public final class GameScene extends Scene {
             applyLayout();
         }
 
+        fx.beginFrame();
         if (overlay == Overlay.NONE || overlay == Overlay.WON || overlay == Overlay.LOST) {
             boolean running = overlay == Overlay.NONE;
             if (running) {
@@ -808,9 +809,19 @@ public final class GameScene extends Scene {
         }
         // Auf kleinen Bildschirmen (Handy) die Gegner optisch vergrößern und die HP-Zahl lesbar halten.
         double enemyScale = Mathx.clamp(10.5 / (17 * mapScale), 1, 1.5);
+        // Bei vielen Gegnern/Partikeln die Glühpässe sparen (Level of Detail), danach wiederherstellen.
+        int savedQuality = Neon.quality;
+        int crowd = world.enemies.size();
+        double load = fx.load();
+        if (crowd > 90 || load > 0.8) {
+            Neon.quality = 0;
+        } else if (crowd > 45 || load > 0.5) {
+            Neon.quality = Math.min(Neon.quality, 1);
+        }
         WorldView.drawEnemies(wg, world, alpha, time, enemyScale, 9.5 / mapScale);
         WorldView.drawProjectiles(g, world, alpha);
         WorldView.drawEffects(wg, fx);
+        Neon.quality = savedQuality;
         drawGhost(g);
         g.restore();
         g.save();
