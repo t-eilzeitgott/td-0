@@ -12,9 +12,12 @@ import org.teavm.jso.dom.html.HTMLDocument;
 
 /** Startpunkt im Browser: verbindet Canvas, Zeiger-/Tastatur-Ereignisse und die Bildschleife mit {@link App}. */
 public final class WebMain {
-    /** Kleine Bildschirme (Handy) rendern bis 3×, damit Linien scharf bleiben; große höchstens 2×. */
-    private static final double MAX_DPR_SMALL = 3;
-    private static final double MAX_DPR_LARGE = 2;
+    /**
+     * Obergrenze für die Canvas-Fläche in Gerätepixeln: Handys rendern bis ca. 3 Mio. Pixel (iPhone ≈ 3×),
+     * größere Bildschirme bis ca. 5,5 Mio. Das hält Linien scharf, ohne ältere Geräte beim Füllen zu überfordern.
+     */
+    private static final double PIXEL_BUDGET_PHONE = 3_200_000;
+    private static final double PIXEL_BUDGET_LARGE = 5_500_000;
 
     private final HTMLCanvasElement canvas;
     private final CanvasGfx gfx;
@@ -65,8 +68,9 @@ public final class WebMain {
         double t = Js.safeInset(1);
         double r = Js.safeInset(2);
         double b = Js.safeInset(3);
-        double maxDpr = w * h < 900_000 ? MAX_DPR_SMALL : MAX_DPR_LARGE;
-        double d = Math.min(maxDpr, Math.max(1, Js.devicePixelRatio()));
+        double area = Math.max(1, w * h);
+        double budget = area < 900_000 ? PIXEL_BUDGET_PHONE : PIXEL_BUDGET_LARGE;
+        double d = Math.max(1, Math.min(3, Math.min(Js.devicePixelRatio(), Math.sqrt(budget / area))));
         double insetKey = l + t * 7 + r * 13 + b * 29;
         if (w == lastW && h == lastH && d == dpr && insetKey == lastInsets) {
             return;
@@ -76,8 +80,8 @@ public final class WebMain {
         dpr = d;
         lastInsets = insetKey;
         Js.setCssSize(canvas, w, h);
-        canvas.setWidth((int) Math.round(w * d));
-        canvas.setHeight((int) Math.round(h * d));
+        canvas.setWidth((int) Math.floor(w * d + 0.5));
+        canvas.setHeight((int) Math.floor(h * d + 0.5));
         app.resize(w, h, l, t, r, b);
     }
 

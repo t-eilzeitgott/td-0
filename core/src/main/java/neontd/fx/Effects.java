@@ -251,8 +251,8 @@ public final class Effects {
         double[] p = boltPts[idx];
         int c = boltColor[idx];
         // Jeder Frame zackt die Linie neu aus: sieht aus wie knisternde Entladung.
-        long seed = (long) (time * 60) * 7919L + idx * 104729L;
-        int s = (int) (seed ^ (seed >>> 13));
+        int s = (int) (time * 60) * 7919 + idx * 104729;
+        s ^= s >>> 13;
         g.save();
         g.additive(true);
         for (int pass = 0; pass < 2; pass++) {

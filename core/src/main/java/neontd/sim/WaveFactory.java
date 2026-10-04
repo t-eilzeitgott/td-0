@@ -11,11 +11,11 @@ public final class WaveFactory {
     /** Basis-Lebenspunkte eines Standard-Gegners in Welle {@code wave} (1-basiert). */
     public static int baseHp(int wave) {
         double w = wave - 1;
-        return (int) Math.round(10 * (1 + 0.21 * w + 0.0175 * w * w));
+        return neontd.math.Mathx.roundToInt(10 * (1 + 0.21 * w + 0.0175 * w * w));
     }
 
     public static int hp(EnemyType type, int wave) {
-        return Math.max(1, (int) Math.round(baseHp(wave) * type.hpMul));
+        return Math.max(1, neontd.math.Mathx.roundToInt(baseHp(wave) * type.hpMul));
     }
 
     public static int bonus(int wave) {

@@ -360,7 +360,7 @@ public final class EditorScene extends Scene {
     }
 
     private static double snap(double v) {
-        return Math.round(v / SNAP) * SNAP;
+        return Math.floor(v / SNAP + 0.5) * SNAP;
     }
 
     /** Aktualisiert Spline-Cache, Länge und Gültigkeitsmeldung. */
@@ -573,13 +573,13 @@ public final class EditorScene extends Scene {
         g.fillRect(0, 0, w, h, Theme.BLACK);
         g.beginPath();
         for (double x = 40; x < w; x += 40) {
-            if (((int) Math.round(x / 40)) % 4 != 0) {
+            if (Mathx.roundToInt(x / 40) % 4 != 0) {
                 g.moveTo(x, 0);
                 g.lineTo(x, h);
             }
         }
         for (double y = 40; y < h; y += 40) {
-            if (((int) Math.round(y / 40)) % 4 != 0) {
+            if (Mathx.roundToInt(y / 40) % 4 != 0) {
                 g.moveTo(0, y);
                 g.lineTo(w, y);
             }
@@ -687,7 +687,7 @@ public final class EditorScene extends Scene {
         String name = level.id.isEmpty() ? "Neues Level" : level.name;
         g.text(name + (dirty ? " *" : ""), x + h * 0.25, y + h * 0.3, Math.max(11, h * 0.3), Theme.TEXT, Gfx.ALIGN_LEFT, true);
         Icons.draw(g, ok ? Icon.CHECK : Icon.TARGET, x + h * 0.45, y + h * 0.72, h * 0.17, accent, 2);
-        String status = ok ? "Spielbar · Länge " + (int) Math.round(totalLength) : problem;
+        String status = ok ? "Spielbar · Länge " + Mathx.roundToInt(totalLength) : problem;
         double size = Math.max(9, h * 0.22);
         double avail = w - h * 0.85;
         while (size > 8 && g.textWidth(status, size, false) > avail) {

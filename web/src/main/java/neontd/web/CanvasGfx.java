@@ -234,7 +234,7 @@ final class CanvasGfx implements Gfx {
     // ---------------------------------------------------------------------------------------- Text
 
     private String font(double size, boolean bold) {
-        int q = (int) Math.round(size * 2);
+        int q = (int) Math.floor(size * 2 + 0.5);
         if (q < 0) {
             q = 0;
         }

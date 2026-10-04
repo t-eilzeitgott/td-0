@@ -28,6 +28,6 @@ public enum UpgradeTrack {
     /** Preis, um von {@code level} auf {@code level + 1} zu verbessern (auf 5er gerundet). */
     public int cost(TowerType type, int level) {
         double c = type.cost * COST_STEPS[level] * costFactor;
-        return Math.max(5, (int) (Math.round(c / 5.0) * 5));
+        return Math.max(5, neontd.math.Mathx.roundToInt(c / 5.0) * 5);
     }
 }

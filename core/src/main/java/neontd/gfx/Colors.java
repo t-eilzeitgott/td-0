@@ -35,7 +35,7 @@ public final class Colors {
 
     /** Farbe mit Deckkraft a (0..1) – die Farbkomponenten bleiben erhalten. */
     public static int withAlpha(int c, double a) {
-        int ia = Mathx.clamp((int) Math.round(a * 255), 1, 255);
+        int ia = Mathx.clamp(Mathx.roundToInt(a * 255), 1, 255);
         return (ia << 24) | (c & 0xFFFFFF);
     }
 
@@ -51,9 +51,9 @@ public final class Colors {
     /** Linear zwischen zwei Farben mischen (nur RGB; das Ergebnis ist voll deckend). */
     public static int lerp(int a, int b, double t) {
         t = Mathx.clamp01(t);
-        int r = (int) Math.round(r(a) + (r(b) - r(a)) * t);
-        int g = (int) Math.round(g(a) + (g(b) - g(a)) * t);
-        int bl = (int) Math.round(b(a) + (b(b) - b(a)) * t);
+        int r = Mathx.roundToInt(r(a) + (r(b) - r(a)) * t);
+        int g = Mathx.roundToInt(g(a) + (g(b) - g(a)) * t);
+        int bl = Mathx.roundToInt(b(a) + (b(b) - b(a)) * t);
         return rgb(r, g, bl);
     }
 
@@ -85,6 +85,6 @@ public final class Colors {
             case 4: r = t; g = p; b = v; break;
             default: r = v; g = p; b = q; break;
         }
-        return rgb((int) Math.round(r * 255), (int) Math.round(g * 255), (int) Math.round(b * 255));
+        return rgb(Mathx.roundToInt(r * 255), Mathx.roundToInt(g * 255), Mathx.roundToInt(b * 255));
     }
 }

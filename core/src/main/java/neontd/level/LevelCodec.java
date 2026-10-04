@@ -106,9 +106,9 @@ public final class LevelCodec {
 
     /** Zahl ohne wissenschaftliche Schreibweise, höchstens eine Nachkommastelle. */
     private static String num(double v) {
-        double r = Math.round(v * 10) / 10.0;
+        double r = Mathx.round1(v);
         if (r == Math.rint(r)) {
-            return Long.toString((long) r);
+            return Integer.toString((int) r);
         }
         return Double.toString(r);
     }

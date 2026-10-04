@@ -125,9 +125,16 @@ onGameEnded` für das Ergebnis, `Icons.Icon.LOCK`/`STAR` für Anzeigen und `Leve
 ## TeaVM – worauf man im `core` achten muss
 
 Der Browser-Build übersetzt den **Bytecode** des Kerns mit TeaVM nach JavaScript. Deshalb im `core`: keine Reflection,
-keine Threads, kein `java.time`/`java.text`, kein `String.format`; in heißen Pfaden `long`-Arithmetik vermeiden (wird in
-JavaScript emuliert). Lambdas, Enums, Collections, `StringBuilder`, `Math` funktionieren. Browser-Funktionen, die
-TeaVMs typisierte APIs nicht bequem bieten, stehen in `web/Js.java` als `@JSBody`-Einzeiler.
+keine Threads, kein `java.time`/`java.text`, kein `String.format`. Lambdas, Enums, Collections, `StringBuilder` und
+`Math` funktionieren.
+
+**Vorsicht mit `long`:** TeaVM setzt `long` im Browser über JavaScript-`BigInt` um – das ist deutlich langsamer als
+normale Zahlen und braucht iOS 14 oder neuer. In Code, der pro Frame oder pro Schuss läuft, deshalb nur `int` und
+`double` verwenden. Besonders tückisch: `Math.round(double)` liefert ein `long`. Statt dessen gibt es
+`Mathx.roundToInt` und `Mathx.round1`. (Das erzeugte JavaScript ist reines ES2015 und braucht sonst keine
+neueren Browser-Funktionen.)
+
+Browser-Funktionen, die TeaVMs typisierte APIs nicht bequem bieten, stehen in `web/Js.java` als `@JSBody`-Einzeiler.
 
 ## Tests und Werkzeuge
 

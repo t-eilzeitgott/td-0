@@ -80,7 +80,16 @@ public final class Mathx {
         return target + (cur - target) * Math.exp(-rate * dt);
     }
 
+    /**
+     * Rundet zur nächsten Ganzzahl (x,5 wird aufgerundet). Bewusst ohne {@code Math.round}: Das liefert ein
+     * {@code long}, das TeaVM im Browser über langsames BigInt umsetzt – in heißen Zeichenpfaden vermeiden wir das.
+     */
     public static int roundToInt(double v) {
         return (int) Math.floor(v + 0.5);
+    }
+
+    /** Rundet auf eine Nachkommastelle (ohne long, siehe {@link #roundToInt}). */
+    public static double round1(double v) {
+        return Math.floor(v * 10 + 0.5) / 10.0;
     }
 }

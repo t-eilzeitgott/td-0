@@ -39,7 +39,7 @@ public final class Tower {
 
     public void recompute() {
         range = type.range * UpgradeTrack.RANGE.mult[level[UpgradeTrack.RANGE.ordinal()]];
-        damage = Math.max(1, (int) Math.round(
+        damage = Math.max(1, neontd.math.Mathx.roundToInt(
                 type.damage * UpgradeTrack.DAMAGE.mult[level[UpgradeTrack.DAMAGE.ordinal()]]));
         interval = type.interval / UpgradeTrack.SPEED.mult[level[UpgradeTrack.SPEED.ordinal()]];
         slow = Math.max(0.25, TowerType.FROST_SLOW - TowerType.FROST_SLOW_PER_LEVEL * level[UpgradeTrack.DAMAGE.ordinal()]);

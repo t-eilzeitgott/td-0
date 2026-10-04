@@ -538,7 +538,7 @@ public final class World {
             hits++;
             chainPts[hits * 2] = cur.x;
             chainPts[hits * 2 + 1] = cur.y;
-            damage(cur, Math.max(1, (int) Math.round(dmg)));
+            damage(cur, Math.max(1, Mathx.roundToInt(dmg)));
             dmg *= TowerType.ARC_FALLOFF;
             cur = hits < TowerType.ARC_CHAINS ? nearestChainTarget(cur, hits) : null;
         }
@@ -665,7 +665,7 @@ public final class World {
                 continue;
             }
             double f = 1 - edgeFalloff * Mathx.clamp01(d / radius);
-            damage(e, Math.max(1, (int) Math.round(dmg * f)));
+            damage(e, Math.max(1, Mathx.roundToInt(dmg * f)));
         }
         listener.onExplosion(x, y, radius, color);
     }
@@ -700,7 +700,7 @@ public final class World {
 
     /** Splitter zerfallen in Minis, die leicht versetzt entlang des Pfades erscheinen. */
     private void spawnChildren(Enemy parent) {
-        int hp = Math.max(1, (int) Math.round(parent.maxHp * 0.30));
+        int hp = Math.max(1, Mathx.roundToInt(parent.maxHp * 0.30));
         for (int i = 0; i < parent.type.splitCount; i++) {
             double offset = (i - (parent.type.splitCount - 1) * 0.5) * 16;
             double d = Mathx.clamp(parent.dist + offset, 0, paths[parent.pathIndex].length() - 1);

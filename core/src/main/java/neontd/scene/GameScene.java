@@ -662,7 +662,7 @@ public final class GameScene extends Scene {
 
     private void drawHud(Gfx g, double u) {
         String lives = Integer.toString(world.lives);
-        String money = Integer.toString((int) Math.round(moneyShown.value));
+        String money = Integer.toString(Mathx.roundToInt(moneyShown.value));
         String wave = "WELLE " + Math.min(world.waveIndex, world.totalWaves()) + "/" + world.totalWaves();
         if (!portrait) {
             double chipH = 34 * u;
@@ -779,9 +779,9 @@ public final class GameScene extends Scene {
         double cy = y + pad + 52 * u + (h - pad * 2 - 52 * u) / 2 + 4 * u;
         UpgradeTrack[] tracks = UpgradeTrack.values();
         String[] vals = {
-            Integer.toString((int) Math.round(t.range)),
+            Integer.toString(Mathx.roundToInt(t.range)),
             Integer.toString(t.damage),
-            (Math.round(10.0 / t.interval) / 10.0) + "/s"
+            Mathx.round1(1.0 / t.interval) + "/s"
         };
         Icon[] icons = {Icon.RANGE, Icon.DAMAGE, Icon.SPEED};
         for (int i = 0; i < 3; i++) {
@@ -825,13 +825,13 @@ public final class GameScene extends Scene {
         int lvl = t.level(track) + (next ? 1 : 0);
         switch (track) {
             case RANGE:
-                return Integer.toString((int) Math.round(t.type.range * track.mult[lvl]));
+                return Integer.toString(Mathx.roundToInt(t.type.range * track.mult[lvl]));
             case DAMAGE:
-                return Integer.toString(Math.max(1, (int) Math.round(t.type.damage * track.mult[lvl])));
+                return Integer.toString(Math.max(1, Mathx.roundToInt(t.type.damage * track.mult[lvl])));
             case SPEED:
             default: {
                 double perSec = UpgradeTrack.SPEED.mult[lvl] / t.type.interval;
-                return (Math.round(perSec * 10) / 10.0) + "/s";
+                return Mathx.round1(perSec) + "/s";
             }
         }
     }
