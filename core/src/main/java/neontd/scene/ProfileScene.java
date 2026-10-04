@@ -419,9 +419,11 @@ public final class ProfileScene extends Scene {
             if (open) {
                 Icons.draw(g, Icon.CHECK, cx + cw - 30 * u, y + rowH / 2 - 2 * u, 9 * u, Theme.GREEN, 3);
             } else {
-                Icons.draw(g, Icon.LOCK, cx + cw - 70 * u, y + rowH / 2 - 2 * u, 9 * u, Theme.TEXT_DIM, 0);
-                g.text("LEVEL " + t.unlockLevel, cx + cw - 16 * u, y + rowH / 2 - 2 * u, Math.max(10, 12 * u), Theme.TEXT_DIM,
-                        Gfx.ALIGN_RIGHT, true);
+                String need = "LEVEL " + t.unlockLevel;
+                double ns = Math.max(10, 12 * u);
+                g.text(need, cx + cw - 16 * u, y + rowH / 2 - 2 * u, ns, Theme.TEXT_DIM, Gfx.ALIGN_RIGHT, true);
+                Icons.draw(g, Icon.LOCK, cx + cw - 16 * u - g.textWidth(need, ns, true) - 14 * u, y + rowH / 2 - 2 * u,
+                        9 * u, Theme.TEXT_DIM, 0);
             }
         }
         double y = y0 + order.length * rowH + 8 * u;
@@ -482,6 +484,46 @@ public final class ProfileScene extends Scene {
                 yBackup + 46 * u, Math.max(9, 11 * u), Theme.TEXT_DIM, Gfx.ALIGN_LEFT, false);
         g.text("Der Code enthält Profil und eigene Level, nicht das laufende Spiel.", cx + 16 * u, yBackup + hBackup - 14 * u,
                 Math.max(8, 10 * u), Theme.TEXT_DIM, Gfx.ALIGN_LEFT, false);
+    }
+
+    /**
+     * Bildschirmposition einer Schaltfläche – für Screenshot-Werkzeug und Browser-Test. Namen: {@code back},
+     * {@code name}, {@code connect}, {@code sync}, {@code disconnect}, {@code copy}, {@code paste}.
+     */
+    public double[] anchor(String which) {
+        Button b;
+        switch (which) {
+            case "back":
+                b = back;
+                break;
+            case "name":
+                b = nameBtn;
+                break;
+            case "connect":
+                b = connectBtn;
+                break;
+            case "sync":
+                b = syncBtn;
+                break;
+            case "disconnect":
+                b = disconnectBtn;
+                break;
+            case "copy":
+                b = copyBtn;
+                break;
+            case "paste":
+                b = pasteBtn;
+                break;
+            default:
+                return null;
+        }
+        return new double[] {b.cx(), b.cy()};
+    }
+
+    /** Scrollt den Inhalt (nur für Tests). */
+    public void scrollTo(double y) {
+        scroll = Mathx.clamp(y, 0, scrollMax);
+        placeButtons();
     }
 
     // ------------------------------------------------------------------------------------------ Eingabe

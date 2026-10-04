@@ -3,6 +3,8 @@ package neontd.web;
 import neontd.app.App;
 import neontd.platform.KeyValueStore;
 import neontd.platform.Platform;
+import neontd.save.Http;
+import java.util.function.Consumer;
 import org.teavm.jso.browser.AnimationFrameCallback;
 import org.teavm.jso.browser.Window;
 import org.teavm.jso.canvas.CanvasRenderingContext2D;
@@ -36,6 +38,7 @@ public final class WebMain {
         CanvasRenderingContext2D ctx = Js.context2d(canvas);
         this.gfx = new CanvasGfx(ctx);
         final KeyValueStore store = new WebStore();
+        final Http http = new WebHttp();
         this.app = new App(new Platform() {
             @Override
             public KeyValueStore store() {
@@ -46,6 +49,36 @@ public final class WebMain {
             public boolean touchPrimary() {
                 return touch;
             }
+
+            @Override
+            public double nowMillis() {
+                return Js.nowMillis();
+            }
+
+            @Override
+            public Http http() {
+                return http;
+            }
+
+            @Override
+            public void prompt(String title, String initial, Consumer<String> result) {
+                result.accept(Js.prompt(title, initial == null ? "" : initial));
+            }
+
+            @Override
+            public void copyText(String text, Consumer<Boolean> done) {
+                Js.copy(text, ok -> done.accept(ok));
+            }
+
+            @Override
+            public void openUrl(String url) {
+                Js.openUrl(url);
+            }
+
+            @Override
+            public void requestPersistentStorage() {
+                Js.persistStorage();
+            }
         });
     }
 
@@ -55,9 +88,34 @@ public final class WebMain {
         WebMain game = new WebMain(canvas, Js.coarsePointer());
         game.installInput();
         game.resize();
+        game.app.platform.requestPersistentStorage();
+        if (Js.debugRequested()) {
+            Js.exposeDebug(cmd -> {
+                try {
+                    return DebugApi.handle(game.app, cmd);
+                } catch (Throwable t) {
+                    return "error: " + t;
+                }
+            });
+        }
+        // Beim Wegwischen/Wechseln der App: Stand sichern und in die Cloud schieben (oft die einzige Gelegenheit am iPhone).
+        doc.addEventListener("visibilitychange", e -> {
+            if (Js.documentHidden()) {
+                game.suspend();
+            }
+        });
+        Window.current().addEventListener("pagehide", e -> game.suspend());
         Window.current().addEventListener("resize", e -> game.resize());
         Window.current().addEventListener("orientationchange", e -> game.resize());
         game.loop();
+    }
+
+    private void suspend() {
+        try {
+            app.suspend();
+        } catch (Throwable t) {
+            Js.log("Fehler beim Sichern: " + t);
+        }
     }
 
     // -------------------------------------------------------------------------------------------- Größe

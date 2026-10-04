@@ -1,7 +1,7 @@
 name: Build und Veröffentlichung
 
-# Baut bei jedem Push und Pull Request, führt alle Tests aus und legt die Web-Version sowie die Desktop-Version
-# als herunterladbare Artefakte ab. Auf dem Standard-Branch des Repositories (egal wie er heißt) wird die
+# Baut bei jedem Push und Pull Request, führt alle Tests (auch einen Browser-Test der Web-Version) aus und legt die
+# Web-Version sowie die Desktop-Version als herunterladbare Artefakte ab. Auf dem Standard-Branch des Repositories (egal wie er heißt) wird die
 # Web-Version zusätzlich auf GitHub Pages veröffentlicht.
 # Einmalig aktivieren: Repository → Settings → Pages → Source: "GitHub Actions"
 # (bis dahin überspringt der Schritt "deploy" die Veröffentlichung mit einer Warnung; nach dem Aktivieren
@@ -60,9 +60,41 @@ jobs:
         with:
           path: web/build/dist
 
+  # Spielt die gebaute Web-Version in echtem Chromium durch (Handy-Layouts, Speichern/Fortsetzen, Cloud-Abgleich gegen
+  # ein nachgebautes GitHub). Fängt Fehler ab, die nur im JavaScript-Build auftreten – die Veröffentlichung wartet darauf.
+  browser-test:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: neon-td-web
+          path: web/build/dist
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Playwright und Chromium installieren
+        run: |
+          npm install --no-save playwright
+          npx playwright install --with-deps chromium
+
+      - name: Browser-Test
+        run: node scripts/web-smoke.mjs web-smoke-out
+
+      - name: Screenshots des Browser-Tests hochladen
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: browser-test-screenshots
+          path: web-smoke-out
+
   deploy:
     if: github.ref_name == github.event.repository.default_branch && github.event_name != 'pull_request'
-    needs: build
+    needs: [build, browser-test]
     runs-on: ubuntu-latest
     permissions:
       pages: write

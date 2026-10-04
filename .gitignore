@@ -15,3 +15,7 @@ out/
 # OS
 .DS_Store
 Thumbs.db
+
+# Browser-Test
+node_modules/
+web-smoke-out/

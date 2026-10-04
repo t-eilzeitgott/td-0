@@ -137,8 +137,29 @@ public final class DesktopMain {
         }
     }
 
+    private static App gameApp;
+
+    /** Stand sichern, kurz auf einen laufenden Cloud-Abgleich warten, dann beenden. */
+    private static void shutdown() {
+        if (gameApp == null) {
+            System.exit(0);
+            return;
+        }
+        gameApp.suspend();
+        final int[] ticks = {0};
+        Timer t = new Timer(100, null);
+        t.addActionListener(e -> {
+            boolean busy = gameApp.cloud.status == neontd.save.GistSync.Status.WORKING;
+            if (!busy || ++ticks[0] > 40) {
+                System.exit(0);
+            }
+        });
+        t.start();
+    }
+
     private static void start() {
         final KeyValueStore store = new FileStore();
+        final neontd.save.Http http = new JavaHttp();
         App app = new App(new Platform() {
             @Override
             public KeyValueStore store() {
@@ -157,14 +178,60 @@ public final class DesktopMain {
 
             @Override
             public void quit() {
-                System.exit(0);
+                shutdown();
+            }
+
+            @Override
+            public double nowMillis() {
+                return System.currentTimeMillis();
+            }
+
+            @Override
+            public neontd.save.Http http() {
+                return http;
+            }
+
+            @Override
+            public void prompt(String title, String initial, java.util.function.Consumer<String> result) {
+                Object r = javax.swing.JOptionPane.showInputDialog(null, title, "Neon TD",
+                        javax.swing.JOptionPane.PLAIN_MESSAGE, null, null, initial);
+                result.accept(r == null ? null : r.toString());
+            }
+
+            @Override
+            public void copyText(String text, java.util.function.Consumer<Boolean> done) {
+                try {
+                    java.awt.Toolkit.getDefaultToolkit().getSystemClipboard()
+                            .setContents(new java.awt.datatransfer.StringSelection(text), null);
+                    done.accept(true);
+                } catch (RuntimeException e) {
+                    done.accept(false);
+                }
+            }
+
+            @Override
+            public void openUrl(String url) {
+                try {
+                    if (java.awt.Desktop.isDesktopSupported()) {
+                        java.awt.Desktop.getDesktop().browse(java.net.URI.create(url));
+                    }
+                } catch (java.io.IOException | RuntimeException e) {
+                    System.err.println("Konnte " + url + " nicht öffnen: " + e);
+                }
             }
         });
+        gameApp = app;
         JFrame frame = new JFrame("Neon TD");
         GamePanel panel = new GamePanel(app);
         panel.setPreferredSize(new Dimension(1280, 720));
         frame.setContentPane(panel);
-        frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        frame.setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
+        frame.addWindowListener(new java.awt.event.WindowAdapter() {
+            @Override
+            public void windowClosing(java.awt.event.WindowEvent e) {
+                shutdown();
+            }
+        });
         frame.getContentPane().setBackground(Color.BLACK);
         frame.pack();
         frame.setLocationRelativeTo(null);

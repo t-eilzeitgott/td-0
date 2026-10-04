@@ -12,8 +12,8 @@ import neontd.sim.TowerType;
  * und {@code SaveStore} für das Ablegen).
  *
  * <p>XP gibt es für jede besiegte Welle (mehr bei Titan-Wellen) und einmalig für den ersten Sieg über ein Level.
- * Die Kurve ist so gewählt, dass der erste vollständige Durchgang etwa Level 4 bringt (Frost und Mörser) und
- * 1000 Endlos-Wellen Level 55–60.
+ * Die Kurve ist so gewählt, dass der erste vollständige Durchgang Level 4 bringt (Frost und Mörser) und
+ * 1000 Endlos-Wellen Level 63.
  */
 public final class Progress {
     public static final int MAX_LEVEL = 100;

@@ -1788,6 +1788,15 @@ public final class GameScene extends Scene {
         return new double[] {lay.screenX(wx, wy, world.height), lay.screenY(wx, wy)};
     }
 
+    /** Kurzer Zustandstext für Browser-Tests (Geld, Leben, Welle, Türme, Kartenmaßstab …). */
+    public String debugState() {
+        return "money=" + world.money + " lives=" + world.lives + " wave=" + world.waveIndex + " cleared="
+                + world.clearedWaves() + " towers=" + world.towers.size() + " kills=" + world.kills + " endless="
+                + world.endless + " state=" + world.state + " overlay=" + overlay + " mapScale="
+                + Mathx.round1(lay.mapScale * 1000) / 1000 + " rail=" + Mathx.round1(railT.value * 10) / 10 + " mode="
+                + lay.mode + " rotated=" + lay.rotated + " selected=" + (selected != null);
+    }
+
     /** Die Spielwelt – für Screenshot-Werkzeug und Tests (z. B. Türme direkt setzen). */
     public World testWorld() {
         return world;

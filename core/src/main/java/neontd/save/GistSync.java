@@ -20,8 +20,8 @@ public final class GistSync {
     public static final String API = "https://api.github.com";
     public static final String FILE = "neon-td-save.json";
     public static final String DESCRIPTION = "Neon TD Spielstand";
-    /** Mindestabstand zwischen automatischen Abgleichen (Sekunden). */
-    public static final double AUTO_INTERVAL = 90;
+    /** Mindestabstand zwischen automatischen Abgleichen (Sekunden) – schont die Revisionsliste des Gists. */
+    public static final double AUTO_INTERVAL = 180;
 
     public enum Status { IDLE, WORKING, OK, ERROR }
 
@@ -97,10 +97,6 @@ public final class GistSync {
             saves.setCloud("token", token);
             saves.setCloud("user", Json.str(user, "login", ""));
             saves.setCloud("gist", "");
-            if (live.name.isEmpty() && !saves.cloud("user").isEmpty()) {
-                live.name = Progress.cleanName(saves.cloud("user"));
-                saves.saveProgress(live);
-            }
             status = Status.IDLE;
             sync();
         });
@@ -230,9 +226,17 @@ public final class GistSync {
     private void push(String id, SaveBundle remote) {
         SaveBundle local = SaveBundle.collect(saves, levels);
         SaveBundle merged = remote == null ? local : SaveBundle.merge(local, remote);
+        // Ohne eigenen Namen (auch nach dem Zusammenführen) dient der GitHub-Name als Anzeigename – erst jetzt, damit
+        // ein auf einem anderen Gerät gewählter Name nie von diesem Vorschlag überstimmt wird.
+        boolean named = false;
+        if (merged.profile.name.isEmpty() && !saves.cloud("user").isEmpty()) {
+            merged.profile.name = Progress.cleanName(saves.cloud("user"));
+            merged.profile.updated = Math.max(merged.profile.updated, saves.now());
+            named = true;
+        }
         merged.applyTo(saves, levels);
         live.copyFrom(merged.profile);
-        if (remote != null && merged.sameContent(remote)) {
+        if (remote != null && !named && merged.sameContent(remote)) {
             ok("Synchronisiert – alles auf dem neuesten Stand.");
             return;
         }

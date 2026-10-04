@@ -332,7 +332,7 @@ class SyncTest {
         a.now[0] += 10_000; // 10 s später: zu früh
         a.sync.tick();
         assertEquals(before, gh.log.size());
-        a.now[0] += 100_000;
+        a.now[0] += 200_000;
         a.sync.tick();
         assertTrue(gh.log.size() > before);
         a.sync.markDirty();
@@ -364,5 +364,24 @@ class SyncTest {
         assertNull(SaveBundle.fromCode("hallo"));
         assertNull(SaveBundle.fromCode(null));
         assertNull(SaveBundle.decode("{\"app\":\"anderes-spiel\"}"));
+    }
+
+    @Test
+    void loginNameIsOnlyASuggestionForEmptyNames() {
+        FakeGitHub gh = new FakeGitHub();
+        Device a = new Device(gh, 1000);
+        a.live.name = "Tester";
+        a.saves.saveProgress(a.live);
+        a.sync.connect(TOKEN_A);
+        assertEquals("Tester", a.live.name);
+
+        Device b = new Device(gh, 5000); // später, aber ohne eigenen Namen
+        b.sync.connect(TOKEN_A);
+        assertEquals("Tester", b.live.name, "der in der Cloud vorhandene Name gewinnt gegen den Vorschlag");
+        assertEquals("Tester", b.saves.loadProgress().name);
+
+        Device c = new Device(new FakeGitHub(), 100); // eigene Cloud ohne Namen: Vorschlag greift
+        c.sync.connect(TOKEN_A);
+        assertEquals("anna", c.live.name);
     }
 }
