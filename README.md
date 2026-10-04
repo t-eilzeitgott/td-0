@@ -8,12 +8,12 @@ BBTAN, mit dem Ablauf von Bloons TD. Die gesamte Spiellogik ist in **Java** gesc
 - als **Desktop-Anwendung** (Windows, macOS, Linux).
 
 <p align="center">
-  <img src="docs/screenshots/game.png" alt="Gefecht: fünf Turmklassen, Gegner mit HP-Zahl, Feuerwerk" width="860">
+  <img src="docs/screenshots/game.png" alt="Gefecht: acht Turmklassen, Gegner mit HP-Zahl, Feuerwerk" width="860">
 </p>
 
 ## Was drin ist
 
-- **5 Turmklassen**, jede mit eigener Rolle und eigenem Neon-Symbol (siehe unten).
+- **8 Turmklassen** (5 Klassiker und 3 große, teurere und stärkere), jede mit eigener Rolle und eigenem Neon-Symbol (siehe unten).
 - **3 Upgrade-Kategorien pro Turm** – *Reichweite*, *Schaden* und *Tempo* – mit je 5 Stufen.
 - **Wellen wie bei Bloons TD**: Welle manuell starten (auch früher!), Tempo 1×/2×/3×, automatischer Wellenstart, Pause.
 - **Gegner tragen ihre Lebenspunkte als Zahl auf sich**. Die Farbe folgt den aktuellen HP (gelb → orange → rot → pink
@@ -122,11 +122,11 @@ Das ZIP enthält `bin/neon-td` (bzw. `neon-td.bat` unter Windows); eine Java-Lau
 | **Wellen** | `START` / `Leertaste`; `1×/2×/3×` (im Endlosmodus bis `5×`) = `F`; Schleife = Auto-Start; Pause = `P` / `Esc` | Schaltflächen in der Leiste (quer rechts, hoch unten) |
 | **Leiste ein-/ausklappen** | – (am Laptop immer sichtbar) | Pfeil-Knopf in der Leiste |
 
-Weitere Tasten: `1`–`5` Turm wählen · `Q` `W` `E` Upgrade Reichweite/Schaden/Tempo · `Tab` Zielwahl · `X`/`Entf`
+Weitere Tasten: `1`–`8` Turm wählen · `Q` `W` `E` Upgrade Reichweite/Schaden/Tempo · `Tab` Zielwahl · `X`/`Entf`
 verkaufen · Rechtsklick bricht ab. Gesperrte Türme (Schloss mit „LV n“) lassen sich erst ab dem genannten Spielerlevel
 bauen.
 
-## Die fünf Türme
+## Die acht Türme
 
 | Turm | Preis | Reichweite | Schaden | Tempo | Rolle |
 |---|---:|---:|---:|---:|---|
@@ -135,6 +135,9 @@ bauen.
 | **MÖRSER** (orange) | 240 | 235 | 14 | 0,6/s | Granate mit Flächenschaden (zum Rand hin schwächer) |
 | **FROST** (blau) | 160 | 108 | 2 | 0,7/s | Nova verlangsamt alle Gegner in Reichweite (stärker mit Schadensstufen) |
 | **BLITZ** (grün) | 220 | 142 | 5 | 1,1/s | Springt auf bis zu 4 Ziele, jeder Sprung 25 % schwächer |
+| **SALVE** (rosa) | 420 | 190 | 8 | 3,8/s | Schnellfeuer; jede Kugel durchschlägt bis zu 3 Gegner |
+| **TESLA** (violett) | 560 | 175 | 16 | 1,2/s | Blitzkette über bis zu 8 Ziele mit großen Sprüngen, nur 12 % Verlust je Sprung |
+| **RAILGUN** (gold) | 900 | 400 | 140 | 0,4/s | Strahl bis ans Ende der Reichweite: trifft **alle** Gegner auf der Linie, ohne Verlust |
 
 Jede der drei Kategorien hat 5 Stufen: *Reichweite* bis ×1,6 · *Schaden* bis ×7 · *Tempo* bis ×3,1. Die drei farbigen
 Bögen um den Turm zeigen den Ausbau (blau = Reichweite, rot = Schaden, gelb = Tempo).
@@ -165,6 +168,9 @@ ersten Sieg über ein Level (+300 XP, danach +100). Das Profil siehst du über d
 | 4 | **MÖRSER** |
 | 6 | **BLITZ** |
 | 8 | **SNIPER** |
+| 10 | **SALVE** |
+| 13 | **TESLA** |
+| 16 | **RAILGUN** |
 
 Dazu gibt es dauerhafte Belohnungen: **+10 Startgeld je Level** (bis +300) und **+1 Start-Leben je 5 Level** (bis +5).
 Titel wie *Funke*, *Wächter*, *Architekt* oder *Titanbezwinger* zeigen den Rang. Als Maßstab: Der erste vollständige

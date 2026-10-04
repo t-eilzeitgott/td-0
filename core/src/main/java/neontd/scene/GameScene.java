@@ -1088,7 +1088,7 @@ public final class GameScene extends Scene {
             double ir = Math.min(w * 0.34, h * 0.27);
             TowerArt.drawIcon(g, type, 0, -h * 0.18, ir, app.time);
             if (unlocked) {
-                double cs = Math.min(w * 0.22, h * 0.19);
+                double cs = Math.max(9, Math.min(w * 0.22, h * 0.19));
                 double tw = g.textWidth(cost, cs, true);
                 double gem = Math.min(w * 0.09, h * 0.09);
                 double x0 = -(tw + gem * 2.4) / 2;

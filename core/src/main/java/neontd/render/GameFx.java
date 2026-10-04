@@ -91,6 +91,14 @@ public class GameFx implements SimListener {
             fx.flash(mx, my, 20, c, 0.14);
         } else if (t.type == TowerType.SNIPER) {
             fx.flash(mx, my, 24, c, 0.16);
+        } else if (t.type == TowerType.SALVE) {
+            fx.sparks(mx, my, angle, 0.3, 2, 180, c);
+        } else if (t.type == TowerType.TESLA) {
+            fx.ring(t.x, t.y, 40, c, 0.25);
+        } else if (t.type == TowerType.RAILGUN) {
+            fx.flash(mx, my, 40, c, 0.22);
+            fx.sparks(mx, my, angle, 0.25, 8, 260, c);
+            fx.shake = Math.max(fx.shake, 2);
         }
     }
 

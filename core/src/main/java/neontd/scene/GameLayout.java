@@ -50,7 +50,7 @@ final class GameLayout {
 
     /** Ab dieser kleinsten Fensterkante (logische Pixel) gilt das Fenster als Handy. */
     static final double COMPACT_BELOW = 480;
-    static final int TOWERS = 5;
+    static final int TOWERS = neontd.sim.TowerType.values().length;
 
     Mode mode = Mode.DOCKED;
     /** Karte um 90° im Uhrzeigersinn gedreht (Welt-x läuft nach unten). */
@@ -190,11 +190,14 @@ final class GameLayout {
         double panelY = mapAvY + mapAvH + m;
         double panelH = ctrlY - m - panelY;
         controls(hx, ctrlY, hw, ctrlH, 6 * u);
-        double shopH = Math.min(panelH, 100 * u);
+        double shopH = Math.min(panelH, 150 * u);
         double gap = 6 * u;
-        double cw = (hw - gap * (TOWERS - 1)) / TOWERS;
+        // Zwei Reihen à vier Kacheln
+        int perRow = (TOWERS + 1) / 2;
+        double cw = (hw - gap * (perRow - 1)) / perRow;
+        double rowH = (shopH - gap) / 2;
         for (int i = 0; i < TOWERS; i++) {
-            tiles[i].set(hx + i * (cw + gap), panelY, cw, shopH);
+            tiles[i].set(hx + (i % perRow) * (cw + gap), panelY + (i / perRow) * (rowH + gap), cw, rowH);
         }
         double upY = panelY + shopH + m;
         panel.set(hx, upY, hw, panelY + panelH - upY);

@@ -134,6 +134,60 @@ public final class TowerArt {
                 g.strokeDashed(1.6, Colors.withAlpha(c, 0.6), 6, 9, time * 14);
                 break;
             }
+            case SALVE: {
+                // Zwei kurze Läufe nebeneinander, dahinter ein Sechseck
+                g.rotate(aim);
+                double k = recoil * r * 0.16;
+                g.beginPath();
+                g.ngon(0, 0, r * 0.5, 6, 0);
+                g.fill(Colors.withAlpha(c, 0.3));
+                Neon.stroke(g, 2.2, Colors.lighten(c, 0.2), 6);
+                for (int s = -1; s <= 1; s += 2) {
+                    g.beginPath();
+                    g.rect(r * 0.12 - k, s * r * 0.22 - r * 0.1, r * 0.8, r * 0.2);
+                    g.fill(Colors.withAlpha(c, 0.45));
+                    Neon.stroke(g, 2.0, Colors.lighten(c, 0.3), 5);
+                }
+                break;
+            }
+            case TESLA: {
+                // Spule: drehender Ring mit Zacken und leuchtendem Kern
+                double spin = time * 0.9;
+                g.beginPath();
+                g.ngon(0, 0, r * 0.52, 6, spin);
+                g.fill(Colors.withAlpha(c, 0.25));
+                Neon.stroke(g, 2.2, Colors.lighten(c, 0.25), 6);
+                g.beginPath();
+                for (int i = 0; i < 6; i++) {
+                    double a = spin + Math.PI * i / 3;
+                    g.moveTo(Math.cos(a) * r * 0.52, Math.sin(a) * r * 0.52);
+                    g.lineTo(Math.cos(a) * r * 0.86, Math.sin(a) * r * 0.86);
+                }
+                Neon.stroke(g, 2.0, Colors.lighten(c, 0.3), 5);
+                for (int i = 0; i < 6; i++) {
+                    double a = spin + Math.PI * i / 3;
+                    g.fillCircle(Math.cos(a) * r * 0.86, Math.sin(a) * r * 0.86, 2.2 + recoil * 1.5, Colors.lighten(c, 0.6));
+                }
+                g.fillCircle(0, 0, r * (0.2 + 0.1 * recoil), Colors.lighten(c, 0.6));
+                break;
+            }
+            case RAILGUN: {
+                // Zwei lange Schienen mit Raute als Kammer
+                g.rotate(aim);
+                double k = recoil * r * 0.3;
+                g.beginPath();
+                g.moveTo(-r * 0.5, 0);
+                g.lineTo(-r * 0.1, -r * 0.4);
+                g.lineTo(r * 0.3, 0);
+                g.lineTo(-r * 0.1, r * 0.4);
+                g.closePath();
+                g.fill(Colors.withAlpha(c, 0.3));
+                Neon.stroke(g, 2.2, Colors.lighten(c, 0.2), 6);
+                Neon.line(g, r * 0.0 - k, -r * 0.14, r * 1.1 - k, -r * 0.14, 2.4, Colors.lighten(c, 0.3), 6);
+                Neon.line(g, r * 0.0 - k, r * 0.14, r * 1.1 - k, r * 0.14, 2.4, Colors.lighten(c, 0.3), 6);
+                g.fillCircle(r * 1.1 - k, 0, 2.6, Colors.lighten(c, 0.7));
+                break;
+            }
             case ARC: {
                 double pulse = 1 + recoil * 0.25;
                 g.rotate(uprightAngle);

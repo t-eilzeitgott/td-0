@@ -79,8 +79,8 @@ public final class World {
     private int firstOpen;
     private int clearedCount;
     private final ArrayList<Emitter> emitters = new ArrayList<>();
-    private final double[] chainPts = new double[2 * (TowerType.ARC_CHAINS + 2)];
-    private final int[] chainIds = new int[TowerType.ARC_CHAINS + 1];
+    private final double[] chainPts = new double[2 * (TowerType.MAX_CHAINS + 2)];
+    private final int[] chainIds = new int[TowerType.MAX_CHAINS + 1];
     private int nextId = 1;
     private int activeWaves;
     private double autoTimer;
@@ -639,7 +639,14 @@ public final class World {
                 fireFrost(t);
                 break;
             case ARC:
+            case TESLA:
                 fireArc(t, target);
+                break;
+            case SALVE:
+                firePulse(t, target);
+                break;
+            case RAILGUN:
+                fireRail(t, angle);
                 break;
             default:
                 break;
@@ -677,6 +684,7 @@ public final class World {
         p.vy = Math.sin(angle) * TowerType.PULSE_BULLET_SPEED;
         p.radius = BULLET_RADIUS;
         p.damage = t.damage;
+        p.pierce = t.type == TowerType.SALVE ? TowerType.SALVE_PIERCE : 1;
         p.life = t.range * 1.6 / TowerType.PULSE_BULLET_SPEED;
         projectiles.add(p);
         listener.onProjectileSpawned(p);
@@ -723,23 +731,49 @@ public final class World {
     private void fireArc(Tower t, Enemy first) {
         chainPts[0] = t.x;
         chainPts[1] = t.y;
+        boolean tesla = t.type == TowerType.TESLA;
+        int chains = tesla ? TowerType.TESLA_CHAINS : TowerType.ARC_CHAINS;
+        double radius = tesla ? TowerType.TESLA_CHAIN_RADIUS : TowerType.ARC_CHAIN_RADIUS;
+        double falloff = tesla ? TowerType.TESLA_FALLOFF : TowerType.ARC_FALLOFF;
         double dmg = t.damage;
         int hits = 0;
         Enemy cur = first;
-        while (cur != null && hits < TowerType.ARC_CHAINS) {
+        while (cur != null && hits < chains) {
             chainIds[hits] = cur.id;
             hits++;
             chainPts[hits * 2] = cur.x;
             chainPts[hits * 2 + 1] = cur.y;
-            damage(cur, Math.max(1, Mathx.roundToInt(dmg)));
-            dmg *= TowerType.ARC_FALLOFF;
-            cur = hits < TowerType.ARC_CHAINS ? nearestChainTarget(cur, hits) : null;
+            damage(cur, dmg >= Tower.MAX_DAMAGE ? Tower.MAX_DAMAGE : Math.max(1, Mathx.roundToInt(dmg)));
+            dmg *= falloff;
+            cur = hits < chains ? nearestChainTarget(cur, hits, radius) : null;
         }
         listener.onLightning(chainPts, hits + 1, t.type.color);
     }
 
-    private Enemy nearestChainTarget(Enemy from, int usedCount) {
-        int cnt = hash.query(from.x, from.y, TowerType.ARC_CHAIN_RADIUS + MAX_ENEMY_RADIUS, query);
+    /** Railgun: Ein Strahl bis ans Ende der Reichweite trifft <b>alle</b> Gegner auf der Linie, ohne Verlust. */
+    private void fireRail(Tower t, double angle) {
+        double cos = Math.cos(angle);
+        double sin = Math.sin(angle);
+        double sx = t.x + cos * MUZZLE;
+        double sy = t.y + sin * MUZZLE;
+        double ex = t.x + cos * t.range;
+        double ey = t.y + sin * t.range;
+        int cnt = hash.query((sx + ex) / 2, (sy + ey) / 2, t.range / 2 + MAX_ENEMY_RADIUS, query);
+        for (int k = 0; k < cnt; k++) {
+            Enemy e = enemies.get(query[k]);
+            if (!e.targetable()) {
+                continue;
+            }
+            double reach = e.radius + TowerType.RAIL_HALF_WIDTH;
+            if (Collision.pointSegmentDistSq(e.x, e.y, sx, sy, ex, ey) <= reach * reach) {
+                damage(e, t.damage);
+            }
+        }
+        listener.onBeam(sx, sy, ex, ey, t.type.color);
+    }
+
+    private Enemy nearestChainTarget(Enemy from, int usedCount, double chainRadius) {
+        int cnt = hash.query(from.x, from.y, chainRadius + MAX_ENEMY_RADIUS, query);
         Enemy best = null;
         double bestD = Double.MAX_VALUE;
         for (int k = 0; k < cnt; k++) {
@@ -748,7 +782,7 @@ public final class World {
                 continue;
             }
             double d2 = Mathx.distSq(from.x, from.y, e.x, e.y);
-            double reach = TowerType.ARC_CHAIN_RADIUS + e.radius;
+            double reach = chainRadius + e.radius;
             if (d2 > reach * reach) {
                 continue;
             }

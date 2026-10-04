@@ -125,7 +125,10 @@ deckend“ gilt; `alpha(a)` *multipliziert* und gilt bis zum nächsten `restore(
 1. Eintrag in `sim.TowerType` (Name, Beschreibung, Farbe, Preis, Reichweite, Schaden, Intervall).
 2. Verhalten in `World.fire` (neue `fireXyz`-Methode; Treffer immer über `damage(...)`, Effekte über den Listener).
 3. Symbol in `render.TowerArt.symbol`, Effekte in `render.GameFx` (optional).
-4. Der Shop, die Hotkeys (`1`–`9`) und das Upgrade-Panel passen sich der Anzahl der `TowerType`-Einträge an.
+4. Der Shop, die Hotkeys (`1`–`9`) und das Upgrade-Panel passen sich der Anzahl der `TowerType`-Einträge an (`GameLayout.TOWERS`):
+   Seitenleiste eine Spalte, Tablet hoch zwei Reihen, Handy quer eine Spalte, Handy hoch eine Reihe. Besonderheiten je Turm
+   (Durchschlag, Kettenlänge, Strahl) stehen als Konstanten in `TowerType` und in den `fire…`-Methoden von `World`
+   (Beispiele: `SALVE`, `TESLA`, `RAILGUN`).
 
 **Neuer Gegner:** Eintrag in `sim.EnemyType` (Form aus `Shape`, Radius, Tempo, HP-Faktor, Belohnung, Lecks, Splitter),
 bei neuer Form die Zeichnung in `render.EnemyArt`; Auftritt in `WaveFactory` bzw. `Levels`.

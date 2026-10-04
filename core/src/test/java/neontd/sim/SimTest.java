@@ -201,6 +201,67 @@ class SimTest {
     }
 
     @Test
+    void bigTowersCostMoreAndAreStrongerThanTheClassics() {
+        TowerType[] big = {TowerType.SALVE, TowerType.TESLA, TowerType.RAILGUN};
+        int maxClassic = 0;
+        double bestDps = 0;
+        for (TowerType t : new TowerType[] {TowerType.PULSE, TowerType.SNIPER, TowerType.MORTAR, TowerType.FROST, TowerType.ARC}) {
+            maxClassic = Math.max(maxClassic, t.cost);
+            bestDps = Math.max(bestDps, t.damage / t.interval);
+        }
+        for (TowerType t : big) {
+            assertTrue(t.cost > maxClassic, t + " ist teurer als jeder Klassiker");
+            assertTrue(t.damage / t.interval > bestDps, t + " macht mehr Schaden pro Sekunde");
+        }
+    }
+
+    @Test
+    void salveBulletsPierceSeveralEnemies() {
+        Counter c = new Counter();
+        WaveDef wave = new WaveDef().add(EnemyType.TANK, 8, 0.3, 0, 100000).bonus(0);
+        World w = worldWithWaves(c, wave);
+        double[] spot = spotNear(w, 600, 70);
+        Tower t = w.placeTower(TowerType.SALVE, spot[0], spot[1]);
+        w.money = 100000;
+        w.startNextWave();
+        steps(w, 60 * 30);
+        assertTrue(c.bullets > 20, "bullets=" + c.bullets);
+        // Durchschlag: deutlich mehr Treffer als Geschosse (jeder Schuss trifft bis zu 3 dicht stehende Gegner)
+        assertTrue(c.damaged > c.bullets, "damaged=" + c.damaged + " bullets=" + c.bullets);
+        assertEquals(3, TowerType.SALVE_PIERCE);
+        assertNotNull(t);
+    }
+
+    @Test
+    void teslaChainsFurtherThanArc() {
+        Counter c = new Counter();
+        WaveDef wave = new WaveDef().add(EnemyType.TANK, 12, 0.3, 0, 100000).bonus(0);
+        World w = worldWithWaves(c, wave);
+        double[] spot = spotNear(w, 600, 70);
+        w.money = 100000;
+        w.placeTower(TowerType.TESLA, spot[0], spot[1]);
+        w.startNextWave();
+        steps(w, 60 * 40);
+        assertTrue(c.lightnings > 3);
+        assertTrue(c.maxChain > TowerType.ARC_CHAINS, "maxChain=" + c.maxChain);
+    }
+
+    @Test
+    void railgunHitsEveryEnemyOnTheLine() {
+        Counter c = new Counter();
+        WaveDef wave = new WaveDef().add(EnemyType.TANK, 10, 0.25, 0, 100000).bonus(0);
+        World w = worldWithWaves(c, wave);
+        double[] spot = spotNear(w, 600, 70);
+        w.money = 100000;
+        w.placeTower(TowerType.RAILGUN, spot[0], spot[1]);
+        w.startNextWave();
+        steps(w, 60 * 40);
+        assertTrue(c.beams > 4, "beams=" + c.beams);
+        assertEquals(0, c.bullets);
+        assertTrue(c.damaged > c.beams * 1.5, "Strahl trifft mehrere: damaged=" + c.damaged + " beams=" + c.beams);
+    }
+
+    @Test
     void splitEnemiesBreakIntoMinis() {
         Counter c = new Counter();
         WaveDef wave = new WaveDef().add(EnemyType.SPLIT, 1, 1.0, 0, 30).bonus(0);
