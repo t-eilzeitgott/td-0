@@ -125,7 +125,7 @@ public class GameFx implements SimListener {
     }
 
     @Override
-    public void onTowerSold(Tower t, int refund) {
+    public void onTowerSold(Tower t, double refund) {
         fx.sparks(t.x, t.y, -Math.PI / 2, Math.PI, 16, 130, Theme.MONEY);
         fx.moneyPopup(t.x, t.y - 20, refund, Theme.MONEY, 17);
     }

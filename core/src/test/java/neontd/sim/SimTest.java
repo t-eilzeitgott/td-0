@@ -33,7 +33,7 @@ class SimTest {
         w.paths[0].positionAt(900, onPath);
         assertEquals(World.PlaceCheck.ON_PATH, w.checkPlacement(onPath.x, onPath.y));
 
-        int before = w.money;
+        double before = w.money;
         Tower t = w.placeTower(TowerType.PULSE, spot[0], spot[1]);
         assertNotNull(t);
         assertEquals(before - TowerType.PULSE.cost, w.money);
@@ -66,12 +66,12 @@ class SimTest {
         double range0 = t.range;
         int damage0 = t.damage;
         double interval0 = t.interval;
-        int invested = t.invested;
+        double invested = t.invested;
         for (UpgradeTrack track : UpgradeTrack.values()) {
             for (int lvl = 0; lvl < UpgradeTrack.MAX_LEVEL; lvl++) {
                 int cost = w.upgradeCost(t, track);
                 assertTrue(cost > 0, "Preis vorhanden");
-                int money = w.money;
+                double money = w.money;
                 assertTrue(w.upgrade(t, track));
                 assertEquals(money - cost, w.money);
                 invested += cost;
@@ -84,8 +84,8 @@ class SimTest {
         assertTrue(t.interval < interval0 / 2.9);
         assertEquals(invested, t.invested);
         assertEquals(15, t.totalLevels());
-        int refund = w.sellValue(t);
-        int money = w.money;
+        double refund = w.sellValue(t);
+        double money = w.money;
         w.sell(t);
         assertEquals(money + refund, w.money);
         assertEquals(0, w.towers.size());
@@ -270,7 +270,7 @@ class SimTest {
         w.placeTower(TowerType.PULSE, spot[0], spot[1]);
         w.placeTower(TowerType.PULSE, spot[0] + 60, spot[1]);
         w.startNextWave();
-        int money = w.money;
+        double money = w.money;
         run(w, null, 90);
         assertEquals(1 + EnemyType.SPLIT.splitCount, c.spawned);
         assertEquals(1 + EnemyType.SPLIT.splitCount, c.killed);
@@ -285,7 +285,7 @@ class SimTest {
         World w = worldWithWaves(c, wave);
         double[] spot = spotNear(w, 500, 70);
         w.placeTower(TowerType.PULSE, spot[0], spot[1]);
-        int money = w.money;
+        double money = w.money;
         w.startNextWave();
         assertFalse(w.canStartWave());
         run(w, null, 60);

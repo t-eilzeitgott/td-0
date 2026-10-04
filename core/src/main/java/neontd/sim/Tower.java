@@ -13,7 +13,7 @@ public final class Tower {
     public final int[] level = new int[3];
     public TargetMode mode = TargetMode.FIRST;
     /** Insgesamt investiertes Geld (Kauf + Upgrades) – Grundlage für den Verkaufspreis. */
-    public int invested;
+    public double invested;
 
     // abgeleitete Werte (siehe recompute)
     public double range;

@@ -15,7 +15,7 @@ public final class WorldSnapshot {
         public double x;
         public double y;
         public final int[] level = new int[3];
-        public int invested;
+        public double invested;
         public int mode;
     }
 
@@ -31,7 +31,7 @@ public final class WorldSnapshot {
         public double slowTimer;
     }
 
-    public int money;
+    public double money;
     public int lives;
     public int kills;
     public int waveIndex;

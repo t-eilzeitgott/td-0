@@ -33,8 +33,8 @@ public final class World {
     private static final double TURN_RATE = 16;
     private static final double AUTO_START_DELAY = 1.2;
     private static final int QUERY_CAP = 2048;
-    /** Obergrenze für das Geld: der größte int-Wert (2.147.483.647); Summen werden in double gerechnet und gekappt. */
-    public static final int MAX_MONEY = Integer.MAX_VALUE;
+    /** Obergrenze für das Geld (9.999.999.999): Geld ist ein double mit ganzen Zahlen, exakt bis 9·10¹⁵. */
+    public static final double MAX_MONEY = 9_999_999_999.0;
     /** Endlos: Die nächste Welle darf automatisch früher kommen, wenn von der letzten nur noch so viele übrig sind. */
     public static final int EARLY_START_LEFT = 6;
     /** Im Endlosmodus gibt jede so-vielte besiegte Welle ein verlorenes Leben zurück. */
@@ -57,7 +57,7 @@ public final class World {
     public final ArrayList<Tower> towers = new ArrayList<>();
     public final ArrayList<Projectile> projectiles = new ArrayList<>();
 
-    public int money;
+    public double money;
     public int lives;
     public int kills;
     public double time;
@@ -239,28 +239,28 @@ public final class World {
             return false;
         }
         money -= cost;
-        t.invested = (int) Math.min(MAX_MONEY, (double) t.invested + cost);
+        t.invested = Math.min(MAX_MONEY, t.invested + cost);
         t.level[track.ordinal()]++;
         t.recompute();
         listener.onTowerUpgraded(t, track);
         return true;
     }
 
-    public int sellValue(Tower t) {
-        return (int) (t.invested * SELL_RATIO);
+    public double sellValue(Tower t) {
+        return Math.floor(t.invested * SELL_RATIO);
     }
 
     /** Schreibt Geld gut, ohne dass die Summe das Limit überschreitet. */
-    public void addMoney(int amount) {
-        double m = (double) money + amount;
-        money = m >= MAX_MONEY ? MAX_MONEY : (int) m;
+    public void addMoney(double amount) {
+        double m = money + amount;
+        money = m >= MAX_MONEY ? MAX_MONEY : m;
     }
 
     public void sell(Tower t) {
         if (state != State.RUNNING || !towers.remove(t)) {
             return;
         }
-        int refund = sellValue(t);
+        double refund = sellValue(t);
         addMoney(refund);
         listener.onTowerSold(t, refund);
     }

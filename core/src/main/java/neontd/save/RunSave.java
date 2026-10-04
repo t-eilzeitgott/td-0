@@ -106,7 +106,7 @@ public final class RunSave {
         WorldSnapshot s = new WorldSnapshot();
         s.endless = Json.bool(m, "endless", false);
         s.autoStart = Json.bool(m, "auto", false);
-        s.money = Json.integer(m, "money", 0);
+        s.money = Json.num(m, "money", 0);
         s.lives = Json.integer(m, "lives", 1);
         s.kills = Json.integer(m, "kills", 0);
         s.waveIndex = Json.integer(m, "wave", 0);
@@ -124,7 +124,7 @@ public final class RunSave {
             d.level[0] = (int) Json.at(a, 3);
             d.level[1] = (int) Json.at(a, 4);
             d.level[2] = (int) Json.at(a, 5);
-            d.invested = (int) Math.min(Integer.MAX_VALUE, Json.at(a, 6));
+            d.invested = Json.at(a, 6);
             d.mode = (int) Json.at(a, 7);
             s.towers.add(d);
         }

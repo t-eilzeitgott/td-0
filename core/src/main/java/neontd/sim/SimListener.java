@@ -23,7 +23,7 @@ public interface SimListener {
 
     default void onTowerUpgraded(Tower t, UpgradeTrack track) { }
 
-    default void onTowerSold(Tower t, int refund) { }
+    default void onTowerSold(Tower t, double refund) { }
 
     default void onTowerFired(Tower t, double angle) { }
 

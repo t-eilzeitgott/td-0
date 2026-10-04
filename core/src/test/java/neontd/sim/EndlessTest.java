@@ -131,12 +131,24 @@ class EndlessTest {
     @Test
     void moneyAndDamageNeverOverflow() {
         LevelDef def = Levels.serpentine();
-        def.startMoney = World.MAX_MONEY - 10;
+        def.startMoney = 2_000_000_000;
         World w = new World(def, SimListener.NONE);
         w.addMoney(1_500_000_000);
+        assertEquals(3_500_000_000.0, w.money, "Geld darf über den int-Bereich hinaus wachsen");
+        w.addMoney(Integer.MAX_VALUE);
+        assertEquals(5_647_483_647.0, w.money);
+        w.addMoney(9_000_000_000.0);
         assertEquals(World.MAX_MONEY, w.money);
+        assertEquals(9_999_999_999.0, World.MAX_MONEY);
         w.addMoney(Integer.MAX_VALUE);
         assertEquals(World.MAX_MONEY, w.money);
+        // Speichern und Laden (Json) behält den vollen Betrag
+        neontd.sim.WorldSnapshot snap = w.snapshot();
+        assertEquals(World.MAX_MONEY, snap.money);
+        neontd.save.RunSave back = neontd.save.RunSave.decode(def.id, neontd.save.RunSave.of(def.id, 1, snap).encode());
+        assertEquals(World.MAX_MONEY, back.snapshot.money);
+        assertEquals("9999999999", neontd.ui.Fmt.whole(World.MAX_MONEY));
+        assertEquals("9.9B", neontd.ui.Fmt.compact(World.MAX_MONEY));
 
         w.enableEndless();
         Tower t = null;

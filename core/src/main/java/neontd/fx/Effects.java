@@ -217,12 +217,13 @@ public final class Effects {
         }
     }
 
-    public void moneyPopup(double x, double y, int amount, int rgb, double fontSize) {
+    public void moneyPopup(double x, double y, double amount, int rgb, double fontSize) {
         if (popupBudget <= 0) {
             return;
         }
         popupBudget--;
-        particles.addText(x, y, moneyText(amount), rgb, fontSize);
+        particles.addText(x, y, amount < MONEY_TEXT.length ? moneyText((int) amount) : "+" + neontd.ui.Fmt.compact(amount), rgb,
+                fontSize);
     }
 
     public void text(double x, double y, String s, int rgb, double fontSize) {

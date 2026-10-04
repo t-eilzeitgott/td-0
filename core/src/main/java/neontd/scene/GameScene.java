@@ -995,7 +995,7 @@ public final class GameScene extends Scene {
 
     private void drawHud(Gfx g, double u) {
         String lives = Integer.toString(world.lives);
-        String money = Fmt.tight(Mathx.roundToInt(moneyShown.value));
+        String money = Fmt.tight(moneyShown.value);
         GameLayout.Rect h = lay.hud;
         switch (lay.mode) {
             case DOCKED: {
@@ -1941,7 +1941,7 @@ public final class GameScene extends Scene {
 
     /** Kurzer Zustandstext für Browser-Tests (Geld, Leben, Welle, Türme, Kartenmaßstab …). */
     public String debugState() {
-        return "money=" + world.money + " lives=" + world.lives + " wave=" + world.waveIndex + " cleared="
+        return "money=" + Fmt.whole(world.money) + " lives=" + world.lives + " wave=" + world.waveIndex + " cleared="
                 + world.clearedWaves() + " towers=" + world.towers.size() + " kills=" + world.kills + " endless="
                 + world.endless + " state=" + world.state + " overlay=" + overlay + " mapScale="
                 + Mathx.round1(lay.mapScale * 1000) / 1000 + " rail=" + Mathx.round1(railT.value * 10) / 10 + " mode="

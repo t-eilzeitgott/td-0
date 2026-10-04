@@ -101,7 +101,7 @@ final class DebugApi {
             }
             case "money":
                 if (s instanceof GameScene) {
-                    ((GameScene) s).testWorld().money = Integer.parseInt(arg);
+                    ((GameScene) s).testWorld().money = Double.parseDouble(arg);
                 }
                 return "ok";
             case "state":

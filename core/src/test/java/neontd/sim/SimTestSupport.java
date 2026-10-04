@@ -70,7 +70,7 @@ final class SimTestSupport {
     /** Ein stabiler Hash über den gesamten Spielzustand. */
     static long stateHash(World w) {
         long h = 17;
-        h = h * 31 + w.money;
+        h = h * 31 + (long) w.money;
         h = h * 31 + w.lives;
         h = h * 31 + w.kills;
         h = h * 31 + w.enemies.size();

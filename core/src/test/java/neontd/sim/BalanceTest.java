@@ -16,7 +16,7 @@ class BalanceTest {
         AutoPlayer bot = new AutoPlayer(w, upgrades, maxTowers, order);
         double t = SimTestSupport.run(w, bot, 60 * 40);
         out[0] = w;
-        return String.format("%-10s state=%s wave=%d/%d lives=%d money=%d towers=%d kills=%d time=%.0fs",
+        return String.format("%-10s state=%s wave=%d/%d lives=%d money=%.0f towers=%d kills=%d time=%.0fs",
                 name, w.state, w.waveIndex, w.totalWaves(), w.lives, w.money, w.towers.size(), w.kills, t);
     }
 
