@@ -188,6 +188,7 @@ class SceneSmokeTest {
         double[] from = gs.anchor("tile0");
         double[] to = gs.anchor("world:" + spot[0] + "," + spot[1]);
         h.drag(from[0], from[1], to[0], to[1] + 56 * h.app.vp.u);
+        h.tap(gs.anchor("confirm"));
         assertEquals(1, gs.testWorld().towers.size());
         double[] start = gs.anchor("start");
         h.tap(start[0], start[1]);

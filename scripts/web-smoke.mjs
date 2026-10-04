@@ -44,7 +44,7 @@ const browser = await chromium.launch();
 
 // ------------------------------------------------------------------------------------------------ Hilfen
 
-const uOf = (w, h) => Math.min(2, Math.max(0.78, Math.min(w, h) / 560));
+const uOf = (w, h) => Math.min(2, Math.max(0.86, Math.min(w, h) / 560));
 
 async function open(ctx, errors, query = '?debug') {
   const page = await ctx.newPage();
@@ -162,6 +162,7 @@ console.log('2. iPhone quer: kompaktes Layout, Spielen, Speichern, Fortsetzen �
     const [px, py] = xy(await call(page, `world ${sx},${sy}`));
     const [fx, fy] = await anchor(page, 'tile0');
     await t.drag(fx, fy, px, py + 56 * u);
+    await t.tap(...(await anchor(page, 'confirm')));
   }
   s = await state(page);
   check(s.towers === '3', 'drei Türme per Finger gebaut');
@@ -247,6 +248,7 @@ console.log('3. iPhone hoch: gedrehte Karte …');
     const [px, py] = xy(await call(page, `world ${sx},${sy}`));
     const [fx, fy] = await anchor(page, 'tile' + tile);
     await t.drag(fx, fy, px, py + 56 * u);
+    await t.tap(...(await anchor(page, 'confirm')));
     const [tx, ty] = xy(await call(page, 'tower'));
     ok = ok && Math.abs(tx - sx) < 1.5 && Math.abs(ty - sy) < 1.5;
   }

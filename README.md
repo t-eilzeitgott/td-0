@@ -115,7 +115,7 @@ Das ZIP enthält `bin/neon-td` (bzw. `neon-td.bat` unter Windows); eine Java-Lau
 
 | | Maus / PC | Finger / iPhone |
 |---|---|---|
-| **Turm bauen** | Karte im Shop anklicken, dann auf die Karte klicken – oder vom Shop auf die Karte **ziehen** | Karte antippen und Ziel antippen – oder vom Shop **ziehen** (die Vorschau schwebt über dem Finger) |
+| **Turm bauen** | Karte im Shop anklicken, dann auf die Karte klicken – oder vom Shop auf die Karte **ziehen** | Kachel antippen oder ziehen: Der Turm **schwebt** über dem Finger (leicht oberhalb, damit man ihn sieht). Nach dem Loslassen bleibt er schweben; per Ziehen auf der Karte verschiebst du ihn, mit dem **Haken** wird er fest gebaut, mit dem **Kreuz** verworfen (rot = hier nicht erlaubt) |
 | **Turm verbessern** | Turm anklicken → Panel mit *Reichweite / Schaden / Tempo* | Turm antippen |
 | **Verkaufen** | Im Panel „Verkaufen“ (zweimal bestätigen), 70 % Erstattung | dito |
 | **Zielwahl** | Im Panel: Erster · Letzter · Stärkster · Nächster | dito |

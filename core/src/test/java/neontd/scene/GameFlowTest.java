@@ -53,6 +53,16 @@ class GameFlowTest {
         double[] from = gs.anchor("tile" + tile);
         double[] to = gs.anchor("world:" + wx + "," + wy);
         h.drag(from[0], from[1], to[0], to[1] + (h.touch ? 56 * h.app.vp.u : 0));
+        confirmIfFloating(h, gs);
+    }
+
+    /** Auf dem Finger-Gerät schwebt der Turm nach dem Loslassen und wird mit dem Haken fest gebaut. */
+    static void confirmIfFloating(Harness h, GameScene gs) {
+        double[] ok = gs.anchor("confirm");
+        if (h.touch) {
+            assertNotNull(ok, "Turm schwebt nach dem Loslassen");
+            h.tap(ok);
+        }
     }
 
     @Test
@@ -82,6 +92,34 @@ class GameFlowTest {
         double[] spot3 = validSpot(w, 300, 300);
         dragTile(h, gs, 4, spot3[0], spot3[1]);
         assertEquals(2, w.towers.size(), "BLITZ ist erst ab Level 6 frei");
+    }
+
+    @Test
+    void touchPlacementFloatsUntilConfirmed() {
+        Harness h = new Harness(393, 852, true, 0, 47, 0, 34);
+        GameScene gs = open(h);
+        World w = gs.testWorld();
+        double[] spot = validSpot(w, 400, 250);
+        double[] from = gs.anchor("tile0");
+        double[] to = gs.anchor("world:" + spot[0] + "," + spot[1]);
+        h.drag(from[0], from[1], to[0], to[1] + 56 * h.app.vp.u);
+        assertEquals(0, w.towers.size(), "nach dem Loslassen noch nicht gebaut");
+        // Verschieben: erneut auf die Karte ziehen
+        double[] spot2 = validSpot(w, 800, 400);
+        double[] to2 = gs.anchor("world:" + spot2[0] + "," + spot2[1]);
+        h.drag(to2[0], to2[1] + 56 * h.app.vp.u, to2[0], to2[1] + 56 * h.app.vp.u);
+        assertEquals(0, w.towers.size());
+        h.tap(gs.anchor("confirm"));
+        assertEquals(1, w.towers.size());
+        assertEquals(spot2[0], w.towers.get(0).x, 1.5);
+        // Antippen der Karte setzt ebenfalls nur die Vorschau; Abbrechen baut nichts
+        h.tap(gs.anchor("tile0"));
+        double[] p3 = gs.anchor("world:" + validSpot(w, 300, 250)[0] + "," + validSpot(w, 300, 250)[1]);
+        h.tap(p3[0], p3[1] + 56 * h.app.vp.u);
+        assertEquals(1, w.towers.size());
+        h.tap(gs.anchor("cancel"));
+        assertEquals(1, w.towers.size());
+        assertNull(gs.anchor("confirm"));
     }
 
     @Test
@@ -257,6 +295,7 @@ class GameFlowTest {
         h.run(1.0);
         assertTrue(lay.open > 0.99);
         h.drag(tile[0], tile[1], to[0], to[1] + 56 * h.app.vp.u);
+        confirmIfFloating(h, gs);
         assertEquals(1, w.towers.size());
         // Neue Szene übernimmt die Wahl
         h.tap(t[0], t[1]);

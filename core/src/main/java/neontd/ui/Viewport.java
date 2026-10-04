@@ -13,7 +13,7 @@ public final class Viewport {
     public double insetT;
     public double insetR;
     public double insetB;
-    /** UI-Einheit: 1 = Entwurfsgröße (Fensterhöhe ≈ 560 px). Mindestens 0,78, damit Tippflächen groß genug bleiben. */
+    /** UI-Einheit: 1 = Entwurfsgröße (Fensterhöhe ≈ 560 px). Mindestens 0,86 (Handy: 10 % größer als zuvor), damit Tippflächen groß genug bleiben. */
     public double u = 1;
 
     public void set(double w, double h, double l, double t, double r, double b) {
@@ -22,8 +22,9 @@ public final class Viewport {
         this.insetL = l;
         this.insetT = t;
         this.insetR = r;
-        this.insetB = b;
-        this.u = Mathx.clamp(Math.min(w, h) / 560.0, 0.78, 2.0);
+        // Der Home-Indikator ist nur eine dünne Leiste ganz unten: nur ein Drittel des Randes freihalten, den Rest nutzen.
+        this.insetB = b * 0.3;
+        this.u = Mathx.clamp(Math.min(w, h) / 560.0, 0.86, 2.0);
     }
 
     public double safeX() {

@@ -108,6 +108,8 @@ public final class GameScene extends Scene {
     private double dragX0;
     private double dragY0;
     private boolean mapPressed;
+    /** Touch: Der Turm schwebt an seiner Stelle und wird erst mit dem Haken fest gebaut. */
+    private boolean pending;
     private double sellArmed;
     private double time;
     private double celebrate;
@@ -508,6 +510,7 @@ public final class GameScene extends Scene {
     }
 
     private void cancelPlacing() {
+        pending = false;
         placing = null;
         dragging = false;
         cardDown = false;
@@ -779,6 +782,9 @@ public final class GameScene extends Scene {
 
         // Wellen-Banner über der Karte
         drawBanner(g);
+        if (pending && placing != null && ghostOnMap) {
+            drawConfirm(g);
+        }
 
         // --- HUD, Panel, Steuerung ---
         drawHud(g, u);
@@ -807,6 +813,38 @@ public final class GameScene extends Scene {
         }
     }
 
+    private static final double CONFIRM_DX = 62;
+
+    /** Mittelpunkt und Radius der Bestätigungsknöpfe (Bildschirm): {haken x, y, abbruch x, y, radius}. */
+    private double[] confirmButtons() {
+        double k = Math.max(app.vp.u, 1.05);
+        double r = 24 * k;
+        double sx = lay.screenX(ghostX, ghostY, world.height);
+        double sy = lay.screenY(ghostX, ghostY);
+        double dx = CONFIRM_DX * k;
+        double minX = lay.mapX + r;
+        double maxX = lay.mapX + lay.mapW - r;
+        double okX = Mathx.clamp(sx + dx, minX, maxX);
+        double noX = Mathx.clamp(sx - dx, minX, maxX);
+        if (okX - noX < r * 2.2) {
+            okX = Math.min(maxX, noX + r * 2.2);
+        }
+        double y = Mathx.clamp(sy, lay.mapY + r, lay.mapY + lay.mapH - r);
+        return new double[] {okX, y, noX, y, r};
+    }
+
+    private void drawConfirm(Gfx g) {
+        double[] c = confirmButtons();
+        double r = c[4];
+        int ok = ghostValid ? Theme.GREEN : Colors.withAlpha(Theme.GREEN, 0.3);
+        g.fillCircle(c[0], c[1], r, Colors.withAlpha(0x000000, 0.85));
+        Neon.circle(g, c[0], c[1], r, 2.2, ok, ghostValid ? 7 : 0);
+        Icons.draw(g, Icon.CHECK, c[0], c[1], r * 0.5, ok, ghostValid ? 4 : 0);
+        g.fillCircle(c[2], c[3], r, Colors.withAlpha(0x000000, 0.85));
+        Neon.circle(g, c[2], c[3], r, 2.2, Theme.RED, 7);
+        Icons.draw(g, Icon.CROSS, c[2], c[3], r * 0.45, Theme.RED, 4);
+    }
+
     private void drawGhost(Gfx g) {
         if (placing == null || !ghostOnMap) {
             return;
@@ -816,7 +854,8 @@ public final class GameScene extends Scene {
         g.save();
         g.alpha(ghostValid ? 0.85 : 0.55);
         int tint = ghostValid ? placing.color : Theme.RED;
-        TowerArt.drawIcon(g, placing, ghostX, ghostY, World.TOWER_RADIUS, time);
+        double bob = pending ? Math.sin(time * 4) * 1.6 : 0;
+        TowerArt.drawIcon(g, placing, ghostX, ghostY + bob, World.TOWER_RADIUS * (pending ? 1.06 : 1), time);
         g.restore();
         if (!ghostValid) {
             Neon.circle(g, ghostX, ghostY, World.TOWER_RADIUS + 3 + pulse * 2, 2.2, tint, 6);
@@ -1519,6 +1558,25 @@ public final class GameScene extends Scene {
             overlayUi.pointerDown(x, y);
             return;
         }
+        if (pending && placing != null && ghostOnMap) {
+            double[] c = confirmButtons();
+            if (Mathx.dist(x, y, c[0], c[1]) <= c[4] * 1.15) {
+                if (ghostValid) {
+                    placeTower(placing, ghostX, ghostY);
+                    placing = null;
+                    pending = false;
+                    ghostOnMap = false;
+                } else {
+                    deny(world.checkPlacement(ghostX, ghostY) == World.PlaceCheck.ON_PATH
+                            ? "Nicht auf der Gegnerspur" : "Hier kann nicht gebaut werden");
+                }
+                return;
+            }
+            if (Mathx.dist(x, y, c[2], c[3]) <= c[4] * 1.15) {
+                cancelPlacing();
+                return;
+            }
+        }
         if (selected != null) {
             for (Button b : panelButtons()) {
                 if (b.contains(x, y)) {
@@ -1546,7 +1604,8 @@ public final class GameScene extends Scene {
             double wx = toWorldX(x, y);
             double wy = toWorldY(x, y);
             if (placing != null) {
-                updateGhost(x, y, 0);
+                pending = false;
+                updateGhost(x, y, touch ? 56 * app.vp.u : 0);
                 return;
             }
             Tower hit = world.towerAt(wx, wy, 18 / lay.mapScale);
@@ -1611,7 +1670,11 @@ public final class GameScene extends Scene {
             return;
         }
         if (placing != null) {
-            updateGhost(x, y, 0);
+            if (touch && pressed && mapPressed) {
+                updateGhost(x, y, 56 * u);
+            } else if (!touch) {
+                updateGhost(x, y, 0);
+            }
         } else if (!touch && !pressed) {
             hoverTower = onMap(x, y) ? world.towerAt(toWorldX(x, y), toWorldY(x, y), 6) : null;
         }
@@ -1644,13 +1707,21 @@ public final class GameScene extends Scene {
                 dragging = false;
                 double offset = touch ? 56 * app.vp.u : 0;
                 updateGhost(x, y, offset);
-                if (ghostOnMap && ghostValid) {
+                if (touch && ghostOnMap) {
+                    // Finger weg: Der Turm schwebt weiter und wartet auf den Haken (verschieben geht per Ziehen auf der Karte).
+                    pending = true;
+                    showToast("Verschieben, dann Haken zum Bauen", placing.color);
+                } else if (ghostOnMap && ghostValid) {
                     placeTower(dragType, ghostX, ghostY);
-                } else if (ghostOnMap) {
-                    deny("Hier kann nicht gebaut werden");
+                    placing = null;
+                    ghostOnMap = false;
+                } else {
+                    if (ghostOnMap) {
+                        deny("Hier kann nicht gebaut werden");
+                    }
+                    placing = null;
+                    ghostOnMap = false;
                 }
-                placing = null;
-                ghostOnMap = false;
             } else {
                 // Antippen: Platzierungsmodus ein-/ausschalten
                 if (placing == dragType) {
@@ -1663,7 +1734,9 @@ public final class GameScene extends Scene {
         }
         if (mapPressed) {
             mapPressed = false;
-            if (placing != null && onMap(x, y)) {
+            if (placing != null && touch && ghostOnMap) {
+                pending = true;
+            } else if (placing != null && onMap(x, y)) {
                 updateGhost(x, y, 0);
                 if (ghostValid) {
                     placeTower(placing, ghostX, ghostY);
@@ -1805,7 +1878,7 @@ public final class GameScene extends Scene {
     /**
      * Bildschirmposition eines Bedienelements – für Screenshot-Werkzeug und Tests. Namen: {@code tile0..tile4},
      * {@code start}, {@code toggle}, {@code speed}, {@code auto}, {@code pause}, {@code track0..track2}, {@code sell},
-     * {@code mode}, {@code ov0..ov2} (Schaltflächen der Einblendung), {@code world:x,y} (Weltkoordinaten). @return {x, y} oder {@code null}
+     * {@code mode}, {@code confirm}/{@code cancel} (schwebender Turm), {@code ov0..ov2} (Schaltflächen der Einblendung), {@code world:x,y} (Weltkoordinaten). @return {x, y} oder {@code null}
      */
     public double[] anchor(String name) {
         Button b = null;
@@ -1813,6 +1886,12 @@ public final class GameScene extends Scene {
             b = cards[name.charAt(4) - '0'];
         } else if (name.startsWith("track")) {
             b = trackBtns[name.charAt(5) - '0'];
+        } else if (name.equals("confirm") || name.equals("cancel")) {
+            if (!pending || placing == null || !ghostOnMap) {
+                return null;
+            }
+            double[] c = confirmButtons();
+            return name.equals("confirm") ? new double[] {c[0], c[1]} : new double[] {c[2], c[3]};
         } else if (name.startsWith("ov")) {
             int i = name.charAt(2) - '0';
             b = i < overlayUi.buttons.size() ? overlayUi.buttons.get(i) : null;

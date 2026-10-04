@@ -81,7 +81,7 @@ final class GameLayout {
     double open = 1;
     /** Das Upgrade-Panel ersetzt im kompakten Hochformat die Turmleiste. */
     boolean panelReplacesTiles;
-    /** UI-Größe für Kompaktmodus (nie unter 0,95, damit Tippflächen groß genug bleiben). */
+    /** UI-Größe für Kompaktmodus (nie unter 1,05, damit Tippflächen groß genug bleiben). */
     double k = 1;
 
     GameLayout() {
@@ -209,7 +209,7 @@ final class GameLayout {
     // --------------------------------------------------------------------------------- Handy, Querformat
 
     private void compactLand(Viewport vp, double ww, double wh, boolean selected, double selX, double selY) {
-        k = Math.max(vp.u, 0.95);
+        k = Math.max(vp.u, 1.05);
         double m = 5 * k;
         double tile = 46 * k;
         double gap = 4 * k;
@@ -273,7 +273,7 @@ final class GameLayout {
     // ------------------------------------------------------------------------------------ Handy, Hochformat
 
     private void compactPort(Viewport vp, double ww, double wh, boolean selected) {
-        k = Math.max(vp.u, 0.95);
+        k = Math.max(vp.u, 1.05);
         double m = 5 * k;
         double gap = 4 * k;
         double sx0 = vp.insetL + m;

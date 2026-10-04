@@ -202,6 +202,10 @@ public final class ScreenshotTool {
                     // Auf dem Finger-Gerät schwebt die Vorschau 56 Einheiten über dem Finger (siehe GameScene).
                     double lift = touch ? 56 * app.vp.u : 0;
                     run("drag " + a[0] + " " + a[1] + " " + b[0] + " " + (b[1] + lift) + " " + p[4]);
+                    double[] ok = touch ? gs.anchor("confirm") : null;
+                    if (ok != null) {
+                        run("click " + ok[0] + " " + ok[1]); // schwebenden Turm mit dem Haken fest bauen
+                    }
                     break;
                 }
                 case "wclick": {

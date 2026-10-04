@@ -309,7 +309,7 @@ public final class EditorScene extends Scene {
     /** Handy: schmale Kacheln statt Seitenpanel; im Hochformat gedrehte Karte. Die Werkzeug-Gruppe klappt ein. */
     private void compactLayout() {
         Viewport vp = app.vp;
-        double k = Math.max(vp.u, 0.95);
+        double k = Math.max(vp.u, 1.05);
         double m = 5 * k;
         double gap = 4 * k;
         double sx0 = vp.insetL + m;
