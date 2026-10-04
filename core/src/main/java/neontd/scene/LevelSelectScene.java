@@ -16,7 +16,6 @@ import neontd.math.Mathx;
 import neontd.physics.Path;
 import neontd.render.LevelPreview;
 import neontd.ui.Button;
-import neontd.ui.Draw;
 import neontd.ui.Easing;
 import neontd.ui.Smooth;
 import neontd.ui.Ui;

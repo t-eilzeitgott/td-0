@@ -17,7 +17,6 @@ import neontd.physics.Path;
 import neontd.physics.Simplify;
 import neontd.render.PathArt;
 import neontd.render.WorldView;
-import neontd.sim.World;
 import neontd.ui.Button;
 import neontd.ui.Easing;
 import neontd.ui.Smooth;

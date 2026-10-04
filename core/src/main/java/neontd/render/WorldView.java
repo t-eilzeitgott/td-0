@@ -8,7 +8,6 @@ import neontd.gfx.Theme;
 import neontd.physics.Path;
 import neontd.sim.Enemy;
 import neontd.sim.Projectile;
-import neontd.sim.Tower;
 import neontd.sim.World;
 
 /**

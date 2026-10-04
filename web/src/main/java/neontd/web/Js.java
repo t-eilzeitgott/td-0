@@ -1,7 +1,6 @@
 package neontd.web;
 
 import org.teavm.jso.JSBody;
-import org.teavm.jso.JSObject;
 import org.teavm.jso.JSProperty;
 import org.teavm.jso.canvas.CanvasRenderingContext2D;
 import org.teavm.jso.dom.events.Event;
