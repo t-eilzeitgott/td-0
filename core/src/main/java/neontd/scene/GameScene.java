@@ -547,7 +547,9 @@ public final class GameScene extends Scene {
             double pulse = 0.5 + 0.5 * Math.sin(time * 5);
             Neon.circle(g, selected.x, selected.y, 47 + 2 * pulse, 1.6, Colors.withAlpha(0xFFFFFF, 0.7), 4);
         }
-        WorldView.drawEnemies(g, world, alpha, time);
+        // Auf kleinen Bildschirmen (Handy) die Gegner optisch vergrößern und die HP-Zahl lesbar halten.
+        double enemyScale = Mathx.clamp(10.5 / (17 * mapScale), 1, 1.5);
+        WorldView.drawEnemies(g, world, alpha, time, enemyScale, 9.5 / mapScale);
         WorldView.drawProjectiles(g, world, alpha);
         WorldView.drawEffects(g, fx);
         drawGhost(g);

@@ -54,6 +54,15 @@ public final class WorldView {
     }
 
     public static void drawEnemies(Gfx g, World world, double alpha, double time) {
+        drawEnemies(g, world, alpha, time, 1, 0);
+    }
+
+    /**
+     * @param visualScale Darstellungs-Vergrößerung der Gegner (nur Optik)
+     * @param minFont     Mindest-Schriftgröße der HP-Zahlen in Weltmaß
+     */
+    public static void drawEnemies(Gfx g, World world, double alpha, double time, double visualScale,
+                                   double minFont) {
         // Weiter hinten laufende Gegner zuerst, damit vordere Gegner oben liegen.
         for (int i = world.enemies.size() - 1; i >= 0; i--) {
             Enemy e = world.enemies.get(i);
@@ -62,7 +71,7 @@ public final class WorldView {
             }
             double x = e.prevX + (e.x - e.prevX) * alpha;
             double y = e.prevY + (e.y - e.prevY) * alpha;
-            EnemyArt.draw(g, e, x, y, time);
+            EnemyArt.draw(g, e, x, y, time, visualScale, minFont);
         }
     }
 

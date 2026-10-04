@@ -14,6 +14,16 @@ public final class EnemyArt {
     }
 
     public static void draw(Gfx g, Enemy e, double x, double y, double time) {
+        draw(g, e, x, y, time, 1, 0);
+    }
+
+    /**
+     * Zeichnet einen Gegner.
+     *
+     * @param visualScale Darstellungs-Vergrößerung (Trefferfläche bleibt gleich) – auf kleinen Bildschirmen > 1
+     * @param minFont     Mindest-Schriftgröße der HP-Zahl in Weltmaß (damit sie auf dem Handy lesbar bleibt)
+     */
+    public static void draw(Gfx g, Enemy e, double x, double y, double time, double visualScale, double minFont) {
         double r = e.radius;
         double spawn = Easing.outBack(Mathx.clamp01(e.age / 0.35));
         int c = Theme.enemyColor(e.hp);
@@ -22,7 +32,7 @@ public final class EnemyArt {
 
         g.save();
         g.translate(x, y);
-        g.scale(spawn, spawn);
+        g.scale(spawn * visualScale, spawn * visualScale);
         g.alpha(Math.min(1, e.age * 5));
 
         Neon.halo(g, 0, 0, r * 2.1, c, 0.16 + 0.22 * flash);
@@ -54,7 +64,7 @@ public final class EnemyArt {
         String label = HpLabel.of(e);
         int len = label.length();
         double size = len <= 2 ? r * 1.02 : (len == 3 ? r * 0.82 : r * 0.64);
-        size = Math.max(9, size);
+        size = Math.max(Math.max(9, minFont / visualScale), size);
         int tc = Colors.lerp(0xFFFFFF, c, 0.12);
         g.text(label, 0, e.type.shape == neontd.sim.EnemyType.Shape.TRIANGLE ? r * 0.05 : 0, size, tc,
                 Gfx.ALIGN_CENTER, true);

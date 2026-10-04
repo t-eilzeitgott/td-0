@@ -29,6 +29,7 @@ public final class WebMain {
     private int activePointer = -1;
     private boolean firstFrame = true;
     private int frameCounter;
+    private int errorCount;
 
     private WebMain(HTMLCanvasElement canvas, boolean touch) {
         this.canvas = canvas;
@@ -156,8 +157,15 @@ public final class WebMain {
         Window.requestAnimationFrame(new AnimationFrameCallback() {
             @Override
             public void onAnimationFrame(double timestampMs) {
-                frame(timestampMs);
+                // Den nächsten Frame zuerst einplanen: Ein einzelner Fehler darf das Spiel nicht einfrieren lassen.
                 Window.requestAnimationFrame(this);
+                try {
+                    frame(timestampMs);
+                } catch (Throwable t) {
+                    if (errorCount++ < 5) {
+                        Js.log("Fehler im Frame: " + t);
+                    }
+                }
             }
         });
     }
