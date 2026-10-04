@@ -16,14 +16,21 @@ public final class WaveDef {
         public final int hp;
         /** Pfadindex oder -1 für abwechselnd über alle Pfade. */
         public final int path;
+        /** Geld pro abgeschossenem Gegner (wächst im Endlosmodus mit den Lebenspunkten). */
+        public final int reward;
 
         public Group(EnemyType type, int count, double interval, double delay, int hp, int path) {
+            this(type, count, interval, delay, hp, path, type.reward);
+        }
+
+        public Group(EnemyType type, int count, double interval, double delay, int hp, int path, int reward) {
             this.type = type;
             this.count = count;
             this.interval = interval;
             this.delay = delay;
             this.hp = hp;
             this.path = path;
+            this.reward = reward;
         }
     }
 
@@ -33,6 +40,12 @@ public final class WaveDef {
 
     public WaveDef add(EnemyType type, int count, double interval, double delay, int hp) {
         groups.add(new Group(type, count, interval, delay, hp, -1));
+        return this;
+    }
+
+    /** Wie {@link #add(EnemyType, int, double, double, int)}, mit eigener Abschuss-Belohnung. */
+    public WaveDef add(EnemyType type, int count, double interval, double delay, int hp, int reward) {
+        groups.add(new Group(type, count, interval, delay, hp, -1, reward));
         return this;
     }
 
@@ -50,10 +63,10 @@ public final class WaveDef {
     }
 
     /** Summe der Lebenspunkte aller Gegner der Welle (ohne Splitter-Kinder) – für Balance-Auswertungen. */
-    public long totalHp() {
-        long n = 0;
+    public double totalHp() {
+        double n = 0;
         for (Group g : groups) {
-            n += (long) g.count * g.hp;
+            n += (double) g.count * g.hp;
         }
         return n;
     }

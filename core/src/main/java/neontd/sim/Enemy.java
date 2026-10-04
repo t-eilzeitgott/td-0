@@ -10,6 +10,8 @@ public final class Enemy {
     public final double radius;
     public final double baseSpeed;
     public final int maxHp;
+    /** Geld beim Abschuss. */
+    public final int reward;
 
     public int hp;
     public double dist;
@@ -33,7 +35,12 @@ public final class Enemy {
     public int hpLabelValue = -1;
 
     public Enemy(int id, EnemyType type, int pathIndex, int wave, int hp, double dist) {
+        this(id, type, pathIndex, wave, hp, dist, type.reward);
+    }
+
+    public Enemy(int id, EnemyType type, int pathIndex, int wave, int hp, double dist, int reward) {
         this.id = id;
+        this.reward = reward;
         this.type = type;
         this.pathIndex = pathIndex;
         this.wave = wave;

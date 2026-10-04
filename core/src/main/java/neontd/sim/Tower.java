@@ -2,6 +2,9 @@ package neontd.sim;
 
 /** Ein platzierter Turm mit Upgrade-Stufen und abgeleiteten Werten. */
 public final class Tower {
+    /** Obergrenze für den Schaden eines Treffers (bleibt weit unter dem int-Bereich). */
+    public static final int MAX_DAMAGE = 1_000_000_000;
+
     public final int id;
     public final TowerType type;
     public final double x;
@@ -38,10 +41,10 @@ public final class Tower {
     }
 
     public void recompute() {
-        range = type.range * UpgradeTrack.RANGE.mult[level[UpgradeTrack.RANGE.ordinal()]];
-        damage = Math.max(1, neontd.math.Mathx.roundToInt(
-                type.damage * UpgradeTrack.DAMAGE.mult[level[UpgradeTrack.DAMAGE.ordinal()]]));
-        interval = type.interval / UpgradeTrack.SPEED.mult[level[UpgradeTrack.SPEED.ordinal()]];
+        range = type.range * UpgradeTrack.RANGE.multAt(level[UpgradeTrack.RANGE.ordinal()]);
+        double dmg = type.damage * UpgradeTrack.DAMAGE.multAt(level[UpgradeTrack.DAMAGE.ordinal()]);
+        damage = dmg >= MAX_DAMAGE ? MAX_DAMAGE : Math.max(1, neontd.math.Mathx.roundToInt(dmg));
+        interval = type.interval / UpgradeTrack.SPEED.multAt(level[UpgradeTrack.SPEED.ordinal()]);
         slow = Math.max(0.25, TowerType.FROST_SLOW - TowerType.FROST_SLOW_PER_LEVEL * level[UpgradeTrack.DAMAGE.ordinal()]);
     }
 
@@ -49,11 +52,7 @@ public final class Tower {
         return level[t.ordinal()];
     }
 
-    public boolean maxed(UpgradeTrack t) {
-        return level[t.ordinal()] >= UpgradeTrack.MAX_LEVEL;
-    }
-
-    /** Anzahl aller gekauften Upgrade-Stufen (0..15). */
+    /** Anzahl aller gekauften Upgrade-Stufen (0..15 im normalen Spiel, mehr mit Meisterstufen). */
     public int totalLevels() {
         return level[0] + level[1] + level[2];
     }

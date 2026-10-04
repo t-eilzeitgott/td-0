@@ -1,6 +1,7 @@
 package neontd.sim;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import neontd.level.LevelDef;
 import neontd.math.Mathx;
@@ -32,6 +33,12 @@ public final class World {
     private static final double TURN_RATE = 16;
     private static final double AUTO_START_DELAY = 1.2;
     private static final int QUERY_CAP = 2048;
+    /** Obergrenze für das Geld (bleibt weit unter dem int-Bereich, damit Summen nie überlaufen). */
+    public static final int MAX_MONEY = 2_000_000_000;
+    /** Endlos: Die nächste Welle darf automatisch früher kommen, wenn von der letzten nur noch so viele übrig sind. */
+    public static final int EARLY_START_LEFT = 6;
+    /** Im Endlosmodus gibt jede so-vielte besiegte Welle ein verlorenes Leben zurück. */
+    public static final int LIFE_EVERY = 10;
 
     public enum State { RUNNING, WON, LOST }
 
@@ -40,7 +47,9 @@ public final class World {
 
     public final LevelDef level;
     public final Path[] paths;
-    public final List<WaveDef> waves;
+    /** Die bisher bekannten Wellen; im Endlosmodus wächst die Liste bei Bedarf (siehe {@link #waveAt}). */
+    private final ArrayList<WaveDef> waves;
+    private final int baseWaveCount;
     public final double width;
     public final double height;
 
@@ -56,14 +65,18 @@ public final class World {
     /** Anzahl bereits gestarteter Wellen (= Index der nächsten Welle). */
     public int waveIndex;
     public boolean autoStart;
+    /** Endlosmodus: Nach der letzten festen Welle kommen immer weitere, es gibt keinen Sieg mehr. */
+    public boolean endless;
 
     private final SimListener listener;
     private final SpatialHash hash;
     private final int[] query = new int[QUERY_CAP];
     private final Vec2 tmp = new Vec2();
-    private final int[] aliveByWave;
-    private final int[] spawnsLeft;
-    private final boolean[] cleared;
+    private int[] aliveByWave;
+    private int[] spawnsLeft;
+    private boolean[] cleared;
+    /** Kleinster Index einer Welle, die noch nicht besiegt ist (alles davor ist erledigt). */
+    private int firstOpen;
     private final ArrayList<Emitter> emitters = new ArrayList<>();
     private final double[] chainPts = new double[2 * (TowerType.ARC_CHAINS + 2)];
     private final int[] chainIds = new int[TowerType.ARC_CHAINS + 1];
@@ -95,22 +108,44 @@ public final class World {
         this.level = level;
         this.listener = listener == null ? SimListener.NONE : listener;
         this.paths = level.buildPaths();
-        this.waves = waves;
+        this.waves = new ArrayList<>(waves);
+        this.baseWaveCount = waves.size();
         this.width = level.width;
         this.height = level.height;
         this.money = level.startMoney;
         this.lives = level.startLives;
         this.hash = new SpatialHash(width, height, 64);
-        this.aliveByWave = new int[waves.size()];
-        this.spawnsLeft = new int[waves.size()];
-        this.cleared = new boolean[waves.size()];
+        int cap = Math.max(8, waves.size());
+        this.aliveByWave = new int[cap];
+        this.spawnsLeft = new int[cap];
+        this.cleared = new boolean[cap];
+    }
+
+    /** Wechselt in den Endlosmodus (auch mitten im Spiel, z. B. nach dem Sieg über die letzte feste Welle). */
+    public void enableEndless() {
+        endless = true;
+        if (state == State.WON) {
+            state = State.RUNNING;
+        }
     }
 
     // ------------------------------------------------------------------------------------------ Befehle
 
     /** Gibt es noch eine Welle, die gestartet werden kann? */
     public boolean canStartWave() {
-        return state == State.RUNNING && waveIndex < waves.size();
+        return state == State.RUNNING && (endless || waveIndex < waves.size());
+    }
+
+    /**
+     * Ist der Moment für die nächste Welle gekommen? Sonst-Fall: alle Wellen sind besiegt. Im Endlosmodus gilt das auch,
+     * sobald alles gespawnt ist und nur noch wenige Nachzügler laufen – so zieht sich eine Welle nicht endlos hin,
+     * weil ein langsamer Koloss noch über die Karte schleicht.
+     */
+    public boolean readyForNextWave() {
+        if (!canStartWave()) {
+            return false;
+        }
+        return activeWaves == 0 || (endless && emitters.isEmpty() && enemiesRemaining() <= EARLY_START_LEFT);
     }
 
     /** Startet die nächste Welle (auch während noch Gegner der vorigen unterwegs sind). */
@@ -119,7 +154,8 @@ public final class World {
             return false;
         }
         int w = waveIndex++;
-        WaveDef def = waves.get(w);
+        ensureWaveCapacity(w + 1);
+        WaveDef def = waveAt(w);
         int total = 0;
         for (WaveDef.Group g : def.groups) {
             emitters.add(new Emitter(g, w));
@@ -129,6 +165,23 @@ public final class World {
         activeWaves++;
         listener.onWaveStarted(w, def);
         return true;
+    }
+
+    /** Die Welle mit dem 0-basierten Index {@code i}; im Endlosmodus wird sie bei Bedarf erzeugt. */
+    public WaveDef waveAt(int i) {
+        while (endless && waves.size() <= i) {
+            waves.add(WaveFactory.wave(waves.size() + 1));
+        }
+        return waves.get(i);
+    }
+
+    private void ensureWaveCapacity(int n) {
+        if (n > aliveByWave.length) {
+            int cap = Math.max(n, aliveByWave.length * 2);
+            aliveByWave = Arrays.copyOf(aliveByWave, cap);
+            spawnsLeft = Arrays.copyOf(spawnsLeft, cap);
+            cleared = Arrays.copyOf(cleared, cap);
+        }
     }
 
     public PlaceCheck checkPlacement(double x, double y) {
@@ -171,7 +224,12 @@ public final class World {
     /** Preis der nächsten Stufe oder -1, wenn die Kategorie voll ausgebaut ist. */
     public int upgradeCost(Tower t, UpgradeTrack track) {
         int lvl = t.level(track);
-        return lvl >= UpgradeTrack.MAX_LEVEL ? -1 : track.cost(t.type, lvl);
+        return lvl >= maxLevel(track) ? -1 : track.cost(t.type, lvl);
+    }
+
+    /** Höchste Stufe einer Kategorie: im Endlosmodus mit Meisterstufen. */
+    public int maxLevel(UpgradeTrack track) {
+        return track.maxLevel(endless);
     }
 
     public boolean upgrade(Tower t, UpgradeTrack track) {
@@ -180,7 +238,7 @@ public final class World {
             return false;
         }
         money -= cost;
-        t.invested += cost;
+        t.invested = (int) Math.min(MAX_MONEY, (double) t.invested + cost);
         t.level[track.ordinal()]++;
         t.recompute();
         listener.onTowerUpgraded(t, track);
@@ -191,12 +249,18 @@ public final class World {
         return (int) (t.invested * SELL_RATIO);
     }
 
+    /** Schreibt Geld gut, ohne dass die Summe das Limit überschreitet. */
+    public void addMoney(int amount) {
+        double m = (double) money + amount;
+        money = m >= MAX_MONEY ? MAX_MONEY : (int) m;
+    }
+
     public void sell(Tower t) {
         if (state != State.RUNNING || !towers.remove(t)) {
             return;
         }
         int refund = sellValue(t);
-        money += refund;
+        addMoney(refund);
         listener.onTowerSold(t, refund);
     }
 
@@ -218,7 +282,7 @@ public final class World {
     // --------------------------------------------------------------------------------------- Abfragen
 
     public WaveDef nextWave() {
-        return waveIndex < waves.size() ? waves.get(waveIndex) : null;
+        return canStartWave() ? waveAt(waveIndex) : null;
     }
 
     /** Wellen, die gestartet, aber noch nicht besiegt sind. */
@@ -229,14 +293,15 @@ public final class World {
     /** Lebende Gegner plus noch nicht erschienene aus den gestarteten Wellen. */
     public int enemiesRemaining() {
         int n = 0;
-        for (int w = 0; w < waveIndex; w++) {
+        for (int w = firstOpen; w < waveIndex; w++) {
             n += aliveByWave[w] + spawnsLeft[w];
         }
         return n;
     }
 
+    /** Anzahl der festen Wellen des Levels (im Endlosmodus kommen weitere hinzu). */
     public int totalWaves() {
-        return waves.size();
+        return baseWaveCount;
     }
 
     // ------------------------------------------------------------------------------------ Simulation
@@ -263,7 +328,7 @@ public final class World {
     }
 
     private void updateAutoStart() {
-        if (autoStart && canStartWave() && activeWaves == 0) {
+        if (autoStart && readyForNextWave()) {
             autoTimer += STEP;
             if (autoTimer >= AUTO_START_DELAY) {
                 autoTimer = 0;
@@ -294,11 +359,11 @@ public final class World {
         int pathIndex = g.path >= 0 ? g.path % paths.length : em.index % paths.length;
         em.index++;
         spawnsLeft[em.wave]--;
-        addEnemy(g.type, pathIndex, em.wave, g.hp, 0);
+        addEnemy(g.type, pathIndex, em.wave, g.hp, 0, g.reward);
     }
 
-    private Enemy addEnemy(EnemyType type, int pathIndex, int wave, int hp, double dist) {
-        Enemy e = new Enemy(nextId++, type, pathIndex, wave, hp, dist);
+    private Enemy addEnemy(EnemyType type, int pathIndex, int wave, int hp, double dist, int reward) {
+        Enemy e = new Enemy(nextId++, type, pathIndex, wave, hp, dist, reward);
         Path p = paths[pathIndex];
         p.positionAt(dist, tmp);
         e.x = tmp.x;
@@ -689,9 +754,9 @@ public final class World {
             }
             e.alive = false;
             kills++;
-            money += e.type.reward;
+            addMoney(e.reward);
             aliveByWave[e.wave]--;
-            listener.onEnemyKilled(e, e.type.reward);
+            listener.onEnemyKilled(e, e.reward);
             if (e.type.splitCount > 0) {
                 spawnChildren(e);
             }
@@ -701,10 +766,11 @@ public final class World {
     /** Splitter zerfallen in Minis, die leicht versetzt entlang des Pfades erscheinen. */
     private void spawnChildren(Enemy parent) {
         int hp = Math.max(1, Mathx.roundToInt(parent.maxHp * 0.30));
+        int reward = Math.max(1, Mathx.roundToInt(EnemyType.MINI.reward * (double) parent.reward / parent.type.reward));
         for (int i = 0; i < parent.type.splitCount; i++) {
             double offset = (i - (parent.type.splitCount - 1) * 0.5) * 16;
             double d = Mathx.clamp(parent.dist + offset, 0, paths[parent.pathIndex].length() - 1);
-            addEnemy(EnemyType.MINI, parent.pathIndex, parent.wave, hp, d);
+            addEnemy(EnemyType.MINI, parent.pathIndex, parent.wave, hp, d, reward);
         }
     }
 
@@ -722,16 +788,22 @@ public final class World {
     }
 
     private void checkWaves() {
-        for (int w = 0; w < waveIndex; w++) {
+        for (int w = firstOpen; w < waveIndex; w++) {
             if (!cleared[w] && spawnsLeft[w] == 0 && aliveByWave[w] == 0) {
                 cleared[w] = true;
                 activeWaves--;
                 int bonus = waves.get(w).bonus;
-                money += bonus;
+                addMoney(bonus);
+                if (endless && (w + 1) % LIFE_EVERY == 0 && lives > 0 && lives < level.startLives) {
+                    lives++;
+                }
                 listener.onWaveCleared(w, bonus);
             }
         }
-        if (state == State.RUNNING && lives > 0 && waveIndex >= waves.size() && activeWaves == 0) {
+        while (firstOpen < waveIndex && cleared[firstOpen]) {
+            firstOpen++;
+        }
+        if (state == State.RUNNING && !endless && lives > 0 && waveIndex >= waves.size() && activeWaves == 0) {
             state = State.WON;
             listener.onGameEnded(true);
         }

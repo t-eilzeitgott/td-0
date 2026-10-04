@@ -41,7 +41,7 @@ public final class AutoPlayer {
         if (world.state != World.State.RUNNING) {
             return;
         }
-        if (startWaves && world.canStartWave() && world.activeWaves() == 0) {
+        if (startWaves && world.readyForNextWave()) {
             world.startNextWave();
         }
         for (int guard = 0; guard < 4; guard++) {
@@ -56,7 +56,7 @@ public final class AutoPlayer {
      * ein Turm, wird dafür gespart; sonst fließt das Geld in Upgrades.
      */
     private boolean buyOne() {
-        int desired = Math.min(maxTowers, 3 + world.waveIndex / 2);
+        int desired = Math.min(maxTowers, world.endless ? 3 + world.waveIndex : 3 + world.waveIndex / 2);
         TowerType next = order[buildIndex % order.length];
         if (world.towers.size() < desired && stuck < 3) {
             if (world.money < next.cost) {
@@ -77,6 +77,9 @@ public final class AutoPlayer {
 
     /** Verbessert die günstigste sinnvolle Stufe; bevorzugt Schaden, dann Tempo, dann Reichweite. */
     private boolean upgradeOne() {
+        if (world.endless) {
+            return upgradeOneEndless();
+        }
         Tower bestTower = null;
         UpgradeTrack bestTrack = null;
         double bestScore = -1;
@@ -90,6 +93,35 @@ public final class AutoPlayer {
                 double value = track == UpgradeTrack.DAMAGE ? 1.0 : (track == UpgradeTrack.SPEED ? 0.9 : 0.45);
                 // Gleichmäßig ausbauen: niedrige Stufen und günstige Preise zählen mehr.
                 double score = value / (1 + t.level(track)) / Math.sqrt(cost);
+                if (score > bestScore) {
+                    bestScore = score;
+                    bestTower = t;
+                    bestTrack = track;
+                }
+            }
+        }
+        return bestTower != null && world.upgrade(bestTower, bestTrack);
+    }
+
+    /**
+     * Endlosmodus: Die Preise der Meisterstufen wachsen exponentiell, der Zugewinn je Stufe bleibt gleich. Darum
+     * zählt der relative Zugewinn pro Preis – so wird über alle Türme hinweg das günstigste Plus gekauft.
+     */
+    private boolean upgradeOneEndless() {
+        Tower bestTower = null;
+        UpgradeTrack bestTrack = null;
+        double bestScore = -1;
+        for (int i = 0; i < world.towers.size(); i++) {
+            Tower t = world.towers.get(i);
+            for (UpgradeTrack track : UpgradeTrack.values()) {
+                int cost = world.upgradeCost(t, track);
+                if (cost < 0 || cost > world.money) {
+                    continue;
+                }
+                int lvl = t.level(track);
+                double gain = track.multAt(lvl + 1) / track.multAt(lvl) - 1;
+                double weight = track == UpgradeTrack.DAMAGE ? 1.0 : (track == UpgradeTrack.SPEED ? 0.95 : 0.3);
+                double score = weight * gain / cost;
                 if (score > bestScore) {
                     bestScore = score;
                     bestTower = t;
