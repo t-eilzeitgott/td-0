@@ -161,7 +161,7 @@ console.log('2. iPhone quer: kompaktes Layout, Spielen, Speichern, Fortsetzen ‚Ä
     const [sx, sy] = xy(await call(page, `spot ${wx},${wy}`));
     const [px, py] = xy(await call(page, `world ${sx},${sy}`));
     const [fx, fy] = await anchor(page, 'tile0');
-    await t.drag(fx, fy, px, py + 56 * u);
+    await t.drag(fx, fy, px, py + 34 * u);
     await t.tap(...(await anchor(page, 'confirm')));
   }
   s = await state(page);
@@ -170,7 +170,7 @@ console.log('2. iPhone quer: kompaktes Layout, Spielen, Speichern, Fortsetzen ‚Ä
   // Gesperrte T√ºrme lassen sich nicht bauen
   const [lx, ly] = await anchor(page, 'tile1');
   const [spx, spy] = xy(await call(page, `world ${(await call(page, 'spot 900,300'))}`));
-  await t.drag(lx, ly, spx, spy + 56 * u);
+  await t.drag(lx, ly, spx, spy + 34 * u);
   check((await state(page)).towers === '3', 'gesperrter SNIPER l√§sst sich auf Level 1 nicht bauen');
 
   const [stx, sty] = await anchor(page, 'start');
@@ -247,7 +247,7 @@ console.log('3. iPhone hoch: gedrehte Karte ‚Ä¶');
     const [sx, sy] = xy(await call(page, `spot ${wx},${wy}`));
     const [px, py] = xy(await call(page, `world ${sx},${sy}`));
     const [fx, fy] = await anchor(page, 'tile' + tile);
-    await t.drag(fx, fy, px, py + 56 * u);
+    await t.drag(fx, fy, px, py + 34 * u);
     await t.tap(...(await anchor(page, 'confirm')));
     const [tx, ty] = xy(await call(page, 'tower'));
     ok = ok && Math.abs(tx - sx) < 1.5 && Math.abs(ty - sy) < 1.5;

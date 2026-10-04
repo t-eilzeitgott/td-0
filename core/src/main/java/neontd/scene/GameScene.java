@@ -852,6 +852,12 @@ public final class GameScene extends Scene {
         }
     }
 
+    /**
+     * Wie weit (in UI-Einheiten) der Turm beim ersten Ziehen über dem Finger schwebt, damit der Finger ihn nicht verdeckt.
+     * Danach wird er relativ verschoben (wie ein Trackpad): Der Finger kann irgendwo liegen und den Turm feinfühlig führen.
+     */
+    public static final double TOUCH_LIFT = 34;
+
     private static final double CONFIRM_DX = 62;
 
     /** Mittelpunkt und Radius der Bestätigungsknöpfe (Bildschirm): {haken x, y, abbruch x, y, radius}. */
@@ -1649,19 +1655,18 @@ public final class GameScene extends Scene {
             double wy = toWorldY(x, y);
             if (placing != null) {
                 if (pending && touch && ghostOnMap) {
+                    // Relatives Ziehen: Der Turm behält seinen Abstand zum Finger und bewegt sich 1:1 mit, egal wo der
+                    // Finger aufsetzt – kein Sprung, und der Finger verdeckt den Turm nicht.
                     double gsx = lay.screenX(ghostX, ghostY, world.height);
                     double gsy = lay.screenY(ghostX, ghostY);
-                    if (Mathx.dist(x, y, gsx, gsy) <= 64 * Math.max(app.vp.u, 1.05)) {
-                        // Den schwebenden Turm direkt anfassen: er bleibt unter dem Finger, ohne zu springen.
-                        grabbing = true;
-                        grabDX = gsx - x;
-                        grabDY = gsy - y;
-                        return;
-                    }
+                    grabbing = true;
+                    grabDX = gsx - x;
+                    grabDY = gsy - y;
+                    return;
                 }
                 grabbing = false;
                 pending = false;
-                updateGhost(x, y, touch ? 56 * app.vp.u : 0);
+                updateGhost(x, y, touch ? TOUCH_LIFT * app.vp.u : 0);
                 return;
             }
             Tower hit = world.towerAt(wx, wy, 18 / lay.mapScale);
@@ -1721,7 +1726,7 @@ public final class GameScene extends Scene {
                 }
             }
             if (dragging) {
-                updateGhost(x, y, touch ? 56 * u : 0);
+                updateGhost(x, y, touch ? TOUCH_LIFT * u : 0);
             }
             return;
         }
@@ -1730,7 +1735,7 @@ public final class GameScene extends Scene {
                 if (grabbing) {
                     updateGhost(x + grabDX, y + grabDY, 0);
                 } else {
-                    updateGhost(x, y, 56 * u);
+                    updateGhost(x, y, TOUCH_LIFT * u);
                 }
             } else if (!touch) {
                 updateGhost(x, y, 0);
@@ -1765,7 +1770,7 @@ public final class GameScene extends Scene {
             }
             if (dragging) {
                 dragging = false;
-                double offset = touch ? 56 * app.vp.u : 0;
+                double offset = touch ? TOUCH_LIFT * app.vp.u : 0;
                 updateGhost(x, y, offset);
                 if (touch && ghostOnMap) {
                     // Finger weg: Der Turm schwebt weiter und wartet auf den Haken (verschieben geht per Ziehen auf der Karte).

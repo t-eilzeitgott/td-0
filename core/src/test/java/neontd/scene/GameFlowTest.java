@@ -52,7 +52,7 @@ class GameFlowTest {
     private static void dragTile(Harness h, GameScene gs, int tile, double wx, double wy) {
         double[] from = gs.anchor("tile" + tile);
         double[] to = gs.anchor("world:" + wx + "," + wy);
-        h.drag(from[0], from[1], to[0], to[1] + (h.touch ? 56 * h.app.vp.u : 0));
+        h.drag(from[0], from[1], to[0], to[1] + (h.touch ? GameScene.TOUCH_LIFT * h.app.vp.u : 0));
         confirmIfFloating(h, gs);
     }
 
@@ -102,13 +102,13 @@ class GameFlowTest {
         double[] spot = validSpot(w, 400, 250);
         double[] from = gs.anchor("tile0");
         double[] to = gs.anchor("world:" + spot[0] + "," + spot[1]);
-        h.drag(from[0], from[1], to[0], to[1] + 56 * h.app.vp.u);
+        h.drag(from[0], from[1], to[0], to[1] + GameScene.TOUCH_LIFT * h.app.vp.u);
         assertEquals(0, w.towers.size(), "nach dem Loslassen noch nicht gebaut");
         // Verschieben: erneut auf die Karte ziehen
         double[] spot2 = validSpot(w, 800, 400);
         double[] to2 = gs.anchor("world:" + spot2[0] + "," + spot2[1]);
         // Den schwebenden Turm direkt anfassen und ziehen: kein Sprung, er folgt dem Finger genau.
-        h.drag(to[0], to[1] + 56 * h.app.vp.u - 56 * h.app.vp.u, to2[0], to2[1]);
+        h.drag(to[0], to[1] + GameScene.TOUCH_LIFT * h.app.vp.u - GameScene.TOUCH_LIFT * h.app.vp.u, to2[0], to2[1]);
         assertEquals(0, w.towers.size());
         h.tap(gs.anchor("confirm"));
         assertEquals(1, w.towers.size());
@@ -116,11 +116,34 @@ class GameFlowTest {
         // Antippen der Karte setzt ebenfalls nur die Vorschau; Abbrechen baut nichts
         h.tap(gs.anchor("tile0"));
         double[] p3 = gs.anchor("world:" + validSpot(w, 300, 250)[0] + "," + validSpot(w, 300, 250)[1]);
-        h.tap(p3[0], p3[1] + 56 * h.app.vp.u);
+        h.tap(p3[0], p3[1] + GameScene.TOUCH_LIFT * h.app.vp.u);
         assertEquals(1, w.towers.size());
         h.tap(gs.anchor("cancel"));
         assertEquals(1, w.towers.size());
         assertNull(gs.anchor("confirm"));
+    }
+
+    @Test
+    void floatingTowerMovesRelativeToTheFingerFromAnywhere() {
+        Harness h = new Harness(393, 852, true, 0, 47, 0, 34);
+        GameScene gs = open(h);
+        World w = gs.testWorld();
+        double[] spot = validSpot(w, 400, 250);
+        double[] from = gs.anchor("tile0");
+        double[] to = gs.anchor("world:" + spot[0] + "," + spot[1]);
+        h.drag(from[0], from[1], to[0], to[1] + GameScene.TOUCH_LIFT * h.app.vp.u);
+        // Finger setzt weit entfernt vom Turm auf und zieht um dieselbe Strecke, die der Turm zum Ziel braucht.
+        double[] spot2 = validSpot(w, 800, 400);
+        double[] to2 = gs.anchor("world:" + spot2[0] + "," + spot2[1]);
+        double dx = to2[0] - to[0];
+        double dy = to2[1] - to[1];
+        double fx = to[0] - 120;
+        double fy = to[1] + 200;
+        h.drag(fx, fy, fx + dx, fy + dy);
+        h.tap(gs.anchor("confirm"));
+        assertEquals(1, w.towers.size());
+        assertEquals(spot2[0], w.towers.get(0).x, 2.0);
+        assertEquals(spot2[1], w.towers.get(0).y, 2.0);
     }
 
     @Test
@@ -288,14 +311,14 @@ class GameFlowTest {
         double[] spot = validSpot(w, 400, 250);
         double[] tile = gs.anchor("tile0");
         double[] to = gs.anchor("world:" + spot[0] + "," + spot[1]);
-        h.drag(tile[0], tile[1], to[0], to[1] + 56 * h.app.vp.u);
+        h.drag(tile[0], tile[1], to[0], to[1] + GameScene.TOUCH_LIFT * h.app.vp.u);
         assertEquals(0, w.towers.size());
         // Zustand bleibt gemerkt
         assertEquals("0", h.store.get("neontd.ui.rail"));
         h.tap(t[0], t[1]);
         h.run(1.0);
         assertTrue(lay.open > 0.99);
-        h.drag(tile[0], tile[1], to[0], to[1] + 56 * h.app.vp.u);
+        h.drag(tile[0], tile[1], to[0], to[1] + GameScene.TOUCH_LIFT * h.app.vp.u);
         confirmIfFloating(h, gs);
         assertEquals(1, w.towers.size());
         // Neue Szene übernimmt die Wahl

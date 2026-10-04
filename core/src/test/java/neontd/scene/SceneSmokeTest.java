@@ -187,7 +187,7 @@ class SceneSmokeTest {
         double[] spot = GameFlowTest.validSpot(gs.testWorld(), 400, 250);
         double[] from = gs.anchor("tile0");
         double[] to = gs.anchor("world:" + spot[0] + "," + spot[1]);
-        h.drag(from[0], from[1], to[0], to[1] + 56 * h.app.vp.u);
+        h.drag(from[0], from[1], to[0], to[1] + GameScene.TOUCH_LIFT * h.app.vp.u);
         h.tap(gs.anchor("confirm"));
         assertEquals(1, gs.testWorld().towers.size());
         double[] start = gs.anchor("start");

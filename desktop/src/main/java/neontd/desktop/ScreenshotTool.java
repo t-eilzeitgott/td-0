@@ -204,7 +204,7 @@ public final class ScreenshotTool {
                     double[] a = gs.anchor(p[1]);
                     double[] b = gs.anchor("world:" + p[2] + "," + p[3]);
                     // Auf dem Finger-Gerät schwebt die Vorschau 56 Einheiten über dem Finger (siehe GameScene).
-                    double lift = touch ? 56 * app.vp.u : 0;
+                    double lift = touch ? neontd.scene.GameScene.TOUCH_LIFT * app.vp.u : 0;
                     run("drag " + a[0] + " " + a[1] + " " + b[0] + " " + (b[1] + lift) + " " + p[4]);
                     double[] ok = touch ? gs.anchor("confirm") : null;
                     if (ok != null) {
