@@ -33,8 +33,8 @@ public final class World {
     private static final double TURN_RATE = 16;
     private static final double AUTO_START_DELAY = 1.2;
     private static final int QUERY_CAP = 2048;
-    /** Obergrenze für das Geld (bleibt weit unter dem int-Bereich, damit Summen nie überlaufen). */
-    public static final int MAX_MONEY = 2_000_000_000;
+    /** Obergrenze für das Geld: der größte int-Wert (2.147.483.647); Summen werden in double gerechnet und gekappt. */
+    public static final int MAX_MONEY = Integer.MAX_VALUE;
     /** Endlos: Die nächste Welle darf automatisch früher kommen, wenn von der letzten nur noch so viele übrig sind. */
     public static final int EARLY_START_LEFT = 6;
     /** Im Endlosmodus gibt jede so-vielte besiegte Welle ein verlorenes Leben zurück. */
