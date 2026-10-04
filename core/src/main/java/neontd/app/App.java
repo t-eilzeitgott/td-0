@@ -5,6 +5,9 @@ import neontd.gfx.Neon;
 import neontd.level.LevelStore;
 import neontd.math.Mathx;
 import neontd.platform.Platform;
+import neontd.progress.Progress;
+import neontd.save.GistSync;
+import neontd.save.SaveStore;
 import neontd.scene.MenuScene;
 import neontd.scene.Scene;
 import neontd.ui.Transition;
@@ -18,6 +21,12 @@ import neontd.ui.Viewport;
 public final class App {
     public final Platform platform;
     public final LevelStore levels;
+    /** Profil, Läufe und Cloud-Einstellungen im lokalen Speicher. */
+    public final SaveStore saves;
+    /** Das Spielerprofil (im Speicher gehalten; {@link #commitProgress} schreibt es weg). */
+    public final Progress progress;
+    /** Abgleich mit dem privaten GitHub-Gist des Spielers (inaktiv, solange nicht verbunden). */
+    public final GistSync cloud;
     public final Viewport vp = new Viewport();
     /** Laufzeit in Sekunden – für Animationen. */
     public double time;
@@ -29,11 +38,30 @@ public final class App {
     private double slowFor;
     private double fastFor;
     private boolean started;
+    private double cloudTick;
 
     public App(Platform platform) {
         this.platform = platform;
-        this.levels = new LevelStore(platform.store());
+        this.saves = new SaveStore(platform.store(), platform::nowMillis);
+        this.levels = new LevelStore(platform.store(), platform::nowMillis);
+        this.progress = saves.loadProgress();
+        this.cloud = new GistSync(platform.http(), saves, levels, progress);
         this.scene = new MenuScene(this);
+    }
+
+    /** Schreibt das Profil weg und merkt es für den nächsten Cloud-Abgleich vor. */
+    public void commitProgress() {
+        saves.saveProgress(progress);
+        cloud.markDirty();
+    }
+
+    /**
+     * Die Seite/Anwendung wird unsichtbar oder beendet (Browser: Tab-Wechsel, Home-Taste am iPhone): Stand sichern
+     * und – wenn verbunden – sofort in die Cloud schieben. Auf dem iPhone ist das oft die einzige Gelegenheit.
+     */
+    public void suspend() {
+        scene.onSuspend();
+        cloud.flush();
     }
 
     public Scene scene() {
@@ -45,6 +73,9 @@ public final class App {
         vp.set(w, h, insetL, insetT, insetR, insetB);
         if (!started) {
             started = true;
+            if (cloud.connected()) {
+                cloud.sync();
+            }
             scene.layout();
             scene.onEnter();
         } else {
@@ -75,6 +106,11 @@ public final class App {
         last = nowSeconds;
         time += dt;
         governQuality(dt);
+        cloudTick += dt;
+        if (cloudTick >= 1) {
+            cloudTick = 0;
+            cloud.tick();
+        }
         transition.update(dt);
         scene.update(dt);
     }

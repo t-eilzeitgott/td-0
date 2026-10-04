@@ -50,7 +50,7 @@ public final class Effects {
 
     private static String moneyText(int v) {
         if (v < 0 || v >= MONEY_TEXT.length) {
-            return "+" + v;
+            return "+" + neontd.ui.Fmt.compact(v);
         }
         if (MONEY_TEXT[v] == null) {
             MONEY_TEXT[v] = "+" + v;

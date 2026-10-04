@@ -21,6 +21,10 @@ public abstract class Scene {
     public void onExit() {
     }
 
+    /** Die Anwendung wird unsichtbar oder beendet: Zustand sichern, was sonst verloren ginge. */
+    public void onSuspend() {
+    }
+
     public abstract void update(double dt);
 
     public abstract void render(Gfx g);
@@ -44,6 +48,11 @@ public abstract class Scene {
     /** Taste gedrückt (Code wie im Browser: "Escape", "Space", "Digit1", "KeyZ" …). @return behandelt? */
     public boolean key(String code, boolean ctrl) {
         return false;
+    }
+
+    /** Bildschirmposition eines Weltpunkts (Karten-Szenen) – für Screenshot-Werkzeug und Tests, sonst {@code null}. */
+    public double[] worldToScreen(double wx, double wy) {
+        return null;
     }
 
     /** Zurück-Geste / Escape. @return behandelt? */

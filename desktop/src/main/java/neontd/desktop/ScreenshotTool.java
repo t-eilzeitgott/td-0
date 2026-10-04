@@ -69,6 +69,15 @@ public final class ScreenshotTool {
                 app.goTo(new neontd.scene.GameScene(app, rich));
                 break;
             }
+            case "endless": {
+                neontd.level.LevelDef rich = neontd.level.Levels.serpentine().copy();
+                rich.startMoney = 6000;
+                app.goTo(neontd.scene.GameScene.endless(app, rich));
+                break;
+            }
+            case "profile":
+                app.goTo(new neontd.scene.ProfileScene(app));
+                break;
             case "select":
                 app.goTo(new neontd.scene.LevelSelectScene(app));
                 break;
@@ -168,6 +177,48 @@ public final class ScreenshotTool {
                     }
                     app.pointerUp(x2, y2, touch);
                     advance(0.05);
+                    break;
+                }
+                case "level": {
+                    // Profil auf ein bestimmtes Spielerlevel setzen (schaltet Türme frei)
+                    int lv = Integer.parseInt(p[1]);
+                    app.progress.xp = neontd.progress.Progress.xpAtLevel(lv) + 10;
+                    break;
+                }
+                case "anchor": {
+                    // anchor click|hold|up NAME  – Bedienelement der Spielszene ansteuern
+                    double[] a = ((neontd.scene.GameScene) app.scene()).anchor(p[2]);
+                    if (a == null) {
+                        throw new IllegalArgumentException("Unbekannter Anker: " + p[2]);
+                    }
+                    run(p[1] + " " + a[0] + " " + a[1]);
+                    break;
+                }
+                case "dragto": {
+                    // dragto NAME wx wy sec  – von einem Bedienelement auf einen Weltpunkt ziehen
+                    neontd.scene.GameScene gs = (neontd.scene.GameScene) app.scene();
+                    double[] a = gs.anchor(p[1]);
+                    double[] b = gs.anchor("world:" + p[2] + "," + p[3]);
+                    // Auf dem Finger-Gerät schwebt die Vorschau 56 Einheiten über dem Finger (siehe GameScene).
+                    double lift = touch ? 56 * app.vp.u : 0;
+                    run("drag " + a[0] + " " + a[1] + " " + b[0] + " " + (b[1] + lift) + " " + p[4]);
+                    break;
+                }
+                case "wclick": {
+                    double[] b = app.scene().worldToScreen(Double.parseDouble(p[1]), Double.parseDouble(p[2]));
+                    run("click " + b[0] + " " + b[1]);
+                    break;
+                }
+                case "wdrag": {
+                    // wdrag wx1 wy1 wx2 wy2 sec  – zwischen zwei Weltpunkten ziehen
+                    double[] a = app.scene().worldToScreen(Double.parseDouble(p[1]), Double.parseDouble(p[2]));
+                    double[] b = app.scene().worldToScreen(Double.parseDouble(p[3]), Double.parseDouble(p[4]));
+                    run("drag " + a[0] + " " + a[1] + " " + b[0] + " " + b[1] + " " + p[5]);
+                    break;
+                }
+                case "tap": {
+                    // tap NAME  – Schaltfläche der Spielszene antippen (siehe GameScene.anchor)
+                    run("anchor click " + p[1]);
                     break;
                 }
                 case "key":

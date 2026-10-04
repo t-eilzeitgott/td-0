@@ -17,7 +17,10 @@ public final class HpLabel {
         if (hp < 1000000) {
             return (hp / 1000) + "K";
         }
-        return (hp / 1000000) + "." + ((hp % 1000000) / 100000) + "M";
+        if (hp < 1000000000) {
+            return hp < 10000000 ? (hp / 1000000) + "." + ((hp % 1000000) / 100000) + "M" : (hp / 1000000) + "M";
+        }
+        return (hp / 1000000000) + "." + ((hp % 1000000000) / 100000000) + "B";
     }
 
     /** Beschriftung des Gegners; wird nur neu gebaut, wenn sich die Lebenspunkte geändert haben. */

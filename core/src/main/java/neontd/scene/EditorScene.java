@@ -63,9 +63,14 @@ public final class EditorScene extends Scene {
     private boolean confirming;
 
     // Layout
-    private double mapX;
-    private double mapY;
-    private double mapScale = 1;
+    private final MapView view = new MapView();
+    private boolean compact;
+    private boolean railWanted = true;
+    private final Smooth railT = new Smooth(1, 11);
+    private double laidOutRail = -1;
+    private Button toggleBtn;
+    private final double[] pill = new double[4];
+    private static final String RAIL_KEY = "neontd.ui.editorRail";
     private double panelX;
     private double panelY;
     private double panelW;
@@ -147,6 +152,8 @@ public final class EditorScene extends Scene {
         testBtn = ui.add(new Button("TESTEN", Icon.PLAY, Theme.GREEN, this::testPlay));
         saveBtn = ui.add(new Button("SPEICHERN", Icon.SAVE, Theme.CYAN, () -> save(true)));
         backBtn = ui.add(new Button("ZURÜCK", Icon.BACK, Theme.TEXT_DIM, this::leave));
+        toggleBtn = ui.add(new Button("", Icon.UP, Theme.TEXT_DIM, this::toggleRail));
+        toggleBtn.painter = this::paintToggle;
         testBtn.fontScale = 0.8;
         saveBtn.fontScale = 0.8;
         backBtn.fontScale = 0.8;
@@ -155,6 +162,26 @@ public final class EditorScene extends Scene {
         for (int i = 0; i < ui.buttons.size(); i++) {
             ui.buttons.get(i).appearAfter(0.05 + i * 0.03);
         }
+        railWanted = !"0".equals(app.platform.store().get(RAIL_KEY));
+        railT.snap(railWanted ? 1 : 0);
+    }
+
+    private void toggleRail() {
+        railWanted = !railWanted;
+        app.platform.store().put(RAIL_KEY, railWanted ? "1" : "0");
+    }
+
+    private void paintToggle(Gfx g, Button b) {
+        double w = b.w;
+        double h = b.h;
+        double hv = b.hover.value;
+        g.fillRoundRect(-w / 2, -h / 2, w, h, h * 0.25, Colors.withAlpha(Theme.PANEL, 0.95));
+        Neon.roundRect(g, -w / 2, -h / 2, w, h, h * 0.25, 1.5, Colors.withAlpha(Theme.TEXT_DIM, 0.8 + 0.2 * hv), 2 + 4 * hv);
+        double ang = portrait ? (railWanted ? Math.PI : 0) : (railWanted ? -Math.PI / 2 : Math.PI / 2);
+        g.save();
+        g.rotate(ang);
+        Icons.draw(g, Icon.UP, 0, 0, Math.min(w, h) * 0.28, Theme.TEXT_DIM, 0);
+        g.restore();
     }
 
     private void paintTool(Gfx g, Button b, int idx, String label, Icon icon, int color) {
@@ -206,9 +233,24 @@ public final class EditorScene extends Scene {
     @Override
     public void layout() {
         Viewport vp = app.vp;
+        compact = GameLayout.isCompact(vp);
+        portrait = !vp.landscape();
+        if (compact) {
+            compactLayout();
+            layoutConfirm();
+            return;
+        }
+        toggleBtn.visible = false;
+        testBtn.label = "TESTEN";
+        saveBtn.label = "SPEICHERN";
+        backBtn.label = "ZURÜCK";
+        for (Button b : ui.buttons) {
+            if (b != toggleBtn) {
+                b.visible = true;
+            }
+        }
         double u = vp.u;
         double m = 8 * u;
-        portrait = !vp.landscape();
         double mapAvX;
         double mapAvY;
         double mapAvW;
@@ -233,9 +275,7 @@ public final class EditorScene extends Scene {
             panelW = mapAvW;
             panelH = vp.h - vp.insetB - m - panelY;
         }
-        mapScale = Math.min(mapAvW / level.width, mapAvH / level.height);
-        mapX = mapAvX + (mapAvW - level.width * mapScale) / 2;
-        mapY = mapAvY + (mapAvH - level.height * mapScale) / 2;
+        view.fit(mapAvX, mapAvY, mapAvW, mapAvH, level.width, level.height, false);
 
         // Panel: Kopf, Werkzeuge, Pfad-Chips, Aktionen, Test/Speichern, Zurück
         double gap = 6 * u;
@@ -266,6 +306,76 @@ public final class EditorScene extends Scene {
         layoutConfirm();
     }
 
+    /** Handy: schmale Kacheln statt Seitenpanel; im Hochformat gedrehte Karte. Die Werkzeug-Gruppe klappt ein. */
+    private void compactLayout() {
+        Viewport vp = app.vp;
+        double k = Math.max(vp.u, 0.95);
+        double m = 5 * k;
+        double gap = 4 * k;
+        double sx0 = vp.insetL + m;
+        double sx1 = vp.w - vp.insetR - m;
+        double sy0 = vp.insetT + m;
+        double sy1 = vp.h - vp.insetB - m;
+        double open = railT.value;
+        laidOutRail = open;
+        for (Button b : ui.buttons) {
+            b.visible = true;
+        }
+        toggleBtn.visible = true;
+        testBtn.label = "";
+        saveBtn.label = "";
+        backBtn.label = "";
+        boolean toolsVisible = open > 0.02;
+        for (Button b : toolBtns) {
+            b.visible = toolsVisible;
+        }
+        for (Button b : chipBtns) {
+            b.visible = toolsVisible;
+        }
+        if (!portrait) {
+            double availH = sy1 - sy0;
+            double th = Math.min(46 * k, (availH - 6 * gap) / 7);
+            double tw = Math.min(46 * k, th * 1.05 + 6 * k);
+            double colB = sx1 - tw;
+            double colA = colB - gap - tw;
+            Button[] actions = {toggleBtn, undoBtn, redoBtn, clearBtn, testBtn, saveBtn, backBtn};
+            for (int i = 0; i < actions.length; i++) {
+                actions[i].bounds(colB, sy0 + i * (th + gap), tw, th);
+            }
+            Button[] tools = {toolBtns[0], toolBtns[1], toolBtns[2], chipBtns[0], chipBtns[1], chipBtns[2], chipBtns[3]};
+            for (int i = 0; i < tools.length; i++) {
+                tools[i].bounds(colA, sy0 + i * (th + gap), tw, th);
+            }
+            double reserve = (tw * 2 + gap + m) * open + (tw + m) * (1 - open);
+            view.fit(sx0, sy0, sx1 - reserve - sx0, availH, level.width, level.height, false);
+            pill[0] = view.x + 4 * k;
+            pill[1] = view.y + 4 * k;
+            pill[2] = Math.min(view.w - 8 * k, 300 * k);
+            pill[3] = 24 * k;
+        } else {
+            double rowH = 44 * k;
+            double w = sx1 - sx0;
+            double tw = (w - 6 * gap) / 7;
+            double dockH = Mathx.lerp(rowH, rowH * 2 + gap, open);
+            double dockY = sy1 - dockH;
+            double y2 = sy1 - rowH;
+            Button[] actions = {undoBtn, redoBtn, clearBtn, testBtn, saveBtn, backBtn, toggleBtn};
+            for (int i = 0; i < actions.length; i++) {
+                actions[i].bounds(sx0 + i * (tw + gap), y2, tw, rowH);
+            }
+            Button[] tools = {toolBtns[0], toolBtns[1], toolBtns[2], chipBtns[0], chipBtns[1], chipBtns[2], chipBtns[3]};
+            for (int i = 0; i < tools.length; i++) {
+                tools[i].bounds(sx0 + i * (tw + gap), y2 - gap - rowH, tw, rowH);
+            }
+            pill[0] = sx0;
+            pill[1] = sy0;
+            pill[2] = w;
+            pill[3] = 26 * k;
+            double availY = sy0 + pill[3] + m;
+            view.fit(sx0, availY, w, dockY - m - availY, level.width, level.height, true);
+        }
+    }
+
     private void layoutConfirm() {
         Viewport vp = app.vp;
         double u = vp.u;
@@ -276,16 +386,16 @@ public final class EditorScene extends Scene {
         }
     }
 
-    private double toWorldX(double sx) {
-        return (sx - mapX) / mapScale;
+    private double toWorldX(double sx, double sy) {
+        return view.worldX(sx, sy);
     }
 
-    private double toWorldY(double sy) {
-        return (sy - mapY) / mapScale;
+    private double toWorldY(double sx, double sy) {
+        return view.worldY(sx, sy);
     }
 
     private boolean onMap(double sx, double sy) {
-        return sx >= mapX && sy >= mapY && sx <= mapX + level.width * mapScale && sy <= mapY + level.height * mapScale;
+        return view.contains(sx, sy);
     }
 
     // ----------------------------------------------------------------------------- Daten und Bearbeiten
@@ -517,6 +627,11 @@ public final class EditorScene extends Scene {
         } else if (hintTime > 0) {
             hintTime -= dt * 0.15;
         }
+        railT.target = railWanted ? 1 : 0;
+        railT.update(dt);
+        if (compact && Math.abs(railT.value - laidOutRail) > 0.002) {
+            layout();
+        }
         undoBtn.enabled = !undo.isEmpty();
         redoBtn.enabled = !redo.isEmpty();
         testBtn.enabled = problem == null;
@@ -535,8 +650,7 @@ public final class EditorScene extends Scene {
         g.fillRect(0, 0, vp.w, vp.h, Theme.BLACK);
 
         g.save();
-        g.translate(mapX, mapY);
-        g.scale(mapScale, mapScale);
+        view.apply(g);
         g.clipRect(0, 0, level.width, level.height);
         drawEditorGrid(g);
         for (int i = 0; i < paths.size(); i++) {
@@ -552,13 +666,16 @@ public final class EditorScene extends Scene {
         drawStroke(g);
         g.restore();
         g.save();
-        g.translate(mapX, mapY);
-        g.scale(mapScale, mapScale);
+        view.apply(g);
         WorldView.drawFrame(g, level.width, level.height);
         g.restore();
 
         drawHint(g, u);
-        drawPanelHeader(g, u);
+        if (compact) {
+            drawStatusPill(g);
+        } else {
+            drawPanelHeader(g, u);
+        }
         ui.render(g);
         drawToast(g, u);
         if (confirmIn.value > 0.01) {
@@ -597,7 +714,7 @@ public final class EditorScene extends Scene {
     }
 
     private double handleRadius() {
-        return 11 * app.vp.u / mapScale * 0.8;
+        return 11 * app.vp.u / view.scale * 0.8;
     }
 
     private void drawHandles(Gfx g) {
@@ -619,7 +736,7 @@ public final class EditorScene extends Scene {
                     Neon.halo(g, x, y, r * 3.2, col, 0.5);
                 }
                 g.fillCircle(x, y, r, Colors.withAlpha(0x000000, 0.9));
-                Neon.circle(g, x, y, r, 2.4 / mapScale * 0.75, col, 5 / mapScale * 0.75);
+                Neon.circle(g, x, y, r, 2.4 / view.scale * 0.75, col, 5 / view.scale * 0.75);
                 g.fillCircle(x, y, r * 0.38, col);
                 g.restore();
             }
@@ -640,9 +757,9 @@ public final class EditorScene extends Scene {
             g.beginPath();
             g.moveTo(pts[(n - 1) * 2], pts[(n - 1) * 2 + 1]);
             g.lineTo(x, y);
-            g.strokeDashed(2 / mapScale * 0.8, Colors.withAlpha(Theme.CYAN, 0.55), 8 / mapScale, 8 / mapScale, -time * 14);
+            g.strokeDashed(2 / view.scale * 0.8, Colors.withAlpha(Theme.CYAN, 0.55), 8 / view.scale, 8 / view.scale, -time * 14);
         }
-        g.strokeCircle(x, y, hr, 1.6 / mapScale * 0.8, Colors.withAlpha(Theme.CYAN, 0.6));
+        g.strokeCircle(x, y, hr, 1.6 / view.scale * 0.8, Colors.withAlpha(Theme.CYAN, 0.6));
     }
 
     private void drawStroke(Gfx g) {
@@ -654,7 +771,7 @@ public final class EditorScene extends Scene {
         for (int i = 1; i < strokeN; i++) {
             g.lineTo(stroke[i * 2], stroke[i * 2 + 1]);
         }
-        Neon.stroke(g, 3 / mapScale * 0.8, Theme.MAGENTA, 8 / mapScale * 0.8);
+        Neon.stroke(g, 3 / view.scale * 0.8, Theme.MAGENTA, 8 / view.scale * 0.8);
     }
 
     private void drawHint(Gfx g, double u) {
@@ -662,13 +779,13 @@ public final class EditorScene extends Scene {
             return;
         }
         double a = Mathx.clamp01(hintTime) * 0.9;
-        double cx = mapX + level.width * mapScale / 2;
-        double cy = mapY + level.height * mapScale / 2;
+        double cx = view.x + view.w / 2;
+        double cy = view.y + view.h / 2;
         g.save();
         g.alpha(a);
         String l1 = tool == Tool.DRAW ? "ZEICHNE MIT DEM FINGER ODER DER MAUS" : "TIPPE AUF DIE KARTE";
         String l2 = tool == Tool.DRAW ? "Der Strich wird zu einem glatten Pfad" : "Setze Punkte – der Pfad verbindet sie glatt";
-        double h = Math.min(30 * u, level.width * mapScale * 0.05);
+        double h = Math.min(30 * u, view.w * 0.06);
         NeonText.draw(g, l1, cx, cy - h * 0.4, h, Theme.CYAN, 8, 0.2, time);
         g.text(l2, cx, cy + h * 0.9, Math.max(11, h * 0.5), Theme.TEXT_DIM, Gfx.ALIGN_CENTER, true);
         g.restore();
@@ -695,6 +812,31 @@ public final class EditorScene extends Scene {
         g.text(status, x + h * 0.72, y + h * 0.72, size, ok ? Theme.TEXT_DIM : accent, Gfx.ALIGN_LEFT, false);
     }
 
+    /** Handy: Name und Zustand als schwebende Kopfzeile über der Karte. */
+    private void drawStatusPill(Gfx g) {
+        double x = pill[0];
+        double y = pill[1];
+        double w = pill[2];
+        double h = pill[3];
+        boolean ok = problem == null;
+        int accent = ok ? Theme.GREEN : Theme.YELLOW;
+        g.save();
+        g.alpha(0.9);
+        g.fillRoundRect(x, y, w, h, h * 0.4, Colors.withAlpha(0x000000, 0.66));
+        g.strokeRoundRect(x, y, w, h, h * 0.4, 1, Colors.withAlpha(accent, 0.6));
+        String name = level.id.isEmpty() ? "Neues Level" : level.name;
+        String status = ok ? "Spielbar · " + Mathx.roundToInt(totalLength) : problem;
+        double fs = h * 0.46;
+        Icons.draw(g, ok ? Icon.CHECK : Icon.TARGET, x + h * 0.55, y + h / 2, h * 0.24, accent, 2);
+        String text = name + (dirty ? " *" : "") + "  ·  " + status;
+        double avail = w - h * 1.1;
+        while (fs > 8 && g.textWidth(text, fs, true) > avail) {
+            fs -= 0.5;
+        }
+        g.text(text, x + h * 0.95, y + h / 2, fs, ok ? Theme.TEXT : accent, Gfx.ALIGN_LEFT, true);
+        g.restore();
+    }
+
     private void drawToast(Gfx g, double u) {
         if (toastTime <= 0 || toast == null) {
             return;
@@ -703,8 +845,8 @@ public final class EditorScene extends Scene {
         double size = 14 * u;
         double w = Math.min(app.vp.safeW() - 20 * u, g.textWidth(toast, size, true) + 34 * u);
         double h = 34 * u;
-        double cx = mapX + level.width * mapScale / 2;
-        double y = mapY + level.height * mapScale - h - 12 * u;
+        double cx = view.x + view.w / 2;
+        double y = view.y + view.h - h - 12 * u;
         g.save();
         g.alpha(a);
         g.fillRoundRect(cx - w / 2, y, w, h, h / 2, Colors.withAlpha(0x000000, 0.9));
@@ -793,9 +935,9 @@ public final class EditorScene extends Scene {
         pressX = x;
         pressY = y;
         dragMoved = false;
-        double wx = toWorldX(x);
-        double wy = toWorldY(y);
-        double hit = 22 * app.vp.u / mapScale * (touch ? 1.15 : 0.9);
+        double wx = toWorldX(x, y);
+        double wy = toWorldY(x, y);
+        double hit = 22 * app.vp.u / view.scale * (touch ? 1.15 : 0.9);
         hintTime = 0;
         switch (tool) {
             case POINT: {
@@ -870,8 +1012,8 @@ public final class EditorScene extends Scene {
         }
         ui.pointerMove(x, y, !touch);
         hoverOnMap = onMap(x, y);
-        hoverX = toWorldX(x);
-        hoverY = toWorldY(y);
+        hoverX = toWorldX(x, y);
+        hoverY = toWorldY(x, y);
         if (!pressing || !pressed) {
             return;
         }
@@ -980,6 +1122,11 @@ public final class EditorScene extends Scene {
             default:
                 return false;
         }
+    }
+
+    @Override
+    public double[] worldToScreen(double wx, double wy) {
+        return new double[] {view.screenX(wx, wy), view.screenY(wx, wy)};
     }
 
     @Override

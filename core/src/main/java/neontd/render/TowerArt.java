@@ -14,6 +14,12 @@ public final class TowerArt {
     private TowerArt() {
     }
 
+    /**
+     * Ist die Karte gedreht gezeichnet (Handy im Hochformat), dreht dieser Winkel (Radiant) Symbole zurück, die
+     * aufrecht stehen sollen – derzeit der Blitz. Wird von der Spielszene vor dem Zeichnen gesetzt.
+     */
+    public static double uprightAngle;
+
     /** Winkel der drei Upgrade-Bögen (Mitte): Reichweite oben, Schaden rechts unten, Tempo links unten. */
     private static final double[] TRACK_ANGLE = {-Math.PI / 2, Math.PI / 6, Math.PI * 5 / 6};
     private static final double TRACK_SPAN = Math.PI * 0.62;
@@ -130,6 +136,7 @@ public final class TowerArt {
             }
             case ARC: {
                 double pulse = 1 + recoil * 0.25;
+                g.rotate(uprightAngle);
                 g.scale(pulse, pulse);
                 g.beginPath();
                 g.moveTo(r * 0.12, -r * 0.66);

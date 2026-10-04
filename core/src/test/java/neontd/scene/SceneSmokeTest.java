@@ -63,18 +63,30 @@ class SceneSmokeTest {
         @Override public double textWidth(String s, double size, boolean bold) { return s.length() * size * 0.55; }
     }
 
-    private static final class Harness {
-        final MemoryStore store = new MemoryStore();
+    static final class Harness {
+        final MemoryStore store;
         final NullGfx gfx = new NullGfx();
         final App app;
         double now;
+        double clock = 1_700_000_000_000.0;
         final boolean touch;
+        /** Antwort auf Eingabeaufforderungen (Name, Token, Code); {@code null} = abgebrochen. */
+        java.util.function.Function<String, String> promptAnswer = title -> null;
 
         Harness(double w, double h, boolean touch, double... insets) {
+            this(new MemoryStore(), w, h, touch, insets);
+        }
+
+        Harness(MemoryStore store, double w, double h, boolean touch, double... insets) {
+            this.store = store;
             this.touch = touch;
             app = new App(new Platform() {
                 @Override public KeyValueStore store() { return store; }
                 @Override public boolean touchPrimary() { return touch; }
+                @Override public double nowMillis() { return clock; }
+                @Override public void prompt(String title, String initial, java.util.function.Consumer<String> result) {
+                    result.accept(promptAnswer.apply(title));
+                }
             });
             double[] in = insets.length == 4 ? insets : new double[4];
             resize(w, h, in);
@@ -102,6 +114,10 @@ class SceneSmokeTest {
             run(0.06);
             app.pointerUp(x, y, touch);
             run(0.06);
+        }
+
+        void tap(double[] p) {
+            tap(p[0], p[1]);
         }
 
         void drag(double x1, double y1, double x2, double y2) {
@@ -136,6 +152,9 @@ class SceneSmokeTest {
             h.app.goTo(new GameScene(h.app, Levels.serpentine()));
             h.run(1.5);
             assertEquals("GameScene", h.scene());
+            h.app.goTo(new ProfileScene(h.app));
+            h.run(1.5);
+            assertEquals("ProfileScene", h.scene());
             h.app.goTo(new EditorScene(h.app, null));
             h.run(1.5);
             assertEquals("EditorScene", h.scene());
@@ -164,8 +183,15 @@ class SceneSmokeTest {
         h.run(1.5);
         assertEquals("GameScene", h.scene());
         // Turm ziehen, Welle starten, laufen lassen
-        h.drag(735, 95, 284, 174);
-        h.tap(665, 366);
+        GameScene gs = (GameScene) h.app.scene();
+        double[] spot = GameFlowTest.validSpot(gs.testWorld(), 400, 250);
+        double[] from = gs.anchor("tile0");
+        double[] to = gs.anchor("world:" + spot[0] + "," + spot[1]);
+        h.drag(from[0], from[1], to[0], to[1] + 56 * h.app.vp.u);
+        assertEquals(1, gs.testWorld().towers.size());
+        double[] start = gs.anchor("start");
+        h.tap(start[0], start[1]);
+        assertEquals(1, gs.testWorld().waveIndex);
         h.run(20);
         h.app.back(); // Pause
         h.run(0.6);

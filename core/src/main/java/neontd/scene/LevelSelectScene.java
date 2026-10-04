@@ -15,6 +15,7 @@ import neontd.level.Levels;
 import neontd.math.Mathx;
 import neontd.physics.Path;
 import neontd.render.LevelPreview;
+import neontd.save.RunSave;
 import neontd.ui.Button;
 import neontd.ui.Easing;
 import neontd.ui.Smooth;
@@ -63,6 +64,10 @@ public final class LevelSelectScene extends Scene {
     private Card confirmDelete;
     private final Ui confirmUi = new Ui();
     private final Smooth confirmIn = new Smooth(0, 12);
+    /** Startdialog: Fortsetzen / Neues Spiel / Endlos – erscheint nur, wenn es etwas zu wählen gibt. */
+    private Card startCard;
+    private final Ui startUi = new Ui();
+    private final Smooth startIn = new Smooth(0, 12);
     private String toast;
     private double toastTime;
 
@@ -140,6 +145,18 @@ public final class LevelSelectScene extends Scene {
         scrollMax = Math.max(0, content - (gridBottom - gridTop));
         scroll = Mathx.clamp(scroll, 0, scrollMax);
         layoutConfirm();
+        layoutStart();
+    }
+
+    private void layoutStart() {
+        Viewport vp = app.vp;
+        double u = vp.u;
+        double bw = Math.min(vp.safeW() * 0.84, 340 * u);
+        double bh = 52 * u;
+        double y0 = vp.h / 2 - 44 * u;
+        for (int i = 0; i < startUi.buttons.size(); i++) {
+            startUi.buttons.get(i).bounds(vp.w / 2 - bw / 2, y0 + i * (bh + 10 * u), bw, bh);
+        }
     }
 
     private void layoutConfirm() {
@@ -161,6 +178,9 @@ public final class LevelSelectScene extends Scene {
         confirmUi.update(dt);
         confirmIn.target = confirmDelete != null ? 1 : 0;
         confirmIn.update(dt);
+        startUi.update(dt);
+        startIn.target = startCard != null ? 1 : 0;
+        startIn.update(dt);
         for (Card c : cards) {
             if (c.delay > 0) {
                 c.delay -= dt;
@@ -219,6 +239,31 @@ public final class LevelSelectScene extends Scene {
         if (confirmIn.value > 0.01 && confirmDelete != null) {
             drawConfirm(g, u);
         }
+        if (startIn.value > 0.01 && startCard != null) {
+            drawStart(g, u);
+        }
+    }
+
+    private void drawStart(Gfx g, double u) {
+        Viewport vp = app.vp;
+        double a = Easing.outCubic(Mathx.clamp01(startIn.value));
+        LevelDef l = startCard.level;
+        g.save();
+        g.alpha(a);
+        g.fillRect(0, 0, vp.w, vp.h, Colors.withAlpha(0x000000, 0.82));
+        NeonText.draw(g, l.name.toUpperCase(), vp.w / 2, vp.h / 2 - 118 * u,
+                Math.min(34 * u, vp.safeW() * 0.84 / Math.max(6, l.name.length() * 0.75)), Theme.CYAN, 10, 0.3, time);
+        int best = app.progress.best(l.id, false);
+        int bestEndless = app.progress.best(l.id, true);
+        String rec = "Rekord: Welle " + best + (bestEndless > 0 ? "   ·   Endlos: Welle " + bestEndless : "");
+        g.text(rec, vp.w / 2, vp.h / 2 - 84 * u, Math.max(11, 14 * u), Theme.TEXT_DIM, Gfx.ALIGN_CENTER, true);
+        RunSave run = app.saves.resumable(l.id);
+        if (run != null) {
+            String t = "Gespeichert: Welle " + (run.snapshot.waveIndex + 1) + (run.snapshot.endless ? " (Endlos)" : "");
+            g.text(t, vp.w / 2, vp.h / 2 - 62 * u, Math.max(11, 14 * u), Theme.GREEN, Gfx.ALIGN_CENTER, true);
+        }
+        startUi.render(g);
+        g.restore();
     }
 
     private void drawBackdrop(Gfx g, Viewport vp) {
@@ -287,9 +332,28 @@ public final class LevelSelectScene extends Scene {
                     accent, hv > 0.3 ? time : 0);
             double ty = h * 0.60 + pad + 14 * u;
             g.text(c.level.name, pad, ty, Math.max(14, 18 * u), Theme.TEXT, Gfx.ALIGN_LEFT, true);
-            String info = (c.level.builtin ? c.level.waveCount : c.level.waveCount) + " Wellen"
-                    + (c.level.builtin ? "" : "  ·  eigenes Level");
+            int best = app.progress.best(c.level.id, false);
+            int bestEndless = app.progress.best(c.level.id, true);
+            String info = c.level.waveCount + " Wellen"
+                    + (c.level.builtin ? "" : "  ·  eigenes Level")
+                    + (best > 0 ? "  ·  Rekord " + best : "")
+                    + (bestEndless > 0 ? "  ·  ∞ " + bestEndless : "");
             g.text(info, pad, ty + 22 * u, Math.max(10, 12 * u), Theme.TEXT_DIM, Gfx.ALIGN_LEFT, false);
+            if (app.saves.resumable(c.level.id) != null) {
+                double bs = Math.max(9, 11 * u);
+                String t = "▶ GESPEICHERT";
+                double bw = g.textWidth(t, bs, true) + 16 * u;
+                g.fillRoundRect(pad, pad, bw, 22 * u, 11 * u, Colors.withAlpha(0x000000, 0.8));
+                Neon.roundRect(g, pad, pad, bw, 22 * u, 11 * u, 1.4, Theme.GREEN, 4);
+                g.text(t, pad + bw / 2, pad + 11 * u, bs, Theme.GREEN, Gfx.ALIGN_CENTER, true);
+            } else if (app.progress.endlessUnlocked(c.level.id)) {
+                double bs = Math.max(9, 11 * u);
+                String t = "∞ ENDLOS FREI";
+                double bw = g.textWidth(t, bs, true) + 16 * u;
+                g.fillRoundRect(pad, pad, bw, 22 * u, 11 * u, Colors.withAlpha(0x000000, 0.8));
+                Neon.roundRect(g, pad, pad, bw, 22 * u, 11 * u, 1.4, Theme.MAGENTA, 4);
+                g.text(t, pad + bw / 2, pad + 11 * u, bs, Theme.MAGENTA, Gfx.ALIGN_CENTER, true);
+            }
             // Start-Symbol
             double ps = 20 * u;
             Icons.draw(g, Icon.PLAY, w - pad - ps, ty + 8 * u, ps * 0.8, accent, 4 + 4 * hv);
@@ -362,6 +426,10 @@ public final class LevelSelectScene extends Scene {
 
     @Override
     public void pointerDown(double x, double y, boolean touch) {
+        if (startCard != null) {
+            startUi.pointerDown(x, y);
+            return;
+        }
         if (confirmDelete != null) {
             confirmUi.pointerDown(x, y);
             return;
@@ -384,6 +452,10 @@ public final class LevelSelectScene extends Scene {
 
     @Override
     public void pointerMove(double x, double y, boolean pressed, boolean touch) {
+        if (startCard != null) {
+            startUi.pointerMove(x, y, !touch);
+            return;
+        }
         if (confirmDelete != null) {
             confirmUi.pointerMove(x, y, !touch);
             return;
@@ -416,6 +488,10 @@ public final class LevelSelectScene extends Scene {
 
     @Override
     public void pointerUp(double x, double y, boolean touch) {
+        if (startCard != null) {
+            startUi.pointerUp(x, y);
+            return;
+        }
         if (confirmDelete != null) {
             confirmUi.pointerUp(x, y);
             return;
@@ -441,6 +517,7 @@ public final class LevelSelectScene extends Scene {
     public void pointerCancel() {
         ui.cancel();
         confirmUi.cancel();
+        startUi.cancel();
         if (pressedCard != null) {
             pressedCard.press.target = 0;
         }
@@ -469,8 +546,53 @@ public final class LevelSelectScene extends Scene {
                 toastTime = 2.6;
                 return;
             }
-            app.goTo(new GameScene(app, c.level));
+            openStart(c);
         }
+    }
+
+    /** Startet gleich, wenn es nichts zu wählen gibt; sonst Dialog mit Fortsetzen / Neu / Endlos. */
+    private void openStart(Card c) {
+        RunSave run = app.saves.resumable(c.level.id);
+        boolean endless = app.progress.endlessUnlocked(c.level.id);
+        if (run == null && !endless) {
+            app.goTo(new GameScene(app, c.level));
+            return;
+        }
+        startCard = c;
+        startUi.clear();
+        if (run != null) {
+            String label = "FORTSETZEN · WELLE " + (run.snapshot.waveIndex + 1);
+            Button resume = new Button(label, Icon.PLAY, Theme.GREEN, () -> {
+                startCard = null;
+                app.goTo(GameScene.resume(app, c.level, run));
+            });
+            resume.neonFont = true;
+            resume.fontScale = 0.8;
+            startUi.add(resume).appearAfter(0.1);
+        }
+        Button fresh = new Button(run != null ? "NEUES SPIEL (VERWIRFT STAND)" : "NEUES SPIEL", Icon.LOOP, Theme.CYAN, () -> {
+            startCard = null;
+            app.saves.endRun(c.level.id);
+            app.goTo(new GameScene(app, c.level));
+        });
+        fresh.neonFont = true;
+        fresh.fontScale = 0.8;
+        startUi.add(fresh).appearAfter(0.16);
+        if (endless) {
+            Button inf = new Button("ENDLOSMODUS", Icon.WAVES, Theme.MAGENTA, () -> {
+                startCard = null;
+                app.saves.endRun(c.level.id);
+                app.goTo(GameScene.endless(app, c.level));
+            });
+            inf.neonFont = true;
+            inf.fontScale = 0.8;
+            startUi.add(inf).appearAfter(0.22);
+        }
+        Button cancel = new Button("ABBRECHEN", Icon.CROSS, Theme.TEXT_DIM, () -> startCard = null);
+        cancel.neonFont = true;
+        cancel.fontScale = 0.8;
+        startUi.add(cancel).appearAfter(0.28);
+        layoutStart();
     }
 
     private void askDelete(Card c) {
@@ -492,6 +614,10 @@ public final class LevelSelectScene extends Scene {
 
     @Override
     public boolean back() {
+        if (startCard != null) {
+            startCard = null;
+            return true;
+        }
         if (confirmDelete != null) {
             confirmDelete = null;
             return true;
