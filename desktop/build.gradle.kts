@@ -8,6 +8,6 @@ dependencies {
 
 application {
     mainClass.set("neontd.desktop.DesktopMain")
-    // Hardware-beschleunigtes Rendering wo verfügbar, ruhige Skalierung auf HiDPI-Bildschirmen.
-    applicationDefaultJvmArgs = listOf("-Dsun.java2d.opengl=true", "-Dawt.useSystemAAFontSettings=on")
+    applicationName = "neon-td"
+    applicationDefaultJvmArgs = listOf("-Dawt.useSystemAAFontSettings=on", "-Dsun.java2d.uiScale.enabled=true")
 }

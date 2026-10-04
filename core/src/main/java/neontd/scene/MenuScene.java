@@ -74,11 +74,17 @@ public final class MenuScene extends Scene {
         demo.render(g, vp.w, vp.h);
         g.restore();
 
-        // Dunkler Schleier hinter dem Titel, damit Schrift und Schaltflächen immer gut lesbar sind.
+        // Dunkler, weich auslaufender Schleier hinter dem Titel, damit Schrift und Schaltflächen gut lesbar sind.
+        // Bewusst aus wenigen geschachtelten Rechtecken statt eines Vollbild-Farbverlaufs (billig auf jedem Gerät).
         double cx = vp.w / 2;
-        double cy = (titleY + play.y + editor.h * 2) / 2;
-        double rad = Math.max(vp.w, vp.h) * 0.62;
-        g.radialGlow(cx, cy, rad, Colors.withAlpha(0x000000, 0.82));
+        double top = titleY - titleH * 0.95;
+        double bottom = editor.y + editor.h + 36 * vp.u;
+        double halfW = Math.min(vp.w * 0.5, Math.max(play.w * 0.5 + 50 * vp.u, titleH * 3.4));
+        for (int i = 0; i < 5; i++) {
+            double grow = (4 - i) * 22 * vp.u;
+            g.fillRoundRect(cx - halfW - grow, top - grow, (halfW + grow) * 2, bottom - top + grow * 2,
+                    40 * vp.u + grow, Colors.withAlpha(0x000000, 0.2));
+        }
 
         double tin = Easing.outCubic(Math.min(1, titleIn.value));
         double breathe = 0.5 + 0.5 * Math.sin(time * 1.6);

@@ -160,9 +160,15 @@ public final class Java2DGfx implements Gfx {
         }
     }
 
+    /**
+     * Echtes additives Mischen ist in Java2D langsam (eigener Composite). Das Live-Fenster nutzt deshalb normales
+     * Alpha-Blending – auf schwarzem Grund sieht das fast identisch aus. Das Screenshot-Werkzeug schaltet es ein.
+     */
+    public static boolean exactAdditive;
+
     private void applyComposite(int color) {
         double a = alpha * Colors.alpha01(color);
-        if (additive) {
+        if (additive && exactAdditive) {
             g2.setComposite(new AdditiveComposite(a));
         } else {
             g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, (float) Math.min(1, Math.max(0, a))));

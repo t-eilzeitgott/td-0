@@ -12,7 +12,9 @@ import neontd.gfx.Theme;
 import neontd.level.LevelDef;
 import neontd.math.Mathx;
 import neontd.physics.FixedTimestep;
+import neontd.render.EnemyArt;
 import neontd.render.GameFx;
+import neontd.render.HpLabel;
 import neontd.render.TowerArt;
 import neontd.render.WorldView;
 import neontd.sim.EnemyType;
@@ -114,6 +116,7 @@ public final class GameScene extends Scene {
     private int bannerColor;
     private double bannerTime;
     private double bannerTotal = 2.4;
+    private boolean introBanner;
     private String toast;
     private int toastColor;
     private double toastTime;
@@ -174,6 +177,15 @@ public final class GameScene extends Scene {
     @Override
     public void onEnter() {
         showBanner(level.name.toUpperCase(), "Platziere Türme und starte die erste Welle", Theme.CYAN, 3.2);
+        introBanner = true;
+    }
+
+    /** Das Begrüßungs-Banner verschwindet, sobald der Spieler loslegt, damit es nichts verdeckt. */
+    private void dismissIntroBanner() {
+        if (introBanner) {
+            introBanner = false;
+            bannerTime = Math.min(bannerTime, 0.45);
+        }
     }
 
     // ---------------------------------------------------------------------------------------- Layout
@@ -308,6 +320,7 @@ public final class GameScene extends Scene {
         if (overlay != Overlay.NONE) {
             return;
         }
+        dismissIntroBanner();
         if (!world.startNextWave()) {
             showToast("Keine weitere Welle", Theme.TEXT_DIM);
         }
@@ -426,6 +439,7 @@ public final class GameScene extends Scene {
         bannerColor = color;
         bannerTime = seconds;
         bannerTotal = seconds;
+        introBanner = false;
     }
 
     // ---------------------------------------------------------------------------------------- Update
@@ -531,7 +545,7 @@ public final class GameScene extends Scene {
         WorldView.drawTowers(g, world, time);
         if (selected != null) {
             double pulse = 0.5 + 0.5 * Math.sin(time * 5);
-            Neon.circle(g, selected.x, selected.y, 36 + 2 * pulse, 1.8, Colors.withAlpha(0xFFFFFF, 0.75), 4);
+            Neon.circle(g, selected.x, selected.y, 47 + 2 * pulse, 1.6, Colors.withAlpha(0xFFFFFF, 0.7), 4);
         }
         WorldView.drawEnemies(g, world, alpha, time);
         WorldView.drawProjectiles(g, world, alpha);
@@ -559,6 +573,9 @@ public final class GameScene extends Scene {
         } else {
             for (Button c : cards) {
                 c.render(g);
+            }
+            if (portrait) {
+                drawInfoPanel(g, u);
             }
         }
         ui.render(g);
@@ -734,6 +751,76 @@ public final class GameScene extends Scene {
         modeBtn.render(g);
     }
 
+    // ------------------------------------------------------------------------- Info-Panel (Hochformat)
+
+    /** Im Hochformat ist unter dem Shop Platz: Werte des gewählten Turms oder Vorschau der nächsten Welle. */
+    private void drawInfoPanel(Gfx g, double u) {
+        if (upH < 70 * u) {
+            return;
+        }
+        if (placing != null) {
+            drawTowerInfo(g, placing, u);
+        } else {
+            drawWavePreview(g, u);
+        }
+    }
+
+    private void drawTowerInfo(Gfx g, TowerType t, double u) {
+        double x = upX;
+        double y = upY;
+        double w = upW;
+        double h = Math.min(upH, 150 * u);
+        Draw.softPanel(g, x, y, w, h, 14 * u, t.color);
+        double pad = 12 * u;
+        TowerArt.drawIcon(g, t, x + pad + 26 * u, y + pad + 26 * u, 26 * u, app.time);
+        g.text(t.label, x + pad * 2 + 52 * u, y + pad + 12 * u, 17 * u, Theme.TEXT, Gfx.ALIGN_LEFT, true);
+        g.text(t.tagline, x + pad * 2 + 52 * u, y + pad + 36 * u, 12 * u, Theme.TEXT_DIM, Gfx.ALIGN_LEFT, false);
+        double cw = (w - pad * 2) / 3;
+        double cy = y + pad + 52 * u + (h - pad * 2 - 52 * u) / 2 + 4 * u;
+        UpgradeTrack[] tracks = UpgradeTrack.values();
+        String[] vals = {
+            Integer.toString((int) Math.round(t.range)),
+            Integer.toString(t.damage),
+            (Math.round(10.0 / t.interval) / 10.0) + "/s"
+        };
+        Icon[] icons = {Icon.RANGE, Icon.DAMAGE, Icon.SPEED};
+        for (int i = 0; i < 3; i++) {
+            double cx = x + pad + cw * i + cw / 2;
+            Icons.draw(g, icons[i], cx - 22 * u, cy, 11 * u, tracks[i].color, 3);
+            g.text(vals[i], cx - 6 * u, cy, 16 * u, Theme.TEXT, Gfx.ALIGN_LEFT, true);
+        }
+        g.text("Auf die Karte tippen oder ziehen", x + w / 2, y + h - 12 * u, 11 * u, Theme.TEXT_DIM,
+                Gfx.ALIGN_CENTER, false);
+    }
+
+    private void drawWavePreview(Gfx g, double u) {
+        double x = upX;
+        double y = upY;
+        double w = upW;
+        double h = Math.min(upH, 230 * u);
+        Draw.softPanel(g, x, y, w, h, 14 * u, Theme.CYAN);
+        double pad = 12 * u;
+        WaveDef next = world.nextWave();
+        if (next == null) {
+            g.text("ALLE WELLEN GESTARTET", x + w / 2, y + h / 2, 14 * u, Theme.TEXT_DIM, Gfx.ALIGN_CENTER, true);
+            return;
+        }
+        g.text("NÄCHSTE WELLE " + (world.waveIndex + 1), x + pad, y + pad + 8 * u, 13 * u, Theme.TEXT,
+                Gfx.ALIGN_LEFT, true);
+        g.text("Bonus +" + next.bonus, x + w - pad, y + pad + 8 * u, 12 * u, Theme.MONEY, Gfx.ALIGN_RIGHT, true);
+        int rows = Math.min(next.groups.size(), 5);
+        double top = y + pad + 28 * u;
+        double rowH = Math.min(36 * u, (y + h - pad - top) / Math.max(1, rows));
+        for (int i = 0; i < rows; i++) {
+            WaveDef.Group gr = next.groups.get(i);
+            double cy = top + rowH * i + rowH / 2;
+            int c = Theme.enemyColor(gr.hp);
+            EnemyArt.drawIcon(g, gr.type, x + pad + 16 * u, cy, Math.min(13 * u, rowH * 0.4), c);
+            g.text(gr.count + "× " + gr.type.label, x + pad + 40 * u, cy, 14 * u, Theme.TEXT, Gfx.ALIGN_LEFT, true);
+            g.text("HP " + HpLabel.format(gr.hp), x + w - pad, cy, 13 * u, c, Gfx.ALIGN_RIGHT, true);
+        }
+    }
+
     private String statText(Tower t, UpgradeTrack track, boolean next) {
         int lvl = t.level(track) + (next ? 1 : 0);
         switch (track) {
@@ -859,7 +946,7 @@ public final class GameScene extends Scene {
         g.fillRect(0, 0, vp.w, vp.h, Colors.withAlpha(0x000000, overlay == Overlay.PAUSE ? 0.78 : 0.7));
         double cx = vp.w / 2;
         double ty = vp.h / 2 - 150 * u;
-        double th = Math.min(72 * u, vp.safeW() * 0.84 / 6.2);
+        double th = Math.min(64 * u, vp.safeW() * 0.84 / 6.2);
         String title;
         int color;
         switch (overlay) {
@@ -959,6 +1046,7 @@ public final class GameScene extends Scene {
     }
 
     private void updateGhost(double sx, double sy, double offsetY) {
+        dismissIntroBanner();
         ghostOnMap = onMap(sx, sy - offsetY);
         ghostX = toWorldX(sx);
         ghostY = toWorldY(sy - offsetY);

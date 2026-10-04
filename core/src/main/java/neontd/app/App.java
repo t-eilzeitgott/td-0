@@ -145,15 +145,16 @@ public final class App {
         }
     }
 
-    public void key(String code, boolean ctrl) {
+    /** @return true, wenn die Taste verarbeitet wurde (die Plattform unterdrückt dann ihre Standardaktion) */
+    public boolean key(String code, boolean ctrl) {
         if (transition.active()) {
-            return;
+            return false;
         }
         if (code.equals("Escape")) {
             back();
-            return;
+            return true;
         }
-        scene.key(code, ctrl);
+        return scene.key(code, ctrl);
     }
 
     /** Zurück-Aktion (Escape). Im Hauptmenü ohne Wirkung. */

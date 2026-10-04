@@ -30,7 +30,40 @@ public final class EnemyArt {
         g.save();
         g.rotate(e.heading);
         g.beginPath();
-        switch (e.type.shape) {
+        shapePath(g, e.type, r);
+        g.fill(Colors.withAlpha(Colors.lerp(c, 0xFFFFFF, flash * 0.7), 0.17 + 0.55 * flash));
+        int edge = Colors.lerp(c, 0xFFFFFF, flash * 0.65);
+        if (e.type == neontd.sim.EnemyType.SPLIT) {
+            // Gestrichelter Rand: "zerfällt gleich in Minis".
+            Neon.stroke(g, 1.0, Colors.withAlpha(edge, 0.4), 7);
+            g.strokeDashed(2.8, edge, r * 0.52, r * 0.24, 0);
+        } else {
+            Neon.stroke(g, big ? 3.2 : 2.4, edge, big ? 11 : 7);
+        }
+        if (big) {
+            Neon.ngon(g, 0, 0, r * 0.66, 8, Math.PI / 8 + time * 0.8, 1.6, Colors.withAlpha(c, 0.7), 0);
+        }
+        g.restore();
+
+        if (e.slowTimer > 0) {
+            g.beginPath();
+            g.circle(0, 0, r + 6);
+            g.strokeDashed(1.6, Colors.withAlpha(0xA8E6FF, 0.85), 5, 5, time * 20);
+        }
+
+        String label = HpLabel.of(e);
+        int len = label.length();
+        double size = len <= 2 ? r * 1.02 : (len == 3 ? r * 0.82 : r * 0.64);
+        size = Math.max(9, size);
+        int tc = Colors.lerp(0xFFFFFF, c, 0.12);
+        g.text(label, 0, e.type.shape == neontd.sim.EnemyType.Shape.TRIANGLE ? r * 0.05 : 0, size, tc,
+                Gfx.ALIGN_CENTER, true);
+        g.restore();
+    }
+
+    /** Umriss eines Gegners als Pfad im Ursprung (Radius r). */
+    private static void shapePath(Gfx g, neontd.sim.EnemyType type, double r) {
+        switch (type.shape) {
             case SQUARE:
                 g.roundRect(-r * 0.9, -r * 0.9, r * 1.8, r * 1.8, r * 0.28);
                 break;
@@ -51,26 +84,18 @@ public final class EnemyArt {
                 g.ngon(0, 0, r * 1.05, 8, Math.PI / 8);
                 break;
         }
-        g.fill(Colors.withAlpha(Colors.lerp(c, 0xFFFFFF, flash * 0.7), 0.17 + 0.55 * flash));
-        Neon.stroke(g, big ? 3.2 : 2.4, Colors.lerp(c, 0xFFFFFF, flash * 0.65), big ? 11 : 7);
-        if (big) {
-            Neon.ngon(g, 0, 0, r * 0.66, 8, Math.PI / 8 + time * 0.8, 1.6, Colors.withAlpha(c, 0.7), 0);
-        }
-        g.restore();
+    }
 
-        if (e.slowTimer > 0) {
-            g.beginPath();
-            g.circle(0, 0, r + 6);
-            g.strokeDashed(1.6, Colors.withAlpha(0xA8E6FF, 0.85), 5, 5, time * 20);
-        }
-
-        String label = HpLabel.of(e);
-        int len = label.length();
-        double size = len <= 2 ? r * 1.02 : (len == 3 ? r * 0.82 : r * 0.64);
-        size = Math.max(9, size);
-        int tc = Colors.lerp(0xFFFFFF, c, 0.12);
-        g.text(label, 0, e.type.shape == neontd.sim.EnemyType.Shape.TRIANGLE ? r * 0.05 : 0, size, tc,
-                Gfx.ALIGN_CENTER, true);
+    /** Kleines Symbol einer Gegnerart (ohne Zahl) für Wellen-Vorschauen. */
+    public static void drawIcon(Gfx g, neontd.sim.EnemyType type, double cx, double cy, double size, int color) {
+        g.save();
+        g.translate(cx, cy);
+        double sc = size / type.radius;
+        g.scale(sc, sc);
+        g.beginPath();
+        shapePath(g, type, type.radius);
+        g.fill(Colors.withAlpha(color, 0.2));
+        Neon.stroke(g, 2.2 / sc * 0.9, color, 5 / sc * 0.9);
         g.restore();
     }
 }

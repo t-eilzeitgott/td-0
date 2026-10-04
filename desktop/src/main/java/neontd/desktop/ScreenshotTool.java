@@ -17,7 +17,7 @@ import neontd.platform.Platform;
  * java -Djava.awt.headless=true neontd.desktop.ScreenshotTool OUT_DIR "size 1280 720; wait 2; shot menu"
  * </pre>
  *
- * Befehle: size W H [touch] · insets L T R B · open game|select|editor|menu · wait SEK · shot NAME · click X Y · down X Y · move X Y · up X Y ·
+ * Befehle: size W H [touch] · insets L T R B · open game|gamerich|select|editor|menu · wait SEK · shot NAME · click X Y · down X Y · move X Y · up X Y ·
  * drag X1 Y1 X2 Y2 SEK · key CODE [ctrl] · back
  */
 public final class ScreenshotTool {
@@ -63,6 +63,12 @@ public final class ScreenshotTool {
             case "game":
                 app.goTo(new neontd.scene.GameScene(app, neontd.level.Levels.serpentine()));
                 break;
+            case "gamerich": {
+                neontd.level.LevelDef rich = neontd.level.Levels.serpentine().copy();
+                rich.startMoney = 6000;
+                app.goTo(new neontd.scene.GameScene(app, rich));
+                break;
+            }
             case "select":
                 app.goTo(new neontd.scene.LevelSelectScene(app));
                 break;
@@ -183,6 +189,7 @@ public final class ScreenshotTool {
     }
 
     public static void main(String[] args) throws Exception {
+        Java2DGfx.exactAdditive = true;
         if (args.length < 2) {
             System.err.println("Aufruf: ScreenshotTool OUT_DIR \"befehl; befehl; ...\"");
             System.exit(2);

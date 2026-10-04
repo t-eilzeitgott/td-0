@@ -14,7 +14,7 @@ subprojects {
             // Java 17 reicht überall (Desktop-JDK, TeaVM) und hält das Spiel auf vielen Rechnern lauffähig.
             options.release.set(17)
             options.encoding = "UTF-8"
-            options.compilerArgs.add("-Xlint:all,-serial")
+            options.compilerArgs.add("-Xlint:all,-serial,-processing")
         }
     }
 }
