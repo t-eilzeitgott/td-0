@@ -67,6 +67,9 @@ python3 -m http.server 8080 -d web/build/dist     # oder ein beliebiger anderer 
 Dann `http://localhost:8080` öffnen. Zum Testen auf dem iPhone im selben WLAN `http://<IP-des-PCs>:8080` aufrufen
 (der Offline-Modus braucht HTTPS bzw. `localhost`, das Spiel läuft aber auch ohne ihn).
 
+Am PC geht es sogar noch einfacher: `web/build/dist/index.html` per **Doppelklick** im Browser öffnen – ganz ohne
+Server. Dasselbe gilt für das ZIP *neon-td-web*, das jeder Workflow-Lauf auf der Actions-Seite bereitstellt.
+
 ### Desktop-Anwendung
 
 ```bash
