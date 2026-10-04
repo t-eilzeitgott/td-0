@@ -371,13 +371,9 @@ public final class ProfileScene extends Scene {
     private void drawStats(Gfx g) {
         Progress p = app.progress;
         panel(g, yStats, hStats, Theme.CYAN, "STATISTIK");
-        String[] labels = {"Wellen besiegt", "Abschüsse", "Siege", "Beste Endlos-Welle"};
-        int best = 0;
-        for (int v : p.bestEndless.values()) {
-            best = Math.max(best, v);
-        }
+        String[] labels = {"Wellen besiegt", "Abschüsse", "Siege", "Medaillen (von " + 4 * neontd.level.Levels.builtins().size() + ")"};
         String[] vals = {Fmt.compact(p.wavesCleared), Fmt.compact(p.kills), p.gamesWon + " / " + p.gamesPlayed,
-            best > 0 ? Integer.toString(best) : "–"};
+            Integer.toString(p.totalMedals())};
         double cell = (cw - 32 * u) / 2;
         for (int i = 0; i < 4; i++) {
             double x = cx + 16 * u + (i % 2) * cell;

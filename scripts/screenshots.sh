@@ -21,7 +21,9 @@ shot "size 1280 720; level 16; open gamerich; wait 3.5; $PLACE; wait 0.5; wclick
 
 # Level-Editor und Levelauswahl mit einem gespeicherten eigenen Level
 EDIT="click 60 200; click 300 200; click 430 330; click 300 450; click 150 520; click 420 575; click 700 500; click 860 330; wait 0.4"
-shot "size 1280 720; open editor; wait 1.2; $EDIT; shot editor; key KeyS ctrl; wait 0.4; open select; wait 1.8; shot levels"
+shot "size 1280 720; open editor; wait 1.2; $EDIT; shot editor"
+shot "size 1280 720; best serpentine 120; best zickzack 60; best spirale 22; open select; wait 2.5; shot levels"
+shot "size 393 852 touch; insets 0 59 0 34; best serpentine 260; best zickzack 60; best spirale 22; open select; wait 2.5; shot levels-phone"
 
 # Profil
 shot "size 393 852 touch; insets 0 59 0 34; level 7; open profile; wait 1.5; shot profile"

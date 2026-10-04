@@ -14,6 +14,7 @@ import neontd.level.LevelDef;
 import neontd.level.Levels;
 import neontd.math.Mathx;
 import neontd.physics.Path;
+import neontd.progress.Medals;
 import neontd.render.LevelPreview;
 import neontd.save.RunSave;
 import neontd.ui.Button;
@@ -334,12 +335,32 @@ public final class LevelSelectScene extends Scene {
             g.text(c.level.name, pad, ty, Math.max(14, 18 * u), Theme.TEXT, Gfx.ALIGN_LEFT, true);
             int best = app.progress.best(c.level.id, false);
             int bestEndless = app.progress.best(c.level.id, true);
-            String info = c.level.waveCount + " Wellen"
-                    + (c.level.builtin ? "" : "  ·  eigenes Level")
-                    + (best > 0 ? "  ·  Rekord " + best : "")
-                    + (bestEndless > 0 ? "  ·  ∞ " + bestEndless : "");
+            int overall = app.progress.bestOverall(c.level.id);
+            int tier = app.progress.medal(c.level.id);
+            String info;
+            if (c.level.builtin) {
+                info = "Stufe " + c.level.difficulty + "/10" + (overall > 0 ? "  ·  Rekord " + overall : "")
+                        + (tier < 4 ? "  ·  " + Medals.NAMES[tier] + " ab " + Medals.WAVES[tier] : "");
+            } else {
+                info = c.level.waveCount + " Wellen  ·  eigenes Level" + (best > 0 ? "  ·  Rekord " + best : "")
+                        + (bestEndless > 0 ? "  ·  ∞ " + bestEndless : "");
+            }
             g.text(info, pad, ty + 22 * u, Math.max(10, 12 * u), Theme.TEXT_DIM, Gfx.ALIGN_LEFT, false);
-            if (app.saves.resumable(c.level.id) != null) {
+            if (c.level.builtin) {
+                drawMedals(g, w - pad, pad + 10 * u, 9 * u, tier);
+            }
+            if (!app.progress.levelUnlocked(c.level.id)) {
+                // gesperrt: abgedunkelt, Schloss und Hinweis
+                g.fillRoundRect(0, 0, w, h, r, Colors.withAlpha(0x000000, 0.78));
+                Icons.draw(g, Icon.LOCK, w / 2, h * 0.38, Math.min(w, h) * 0.12, Theme.TEXT_DIM, 0);
+                int idx = Levels.indexOf(c.level.id);
+                String prev = idx > 0 ? Levels.builtins().get(idx - 1).name : "";
+                double fs = Math.max(10, 13 * u);
+                String t = "Erst BRONZE in „" + prev + "“";
+                double tw = g.textWidth(t, fs, true);
+                double sh = Math.min(1, (w - 2 * pad) / Math.max(1, tw));
+                g.text(t, w / 2, h * 0.38 + Math.min(w, h) * 0.2, fs * sh, Theme.TEXT_DIM, Gfx.ALIGN_CENTER, true);
+            } else if (app.saves.resumable(c.level.id) != null) {
                 double bs = Math.max(9, 11 * u);
                 String t = "▶ GESPEICHERT";
                 double bw = g.textWidth(t, bs, true) + 16 * u;
@@ -364,6 +385,22 @@ public final class LevelSelectScene extends Scene {
             }
         }
         g.restore();
+    }
+
+    /** Vier Medaillen-Scheiben (Bronze … Platin) rechtsbündig; erreichte leuchten, die übrigen sind nur umrandet. */
+    private void drawMedals(Gfx g, double right, double cy, double r, int tier) {
+        double gap = r * 0.5;
+        for (int i = 3; i >= 0; i--) {
+            double cx = right - r - (3 - i) * (2 * r + gap);
+            int col = Medals.COLORS[i];
+            if (i < tier) {
+                g.fillCircle(cx, cy, r, Colors.withAlpha(col, 0.35));
+                Neon.circle(g, cx, cy, r, 1.8, col, 5);
+                Icons.draw(g, Icon.STAR, cx, cy, r * 0.55, col, 2);
+            } else {
+                g.strokeCircle(cx, cy, r, 1.2, Colors.withAlpha(col, 0.35));
+            }
+        }
     }
 
     private void drawIconButton(Gfx g, Icon icon, double cx, double cy, double r, int color, boolean pressed) {
@@ -540,6 +577,12 @@ public final class LevelSelectScene extends Scene {
         } else if (icon == 2) {
             askDelete(c);
         } else {
+            if (!app.progress.levelUnlocked(c.level.id)) {
+                int idx = Levels.indexOf(c.level.id);
+                toast = "Erst Bronze (Welle 20) in „" + Levels.builtins().get(idx - 1).name + "“ erreichen";
+                toastTime = 2.6;
+                return;
+            }
             String problem = c.level.validate();
             if (problem != null) {
                 toast = "Nicht spielbar: " + problem;

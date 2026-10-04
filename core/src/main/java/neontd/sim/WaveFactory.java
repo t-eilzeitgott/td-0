@@ -118,10 +118,29 @@ public final class WaveFactory {
         return w;
     }
 
+    /** Wie {@link #wave(int)}, mit einem Schwierigkeitsfaktor auf alle Lebenspunkte (schwerere Level). */
+    public static WaveDef wave(int wave, double hpMul) {
+        WaveDef d = wave(wave);
+        return hpMul == 1 ? d : scaleHp(d, hpMul);
+    }
+
+    /** Kopie einer Welle mit mit {@code mul} multiplizierten Lebenspunkten (begrenzt auf {@link #MAX_HP}). */
+    public static WaveDef scaleHp(WaveDef d, double mul) {
+        WaveDef r = new WaveDef().bonus(d.bonus);
+        for (WaveDef.Group g : d.groups) {
+            r.groups.add(new WaveDef.Group(g.type, g.count, g.interval, g.delay, clampHp(g.hp * mul), g.path, g.reward));
+        }
+        return r;
+    }
+
     public static List<WaveDef> generate(int count) {
+        return generate(count, 1);
+    }
+
+    public static List<WaveDef> generate(int count, double hpMul) {
         List<WaveDef> list = new ArrayList<>(count);
         for (int i = 1; i <= count; i++) {
-            list.add(wave(i));
+            list.add(wave(i, hpMul));
         }
         return list;
     }

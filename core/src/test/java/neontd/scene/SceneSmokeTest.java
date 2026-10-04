@@ -179,7 +179,7 @@ class SceneSmokeTest {
         h.tap(426, 220); // SPIELEN
         h.run(1.2);
         assertEquals("LevelSelectScene", h.scene());
-        h.tap(320, 130); // Level 1
+        h.tap(120, 150); // Level 1
         h.run(1.5);
         assertEquals("GameScene", h.scene());
         // Turm ziehen, Welle starten, laufen lassen
@@ -259,7 +259,9 @@ class SceneSmokeTest {
         h.app.levels.save(l);
         h.app.goTo(new LevelSelectScene(h.app));
         h.run(1.5);
-        h.tap(640, 250); // mittlere Karte: das eigene Level
+        h.app.wheel(5000); // ans Ende scrollen (nach den zehn eingebauten Leveln)
+        h.run(1.0);
+        h.app.goTo(new GameScene(h.app, h.app.levels.loadAll().get(0)));
         h.run(1.5);
         assertEquals("GameScene", h.scene());
         h.app.key("Space", false);

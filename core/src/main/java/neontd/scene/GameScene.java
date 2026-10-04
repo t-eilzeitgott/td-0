@@ -13,6 +13,7 @@ import neontd.gfx.UprightGfx;
 import neontd.level.LevelDef;
 import neontd.math.Mathx;
 import neontd.physics.FixedTimestep;
+import neontd.progress.Medals;
 import neontd.progress.Progress;
 import neontd.render.EnemyArt;
 import neontd.render.GameFx;
@@ -133,6 +134,7 @@ public final class GameScene extends Scene {
     private boolean saveSoon;
     private boolean ended;
     private boolean newRecord;
+    private String medalText = "";
 
     // Anzeige
     private final Smooth moneyShown = new Smooth(0, 9);
@@ -584,9 +586,26 @@ public final class GameScene extends Scene {
             killsCommitted = world.kills;
         }
         int before = progress.best(level.id, world.endless);
+        int medalBefore = progress.medal(level.id);
+        int levelBefore = progress.level();
         progress.onRecord(level.id, world.clearedWaves(), world.endless);
         if (world.clearedWaves() > before && before > 0) {
             newRecord = true;
+        }
+        int medalNow = progress.medal(level.id);
+        if (medalNow > medalBefore) {
+            int xp = Medals.xpBetween(medalBefore, medalNow);
+            progress.addXp(xp);
+            xpRun += xp;
+            medalText = Medals.NAMES[medalNow - 1];
+            showBanner(Medals.NAMES[medalNow - 1] + "-MEDAILLE!", "Welle " + Medals.WAVES[medalNow - 1] + " geschafft  ·  +" + xp
+                    + " XP", Medals.COLORS[medalNow - 1], 3.6);
+            fx.fireworkLater(0.0, world.width * 0.5, world.height * 0.4, Medals.COLORS[medalNow - 1], 2.2);
+            fx.fireworkLater(0.25, world.width * 0.3, world.height * 0.3, Medals.COLORS[medalNow - 1], 1.8);
+            fx.fireworkLater(0.5, world.width * 0.7, world.height * 0.3, Medals.COLORS[medalNow - 1], 1.8);
+            if (progress.level() > levelBefore) {
+                onLevelUp(levelBefore, progress.level());
+            }
         }
         app.commitProgress();
     }
@@ -1536,6 +1555,9 @@ public final class GameScene extends Scene {
                 }
                 if (newRecord) {
                     xp += "   ·   NEUER REKORD!";
+                }
+                if (!medalText.isEmpty()) {
+                    xp += "   ·   " + medalText + "!";
                 }
                 g.text(xp, cx, ty + th * 1.0 + fs * 1.5, fs * 0.9, Theme.MAGENTA, Gfx.ALIGN_CENTER, true);
                 String nt = newTowersText();

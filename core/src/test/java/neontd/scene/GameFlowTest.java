@@ -254,7 +254,7 @@ class GameFlowTest {
         // Ohne Lauf und ohne Sieg: direkt ins Spiel
         h.app.goTo(new LevelSelectScene(h.app));
         h.run(1.5);
-        h.tap(320, 130);
+        h.tap(120, 150);
         h.run(1.5);
         assertEquals("GameScene", h.scene());
 
@@ -262,7 +262,7 @@ class GameFlowTest {
         h.app.progress.won.add("serpentine");
         h.app.goTo(new LevelSelectScene(h.app));
         h.run(1.5);
-        h.tap(320, 130);
+        h.tap(120, 150);
         h.run(1.0);
         assertEquals("LevelSelectScene", h.scene(), "Dialog erscheint");
         h.app.back();

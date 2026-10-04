@@ -149,7 +149,7 @@ console.log('2. iPhone quer: kompaktes Layout, Spielen, Speichern, Fortsetzen â€
 
   await call(page, 'go select');
   await page.waitForTimeout(1800);
-  await t.tap(320, 130);                               // Level 1 (ohne Lauf und ohne Sieg: Direktstart)
+  await t.tap(120, 150);                               // Level 1 (ohne Lauf und ohne Sieg: Direktstart)
   await page.waitForTimeout(1800);
   let s = await state(page);
   check(s.mode === 'COMPACT_LAND' && s.rotated === 'false', 'Handy quer nutzt das kompakte Layout (' + s.mode + ')');
@@ -207,7 +207,7 @@ console.log('2. iPhone quer: kompaktes Layout, Spielen, Speichern, Fortsetzen â€
   t = touch(page, await ctx.newCDPSession(page));
   await call(page, 'go select');
   await page.waitForTimeout(1800);
-  await t.tap(320, 130);
+  await t.tap(120, 150);
   await page.waitForTimeout(1200);
   check((await state(page)).scene === 'LevelSelectScene', 'Startdialog erscheint (Lauf gespeichert)');
   await page.screenshot({ path: path.join(out, '2c-startdialog.png') });

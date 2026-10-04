@@ -185,6 +185,10 @@ public final class ScreenshotTool {
                     app.progress.xp = neontd.progress.Progress.xpAtLevel(lv) + 10;
                     break;
                 }
+                case "best":
+                    // best LEVEL WELLE  – Rekord setzen (schaltet Medaillen und Folgelevel frei)
+                    app.progress.onRecord(p[1], Integer.parseInt(p[2]), true);
+                    break;
                 case "anchor": {
                     // anchor click|hold|up NAME  – Bedienelement der Spielszene ansteuern
                     double[] a = ((neontd.scene.GameScene) app.scene()).anchor(p[2]);

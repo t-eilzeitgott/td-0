@@ -30,6 +30,10 @@ public final class LevelDef {
     public int startLives = 20;
     /** Anzahl Wellen bei generierten Wellen (eingebaute Level bringen ihre eigene Liste mit). */
     public int waveCount = 25;
+    /** Schwierigkeitsfaktor auf alle Lebenspunkte (1 = Standardkurve; eingebaute Level werden schwerer). */
+    public double hpMul = 1;
+    /** Anzeige: Schwierigkeitsstufe 1–10 bei eingebauten Leveln, sonst 0. */
+    public int difficulty;
 
     public LevelDef() {
     }
@@ -50,6 +54,8 @@ public final class LevelDef {
         c.startMoney = startMoney;
         c.startLives = startLives;
         c.waveCount = waveCount;
+        c.hpMul = hpMul;
+        c.difficulty = difficulty;
         return c;
     }
 
@@ -64,12 +70,9 @@ public final class LevelDef {
 
     public List<WaveDef> buildWaves() {
         if (builtin) {
-            List<WaveDef> w = Levels.wavesFor(id);
-            if (w != null) {
-                return w;
-            }
+            return Levels.campaignWaves(this);
         }
-        return WaveFactory.generate(waveCount);
+        return WaveFactory.generate(waveCount, hpMul);
     }
 
     /** Prüft, ob das Level spielbar ist. Liefert {@code null} wenn ja, sonst eine verständliche Fehlermeldung. */

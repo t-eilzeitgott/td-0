@@ -152,6 +152,39 @@ public final class Progress {
         return v == null ? 0 : v;
     }
 
+    /** Weiteste besiegte Welle eines Levels – Normalspiel und Endlosmodus zusammen. */
+    public int bestOverall(String levelId) {
+        return Math.max(best(levelId, false), best(levelId, true));
+    }
+
+    /** Medaillenstufe eines Levels: 0 = keine, 1 = Bronze … 4 = Platin (siehe {@link Medals}). */
+    public int medal(String levelId) {
+        return Medals.tier(bestOverall(levelId));
+    }
+
+    /** Alle Medaillen über alle Level (Bronze, Silber, Gold, Platin zählen je eine). */
+    public int totalMedals() {
+        Set<String> ids = new TreeSet<>(bestWave.keySet());
+        ids.addAll(bestEndless.keySet());
+        int n = 0;
+        for (String id : ids) {
+            n += medal(id);
+        }
+        return n;
+    }
+
+    /**
+     * Ist das Level spielbar? Das erste eingebaute Level und eigene Level immer; jedes weitere, sobald im Level davor
+     * mindestens Bronze erreicht ist.
+     */
+    public boolean levelUnlocked(String levelId) {
+        int idx = neontd.level.Levels.indexOf(levelId);
+        if (idx <= 0) {
+            return true;
+        }
+        return medal(neontd.level.Levels.builtins().get(idx - 1).id) >= 1;
+    }
+
     /** Der Endlosmodus eines Levels ist nach dem ersten Sieg offen. */
     public boolean endlessUnlocked(String levelId) {
         return won.contains(levelId);

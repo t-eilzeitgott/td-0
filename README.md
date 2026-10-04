@@ -20,7 +20,7 @@ BBTAN, mit dem Ablauf von Bloons TD. Die gesamte Spiellogik ist in **Java** gesc
   → violett → indigo), die Form zeigt die Art.
 - **Feuerwerk**, wenn ein Gegner zerstört wird – mit Funken-Schweifen, Ringen und knisternden Nachzündern.
 - **Hauptmenü** mit lebendigem Hintergrund (ein Bot verteidigt dort im Dauerlauf Level 1) und **Levelauswahl**.
-- **Level 1 „Serpentine“** mit 20 Wellen und Titan-Bossen in Welle 10 und 20.
+- **10 eingebaute Level** von einfach bis komplex mit je 20 handgebauten Wellen, Titan-Bossen in Welle 10 und 20 und **Medaillen** (Bronze 20 · Silber 50 · Gold 100 · Platin 250 Wellen) – siehe [Level und Medaillen](#level-und-medaillen).
 - **Level-Editor**: eigene Pfade per Punkten *oder freihändig* zeichnen, Pfade glätten sich zu Kurven, Rückgängig,
   Probespielen, Speichern. Eigene Level erscheinen in der Levelauswahl.
 - **Spielerprofil mit Fortschritt**: Du startest auf Level 1 mit nur *einem* Turm (PULS). Jede besiegte Welle bringt XP,
@@ -155,6 +155,35 @@ Bögen um den Turm zeigen den Ausbau (blau = Reichweite, rot = Schaden, gelb = T
 
 Du startest mit 500 ◆ und 20 Leben (plus Startbonus aus dem Spielerlevel). Abschüsse und besiegte Wellen bringen
 Geld; ein Gegner, der das Ziel erreicht, kostet Leben.
+
+## Level und Medaillen
+
+| Nr. | Level | Aufbau |
+|---:|---|---|
+| 1 | Serpentine | ein ruhig geschwungener Pfad – zum Einstieg |
+| 2 | Zickzack | vier lange Bahnen im Wechsel |
+| 3 | Spirale | lange Spirale nach innen (Pfad ≈ 8000 Einheiten) |
+| 4 | Zwillinge | zwei lange Schlangenbahnen, Gegner wechseln sich ab |
+| 5 | Kreuzung | zwei Wellenbahnen, die sich viermal kreuzen |
+| 6 | Labyrinth | acht senkrechte Gänge, sehr viele Wenden |
+| 7 | Drei Wege | drei Bahnen mit je zwei Gängen übereinander |
+| 8 | Zangen | zwei Bahnen von gegenüber, Treffpunkt in der Mitte |
+| 9 | Festung | drei Bahnen aus drei Richtungen auf eine Basis zu |
+| 10 | Chaos | drei lange, sich kreuzende Bahnen mit engen Kurven |
+
+Die schwereren Level haben mehrere Pfade (Gegner verteilen sich, die Verteidigung muss mehrere Bahnen decken) und einen
+eigenen Lebenspunkte-Faktor; dafür gibt es mehr Startgeld. Ein Level wird frei, sobald im Level davor mindestens
+**Bronze** erreicht ist.
+
+**Medaillen** gibt es je Level nach der weitesten besiegten Welle (Normalspiel und Endlosmodus zusammen):
+**Bronze ab Welle 20** (das ist der Sieg über die handgebauten Wellen), **Silber ab 50**, **Gold ab 100** und
+**Platin ab 250**. Silber, Gold und Platin spielst du im Endlosmodus (**ENDLOS WEITER** nach dem Sieg). Jede Medaille
+bringt einmalig XP (150 · 400 · 1000 · 3000); auf der Levelkarte leuchten die erreichten Medaillen. Alle zehn Level
+fertig bedeutet 40 Medaillen.
+
+<p align="center">
+  <img src="docs/screenshots/levels.png" alt="Levelauswahl mit Medaillen und gesperrten Leveln" width="640">
+</p>
 
 ## Fortschritt
 

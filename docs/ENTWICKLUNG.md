@@ -133,8 +133,12 @@ deckend“ gilt; `alpha(a)` *multipliziert* und gilt bis zum nächsten `restore(
 **Neuer Gegner:** Eintrag in `sim.EnemyType` (Form aus `Shape`, Radius, Tempo, HP-Faktor, Belohnung, Lecks, Splitter),
 bei neuer Form die Zeichnung in `render.EnemyArt`; Auftritt in `WaveFactory` bzw. `Levels`.
 
-**Neues Level:** In `level.Levels` Kontrollpunkte (und optional handgebaute Wellen) ergänzen – oder einfach im Editor
-zeichnen. Level werden als lesbarer Text gespeichert (`level.LevelCodec`, Format `NTD1`).
+**Neues Level:** In `level.Levels` eine Methode mit Kontrollpunkten ergänzen (Hilfen: `rounded` rundet die Ecken einer
+Polylinie, `wave` erzeugt Wellenbahnen), Schwierigkeit (`difficulty`, `hpMul`) und Startgeld festlegen und in `builtins()`
+eintragen – oder einfach im Editor zeichnen. Die Reihenfolge in `builtins()` ist die Freischalt-Reihenfolge
+(`Progress.levelUnlocked`: Bronze im Vorgänger). Medaillen: `progress.Medals`. Zum Eichen von `hpMul` und Startgeld lässt
+`sim/LevelProbe` einen Bot jedes Level im Endlosmodus spielen; `LevelsTest.aSolidBotEarnsBronzeOnEveryLevel` verlangt,
+dass er in jedem Level die 20 Wellen übersteht. Level werden als lesbarer Text gespeichert (`level.LevelCodec`, Format `NTD1`).
 
 **Balance:** Zahlen in `TowerType`, `EnemyType`, `UpgradeTrack` und `WaveFactory` ändern und
 `./gradlew :core:test --tests '*BalanceTest*' -i` ausführen: `AutoPlayer` spielt Level 1 mit einer soliden und einer

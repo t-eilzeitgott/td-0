@@ -56,7 +56,8 @@ public final class AutoPlayer {
      * ein Turm, wird dafür gespart; sonst fließt das Geld in Upgrades.
      */
     private boolean buyOne() {
-        int desired = Math.min(maxTowers, world.endless ? 3 + world.waveIndex : 3 + world.waveIndex / 2);
+        int paths = world.paths.length;
+        int desired = Math.min(maxTowers, (world.endless ? 3 + world.waveIndex : 3 + world.waveIndex / 2) * (1 + paths) / 2);
         TowerType next = order[buildIndex % order.length];
         if (world.towers.size() < desired && stuck < 3) {
             if (world.money < next.cost) {
@@ -132,8 +133,28 @@ public final class AutoPlayer {
         return bestTower != null && world.upgrade(bestTower, bestTrack);
     }
 
-    /** Position mit der größten abgedeckten Pfadlänge (auf einem 24er-Raster). */
+    /**
+     * Position mit der größten abgedeckten Pfadlänge (auf einem 24er-Raster). Bei mehreren Pfaden zählt jeder Pfad umso
+     * weniger, je besser er schon von Türmen abgedeckt ist – so verteilt der Bot seine Türme auf alle Bahnen.
+     */
     private double[] bestSpot(TowerType type) {
+        int np = world.paths.length;
+        double[] weight = new double[np];
+        for (int pi = 0; pi < np; pi++) {
+            Path p = world.paths[pi];
+            double covered = 0;
+            for (int i = 0; i < p.pointCount(); i += 4) {
+                for (int k = 0; k < world.towers.size(); k++) {
+                    Tower o = world.towers.get(k);
+                    if (Mathx.distSq(o.x, o.y, p.x(i), p.y(i)) <= o.range * o.range) {
+                        covered += 1;
+                        break;
+                    }
+                }
+            }
+            double fraction = covered / Math.max(1, p.pointCount() / 4);
+            weight[pi] = 1.0 / (0.15 + fraction);
+        }
         double bestScore = 0;
         double[] best = null;
         double range = type.range;
@@ -143,10 +164,11 @@ public final class AutoPlayer {
                     continue;
                 }
                 double cover = 0;
-                for (Path p : world.paths) {
+                for (int pi = 0; pi < np; pi++) {
+                    Path p = world.paths[pi];
                     for (int i = 0; i < p.pointCount(); i += 2) {
                         if (Mathx.distSq(x, y, p.x(i), p.y(i)) <= range * range) {
-                            cover += 8;
+                            cover += 8 * weight[pi];
                         }
                     }
                 }
