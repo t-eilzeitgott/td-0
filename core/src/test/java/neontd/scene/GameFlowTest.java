@@ -247,7 +247,7 @@ class GameFlowTest {
         assertTrue(h.app.progress.endlessUnlocked("kurz"));
         assertEquals(1, h.app.progress.gamesWon);
         assertNull(h.app.saves.resumable("kurz"), "beendeter Lauf bleibt nicht fortsetzbar");
-        int xpBefore = h.app.progress.xp;
+        double xpBefore = h.app.progress.xp;
         assertTrue(xpBefore >= Progress.WIN_XP + Progress.FIRST_WIN_XP);
 
         // Einblendung: ENDLOS WEITER ist die erste Schaltfläche

@@ -25,7 +25,7 @@ public final class Fmt {
         return (v / 1_000_000_000) + "." + ((v % 1_000_000_000) / 100_000_000) + "B";
     }
 
-    /** Wie {@link #compact(int)} für Geldbeträge bis 9,99 Mrd.: ab einer Milliarde „1.2B“ … „9.9B“, darüber „10B“. */
+    /** Wie {@link #compact(int)} für Beträge bis 9·10¹⁵: ab einer Milliarde „1.2B“ / „123B“, dann „T“ (10¹²) und „Qa“ (10¹⁵). */
     public static String compact(double v) {
         if (v < 0) {
             return "-" + compact(-v);
@@ -33,8 +33,19 @@ public final class Fmt {
         if (v < 1_000_000_000.0) {
             return compact((int) v);
         }
-        double b = Math.floor(v / 100_000_000.0) / 10; // eine Nachkommastelle, ohne Aufrunden
-        return b >= 10 ? "10B" : (int) b + "." + (int) Math.round((b - Math.floor(b)) * 10) + "B";
+        String[] unit = {"B", "T", "Qa"};
+        double scale = 1_000_000_000.0;
+        int i = 0;
+        while (i < 2 && v >= scale * 1000) {
+            scale *= 1000;
+            i++;
+        }
+        double x = v / scale;
+        if (x >= 10) {
+            return (int) x + unit[i];
+        }
+        double t = Math.floor(x * 10) / 10; // eine Nachkommastelle, ohne Aufrunden
+        return (int) t + "." + (int) Math.round((t - Math.floor(t)) * 10) + unit[i];
     }
 
     public static String tight(double v) {

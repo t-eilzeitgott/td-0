@@ -33,8 +33,8 @@ public final class World {
     private static final double TURN_RATE = 16;
     private static final double AUTO_START_DELAY = 1.2;
     private static final int QUERY_CAP = 2048;
-    /** Obergrenze für das Geld (9.999.999.999): Geld ist ein double mit ganzen Zahlen, exakt bis 9·10¹⁵. */
-    public static final double MAX_MONEY = 9_999_999_999.0;
+    /** Obergrenze für das Geld: 9·10¹⁵ – Geld ist ein double mit ganzen Zahlen, das bis 2⁵³ ≈ 9,007·10¹⁵ exakt rechnet. */
+    public static final double MAX_MONEY = 9_000_000_000_000_000.0;
     /** Endlos: Die nächste Welle darf automatisch früher kommen, wenn von der letzten nur noch so viele übrig sind. */
     public static final int EARLY_START_LEFT = 6;
     /** Im Endlosmodus gibt jede so-vielte besiegte Welle ein verlorenes Leben zurück. */

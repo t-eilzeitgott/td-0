@@ -53,7 +53,7 @@ class ProgressTest {
         assertTrue(p.endlessUnlocked("serpentine"));
         assertEquals(1, p.gamesWon);
         // Der erste Sieg bringt den Einmalbonus, jeder weitere nur noch den normalen.
-        int before = p.xp;
+        double before = p.xp;
         assertEquals(Progress.WIN_XP, p.onWon("serpentine"));
         assertEquals(before + Progress.WIN_XP, p.xp);
     }
@@ -108,5 +108,20 @@ class ProgressTest {
         assertEquals("abcdefghijklmnop", Progress.cleanName("abcdefghijklmnopqrstuvw"));
         assertEquals("ab", Progress.cleanName("a<b>"));
         assertEquals("SPIELER", new Progress().displayName());
+    }
+
+    @Test
+    void xpGoesFarBeyondTheIntRange() {
+        assertEquals(9.0e15, Progress.MAX_XP);
+        Progress p = new Progress();
+        p.xp = 5_000_000_000.0;
+        assertEquals(Progress.MAX_LEVEL, p.level());
+        p.addXp(1_000_000_000_000.0);
+        assertEquals(1_005_000_000_000.0, p.xp);
+        p.addXp(Progress.MAX_XP);
+        assertEquals(Progress.MAX_XP, p.xp);
+        Progress q = neontd.save.ProfileJson.fromMap(neontd.save.ProfileJson.toMap(p));
+        assertEquals(Progress.MAX_XP, q.xp, "Speichern und Laden behält den vollen Betrag");
+        assertEquals(1.0, q.levelFraction());
     }
 }

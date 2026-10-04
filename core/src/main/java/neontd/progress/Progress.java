@@ -17,8 +17,10 @@ import neontd.sim.TowerType;
  */
 public final class Progress {
     public static final int MAX_LEVEL = 100;
-    /** XP-Obergrenze (bleibt weit unter dem int-Bereich). */
-    public static final int MAX_XP = 2_000_000_000;
+    /** XP-Obergrenze: 9·10¹⁵ – XP sind ein double mit ganzen Zahlen, das bis 2⁵³ ≈ 9,007·10¹⁵ exakt rechnet. */
+    public static final double MAX_XP = 9_000_000_000_000_000.0;
+    /** Obergrenze der int-Zähler (Abschüsse, Wellen, Spiele). */
+    public static final int MAX_COUNT = 2_000_000_000;
     public static final int MAX_NAME = 16;
     /** Einmaliger Bonus für den ersten Sieg über ein Level. */
     public static final int FIRST_WIN_XP = 300;
@@ -26,7 +28,7 @@ public final class Progress {
 
     /** Anzeigename; leer = "SPIELER". */
     public String name = "";
-    public int xp;
+    public double xp;
     public int kills;
     public int wavesCleared;
     public int gamesPlayed;
@@ -74,9 +76,9 @@ public final class Progress {
         return total;
     }
 
-    public static int levelForXp(int xp) {
+    public static int levelForXp(double xp) {
         int level = 1;
-        int left = xp;
+        double left = xp;
         while (level < MAX_LEVEL && left >= xpForNext(level)) {
             left -= xpForNext(level);
             level++;
@@ -89,7 +91,7 @@ public final class Progress {
     }
 
     /** XP innerhalb des aktuellen Levels. */
-    public int xpIntoLevel() {
+    public double xpIntoLevel() {
         return xp - xpAtLevel(level());
     }
 
@@ -102,16 +104,16 @@ public final class Progress {
     /** Fortschritt im aktuellen Level, 0..1. */
     public double levelFraction() {
         int span = xpSpan();
-        return span == 0 ? 1 : Math.min(1, (double) xpIntoLevel() / span);
+        return span == 0 ? 1 : Math.min(1, xpIntoLevel() / span);
     }
 
     /** Fügt XP hinzu. @return Anzahl der dabei aufgestiegenen Level */
-    public int addXp(int amount) {
+    public int addXp(double amount) {
         if (amount <= 0) {
             return 0;
         }
         int before = level();
-        xp = (int) Math.min(MAX_XP, (double) xp + amount);
+        xp = Math.min(MAX_XP, xp + amount);
         return level() - before;
     }
 

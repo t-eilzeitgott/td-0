@@ -582,7 +582,7 @@ public final class GameScene extends Scene {
         }
         int dk = world.kills - killsCommitted;
         if (dk > 0) {
-            progress.kills = (int) Math.min(Progress.MAX_XP, (double) progress.kills + dk);
+            progress.kills = (int) Math.min(Progress.MAX_COUNT, (double) progress.kills + dk);
             killsCommitted = world.kills;
         }
         int before = progress.best(level.id, world.endless);

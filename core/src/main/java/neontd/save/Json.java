@@ -67,7 +67,7 @@ public final class Json {
     private static void number(StringBuilder sb, double d) {
         if (Double.isNaN(d) || Double.isInfinite(d)) {
             sb.append('0');
-        } else if (d == Math.rint(d) && Math.abs(d) < 1e15) {
+        } else if (d == Math.rint(d) && Math.abs(d) < 9.1e15) {
             sb.append(formatWhole(d));
         } else {
             sb.append(Double.toString(d));

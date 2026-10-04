@@ -3,6 +3,7 @@ package neontd.save;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import neontd.math.Mathx;
 import neontd.progress.Progress;
 
 /** Wandelt ein {@link Progress} in JSON-Werte und zurück (lokaler Speicher und Cloud nutzen dasselbe Format). */
@@ -32,11 +33,11 @@ public final class ProfileJson {
             return p;
         }
         p.name = Progress.cleanName(Json.str(m, "name", ""));
-        p.xp = clampInt(Json.integer(m, "xp", 0), Progress.MAX_XP);
-        p.kills = clampInt(Json.integer(m, "kills", 0), Progress.MAX_XP);
-        p.wavesCleared = clampInt(Json.integer(m, "waves", 0), Progress.MAX_XP);
-        p.gamesPlayed = clampInt(Json.integer(m, "played", 0), Progress.MAX_XP);
-        p.gamesWon = clampInt(Json.integer(m, "wins", 0), Progress.MAX_XP);
+        p.xp = Mathx.clamp(Json.num(m, "xp", 0), 0, Progress.MAX_XP);
+        p.kills = clampInt(Json.integer(m, "kills", 0), Progress.MAX_COUNT);
+        p.wavesCleared = clampInt(Json.integer(m, "waves", 0), Progress.MAX_COUNT);
+        p.gamesPlayed = clampInt(Json.integer(m, "played", 0), Progress.MAX_COUNT);
+        p.gamesWon = clampInt(Json.integer(m, "wins", 0), Progress.MAX_COUNT);
         List<Object> won = Json.list(m, "won");
         if (won != null) {
             for (Object o : won) {
@@ -58,7 +59,7 @@ public final class ProfileJson {
         for (Map.Entry<String, Object> e : src.entrySet()) {
             if (e.getValue() instanceof Number) {
                 dst.put(e.getKey(), clampInt((int) Math.min(Integer.MAX_VALUE, ((Number) e.getValue()).doubleValue()),
-                        Progress.MAX_XP));
+                        Progress.MAX_COUNT));
             }
         }
     }
