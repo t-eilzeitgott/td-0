@@ -147,7 +147,39 @@ public final class WebMain {
     // ------------------------------------------------------------------------------------------- Eingabe
 
     private void installInput() {
+        // Finger: klassische Touch-Ereignisse (siehe Js.installTouch); Maus und Stift laufen über Zeiger-Ereignisse.
+        Js.installTouch(canvas, (type, id, x, y) -> {
+            switch (type) {
+                case 0:
+                    if (activePointer >= 0) {
+                        return; // zweiter Finger wird ignoriert
+                    }
+                    activePointer = id;
+                    app.pointerDown(x, y, true);
+                    break;
+                case 1:
+                    if (id == activePointer) {
+                        app.pointerMove(x, y, true, true);
+                    }
+                    break;
+                case 2:
+                    if (id == activePointer) {
+                        activePointer = -1;
+                        app.pointerUp(x, y, true);
+                    }
+                    break;
+                default:
+                    if (id == activePointer) {
+                        activePointer = -1;
+                        app.pointerCancel();
+                    }
+                    break;
+            }
+        });
         canvas.addEventListener("pointerdown", (EventListener<Js.PointerEv>) e -> {
+            if ("touch".equals(e.getPointerType())) {
+                return; // Finger kommen über Touch-Ereignisse
+            }
             if (activePointer >= 0 && e.getPointerId() != activePointer) {
                 return; // zweiter Finger wird ignoriert
             }
@@ -166,6 +198,9 @@ public final class WebMain {
             app.pointerDown(e.getClientX(), e.getClientY(), !mouse);
         });
         canvas.addEventListener("pointermove", (EventListener<Js.PointerEv>) e -> {
+            if ("touch".equals(e.getPointerType())) {
+                return; // Finger kommen über Touch-Ereignisse
+            }
             boolean mouse = "mouse".equals(e.getPointerType());
             if (activePointer >= 0 && e.getPointerId() != activePointer) {
                 return;
@@ -177,6 +212,9 @@ public final class WebMain {
             app.pointerMove(e.getClientX(), e.getClientY(), pressed, !mouse);
         });
         canvas.addEventListener("pointerup", (EventListener<Js.PointerEv>) e -> {
+            if ("touch".equals(e.getPointerType())) {
+                return; // Finger kommen über Touch-Ereignisse
+            }
             if (e.getPointerId() != activePointer) {
                 return;
             }
@@ -184,6 +222,9 @@ public final class WebMain {
             app.pointerUp(e.getClientX(), e.getClientY(), !"mouse".equals(e.getPointerType()));
         });
         canvas.addEventListener("pointercancel", (EventListener<Js.PointerEv>) e -> {
+            if ("touch".equals(e.getPointerType())) {
+                return; // Finger kommen über Touch-Ereignisse
+            }
             if (e.getPointerId() != activePointer) {
                 return;
             }

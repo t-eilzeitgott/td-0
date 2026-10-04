@@ -168,6 +168,27 @@ final class Js {
     @JSBody(params = {"fn"}, script = "window.__ntd = { call: fn };")
     static native void exposeDebug(StringFn fn);
 
+    /** Rückruf für Finger-Ereignisse: Art (0 Start, 1 Bewegung, 2 Ende, 3 Abbruch), Finger-Kennung und Position. */
+    @JSFunctor
+    interface TouchFn extends JSObject {
+        void call(int type, int id, double x, double y);
+    }
+
+    /**
+     * Hängt klassische Touch-Ereignisse an das Element (nicht passiv, mit {@code preventDefault}). Das ist auf dem
+     * iPhone robuster als Zeiger-Ereignisse: Der Browser kann die Geste dann weder als Scrollen noch als Halten
+     * (Lupe, Auswahl) übernehmen und abbrechen.
+     */
+    @JSBody(params = {"el", "cb"}, script =
+            "function h(type) { return function (e) { e.preventDefault(); var ts = e.changedTouches;"
+            + "for (var i = 0; i < ts.length; i++) { cb(type, ts[i].identifier, ts[i].clientX, ts[i].clientY); } }; }"
+            + "var o = { passive: false };"
+            + "el.addEventListener('touchstart', h(0), o); el.addEventListener('touchmove', h(1), o);"
+            + "el.addEventListener('touchend', h(2), o); el.addEventListener('touchcancel', h(3), o);"
+            + "el.addEventListener('selectstart', function (e) { e.preventDefault(); });"
+            + "el.addEventListener('dragstart', function (e) { e.preventDefault(); });")
+    static native void installTouch(HTMLCanvasElement el, TouchFn cb);
+
     @JSBody(params = {}, script = "return document.hidden === true;")
     static native boolean documentHidden();
 }
