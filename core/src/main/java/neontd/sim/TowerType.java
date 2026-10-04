@@ -5,11 +5,11 @@ package neontd.sim;
  * (Reichweite, Schaden, Tempo) skalieren sie über {@link UpgradeTrack}.
  */
 public enum TowerType {
-    PULSE("PULS", "Schneller Allrounder", 0x00E5FF, 100, 150, 4, 0.50),
-    SNIPER("SNIPER", "Sehr weit, sehr stark", 0xFF3DCB, 280, 330, 34, 1.90),
-    MORTAR("MÖRSER", "Flächenschaden", 0xFF8A00, 240, 235, 14, 1.60),
-    FROST("FROST", "Verlangsamt alle in Reichweite", 0x7DA2FF, 160, 108, 2, 1.40),
-    ARC("BLITZ", "Springt zwischen Zielen", 0xB6FF3B, 220, 142, 5, 0.90);
+    PULSE("PULS", "Schneller Allrounder", 0x00E5FF, 100, 150, 4, 0.50, 1),
+    SNIPER("SNIPER", "Sehr weit, sehr stark", 0xFF3DCB, 280, 330, 34, 1.90, 8),
+    MORTAR("MÖRSER", "Flächenschaden", 0xFF8A00, 240, 235, 14, 1.60, 4),
+    FROST("FROST", "Verlangsamt alle in Reichweite", 0x7DA2FF, 160, 108, 2, 1.40, 2),
+    ARC("BLITZ", "Springt zwischen Zielen", 0xB6FF3B, 220, 142, 5, 0.90, 6);
 
     public final String label;
     public final String tagline;
@@ -20,6 +20,8 @@ public enum TowerType {
     public final int damage;
     /** Sekunden zwischen zwei Schüssen. */
     public final double interval;
+    /** Ab diesem Spielerlevel steht der Turm zur Verfügung (siehe {@code neontd.progress.Progress}). */
+    public final int unlockLevel;
 
     // ---- typspezifische Parameter (nicht skalierend) ----
     /** Geschossgeschwindigkeit (Puls) in Welteinheiten/s. */
@@ -37,7 +39,8 @@ public enum TowerType {
     public static final double ARC_CHAIN_RADIUS = 120;
     public static final double ARC_FALLOFF = 0.75;
 
-    TowerType(String label, String tagline, int color, int cost, double range, int damage, double interval) {
+    TowerType(String label, String tagline, int color, int cost, double range, int damage, double interval,
+              int unlockLevel) {
         this.label = label;
         this.tagline = tagline;
         this.color = color;
@@ -45,5 +48,6 @@ public enum TowerType {
         this.range = range;
         this.damage = damage;
         this.interval = interval;
+        this.unlockLevel = unlockLevel;
     }
 }

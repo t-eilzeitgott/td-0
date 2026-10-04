@@ -77,6 +77,7 @@ public final class World {
     private boolean[] cleared;
     /** Kleinster Index einer Welle, die noch nicht besiegt ist (alles davor ist erledigt). */
     private int firstOpen;
+    private int clearedCount;
     private final ArrayList<Emitter> emitters = new ArrayList<>();
     private final double[] chainPts = new double[2 * (TowerType.ARC_CHAINS + 2)];
     private final int[] chainIds = new int[TowerType.ARC_CHAINS + 1];
@@ -290,6 +291,11 @@ public final class World {
         return activeWaves;
     }
 
+    /** Anzahl bisher vollständig besiegter Wellen. */
+    public int clearedWaves() {
+        return clearedCount;
+    }
+
     /** Lebende Gegner plus noch nicht erschienene aus den gestarteten Wellen. */
     public int enemiesRemaining() {
         int n = 0;
@@ -302,6 +308,128 @@ public final class World {
     /** Anzahl der festen Wellen des Levels (im Endlosmodus kommen weitere hinzu). */
     public int totalWaves() {
         return baseWaveCount;
+    }
+
+    // ------------------------------------------------------------------------------------ Speichern
+
+    /** Läuft das Spiel und liefert keine Welle mehr Gegner nach? Nur dann lässt sich der Stand sauber abbilden. */
+    public boolean canSnapshot() {
+        return state == State.RUNNING && emitters.isEmpty();
+    }
+
+    /** Bildet den Spielstand ab oder liefert {@code null}, wenn gerade nicht möglich ({@link #canSnapshot}). */
+    public WorldSnapshot snapshot() {
+        if (!canSnapshot()) {
+            return null;
+        }
+        WorldSnapshot s = new WorldSnapshot();
+        s.money = money;
+        s.lives = lives;
+        s.kills = kills;
+        s.waveIndex = waveIndex;
+        s.clearedWaves = clearedCount;
+        s.time = time;
+        s.endless = endless;
+        s.autoStart = autoStart;
+        for (int i = 0; i < towers.size(); i++) {
+            Tower t = towers.get(i);
+            WorldSnapshot.TowerData d = new WorldSnapshot.TowerData();
+            d.type = t.type.ordinal();
+            d.x = t.x;
+            d.y = t.y;
+            System.arraycopy(t.level, 0, d.level, 0, 3);
+            d.invested = t.invested;
+            d.mode = t.mode.ordinal();
+            s.towers.add(d);
+        }
+        for (int i = 0; i < enemies.size(); i++) {
+            Enemy e = enemies.get(i);
+            if (!e.alive || e.hp <= 0) {
+                continue;
+            }
+            WorldSnapshot.EnemyData d = new WorldSnapshot.EnemyData();
+            d.type = e.type.ordinal();
+            d.path = e.pathIndex;
+            d.wave = e.wave;
+            d.hp = e.hp;
+            d.dist = e.dist;
+            d.reward = e.reward;
+            d.slowFactor = e.slowFactor;
+            d.slowTimer = e.slowTimer;
+            s.enemies.add(d);
+        }
+        return s;
+    }
+
+    /**
+     * Stellt einen gespeicherten Stand in einer frisch erzeugten Welt wieder her. Ungültige Einträge (fremde
+     * Ordnungszahlen, unmögliche Plätze) werden übersprungen, damit ein beschädigter Speicherstand nie abstürzt.
+     */
+    public void restore(WorldSnapshot s) {
+        TowerType[] tt = TowerType.values();
+        EnemyType[] et = EnemyType.values();
+        TargetMode[] modes = TargetMode.values();
+        if (s.endless) {
+            endless = true;
+        }
+        autoStart = s.autoStart;
+        money = Mathx.clamp(s.money, 0, MAX_MONEY);
+        lives = Mathx.clamp(s.lives, 1, Math.max(1, level.startLives + 50));
+        kills = Math.max(0, s.kills);
+        time = Math.max(0, s.time);
+        for (WorldSnapshot.TowerData d : s.towers) {
+            if (d.type < 0 || d.type >= tt.length || checkPlacement(d.x, d.y) != PlaceCheck.OK) {
+                continue;
+            }
+            Tower t = new Tower(nextId++, tt[d.type], d.x, d.y);
+            t.aim = -Mathx.PI / 2;
+            for (int k = 0; k < 3; k++) {
+                t.level[k] = Mathx.clamp(d.level[k], 0, UpgradeTrack.values()[k].maxLevel(endless));
+            }
+            t.invested = Mathx.clamp(d.invested, t.type.cost, MAX_MONEY);
+            t.mode = modes[Mathx.clamp(d.mode, 0, modes.length - 1)];
+            t.recompute();
+            towers.add(t);
+        }
+        int wi = Math.max(0, s.waveIndex);
+        if (!endless) {
+            wi = Math.min(wi, waves.size());
+        }
+        waveIndex = wi;
+        ensureWaveCapacity(wi + 1);
+        if (wi > 0) {
+            waveAt(wi - 1);
+        }
+        for (int w = 0; w < wi; w++) {
+            cleared[w] = true;
+            spawnsLeft[w] = 0;
+            aliveByWave[w] = 0;
+        }
+        for (WorldSnapshot.EnemyData d : s.enemies) {
+            if (d.type < 0 || d.type >= et.length || d.wave < 0 || d.wave >= wi || d.hp <= 0 || paths.length == 0) {
+                continue;
+            }
+            int path = Mathx.clamp(d.path, 0, paths.length - 1);
+            double dist = Mathx.clamp(d.dist, 0, paths[path].length() - 1);
+            Enemy e = addEnemy(et[d.type], path, d.wave, d.hp, dist, Math.max(1, d.reward));
+            e.slowFactor = Mathx.clamp(d.slowFactor, 0.2, 1);
+            e.slowTimer = Math.max(0, d.slowTimer);
+        }
+        activeWaves = 0;
+        clearedCount = 0;
+        firstOpen = wi;
+        for (int w = 0; w < wi; w++) {
+            if (aliveByWave[w] > 0) {
+                cleared[w] = false;
+                activeWaves++;
+                if (w < firstOpen) {
+                    firstOpen = w;
+                }
+            } else {
+                clearedCount++;
+            }
+        }
+        state = State.RUNNING;
     }
 
     // ------------------------------------------------------------------------------------ Simulation
@@ -791,6 +919,7 @@ public final class World {
         for (int w = firstOpen; w < waveIndex; w++) {
             if (!cleared[w] && spawnsLeft[w] == 0 && aliveByWave[w] == 0) {
                 cleared[w] = true;
+                clearedCount++;
                 activeWaves--;
                 int bonus = waves.get(w).bonus;
                 addMoney(bonus);
