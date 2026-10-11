@@ -3,6 +3,8 @@ package neontd.math;
 /** Kleine Sammlung mathematischer Helfer (alles in double, damit JVM und JS identisch rechnen). */
 public final class Mathx {
     public static final double PI = Math.PI;
+    /** Größte ganze Zahl, die ein double exakt hält (2^53 − 1). */
+    public static final double MAX_SAFE = 9_007_199_254_740_991.0;
     public static final double TAU = Math.PI * 2.0;
     public static final double EPS = 1e-9;
 

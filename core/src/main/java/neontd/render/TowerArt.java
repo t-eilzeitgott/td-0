@@ -208,9 +208,166 @@ public final class TowerArt {
                 }
                 break;
             }
+            case INFERNO: {
+                // Flamme mit flackerndem Kern
+                double fl = 1 + 0.07 * Math.sin(time * 13) + recoil * 0.12;
+                g.scale(1, fl);
+                g.beginPath();
+                flame(g, r * 0.82);
+                g.fill(Colors.withAlpha(c, 0.3));
+                Neon.stroke(g, 2.2, Colors.lighten(c, 0.25), 6);
+                g.beginPath();
+                flame(g, r * 0.42);
+                g.fill(Colors.withAlpha(Colors.lighten(c, 0.5), 0.55));
+                Neon.stroke(g, 1.6, Colors.lighten(c, 0.6), 4);
+                break;
+            }
+            case VENOM: {
+                // Giftstropfen mit aufsteigenden Blasen
+                g.beginPath();
+                g.moveTo(0, -r * 0.78);
+                g.lineTo(r * 0.44, -r * 0.02);
+                g.lineTo(r * 0.5, r * 0.3);
+                g.lineTo(r * 0.3, r * 0.58);
+                g.lineTo(0, r * 0.68);
+                g.lineTo(-r * 0.3, r * 0.58);
+                g.lineTo(-r * 0.5, r * 0.3);
+                g.lineTo(-r * 0.44, -r * 0.02);
+                g.closePath();
+                g.fill(Colors.withAlpha(c, 0.28));
+                Neon.stroke(g, 2.2, Colors.lighten(c, 0.25), 6);
+                for (int i = 0; i < 3; i++) {
+                    double ph = (time * 0.7 + i / 3.0) % 1.0;
+                    g.strokeCircle((i - 1) * r * 0.22, r * 0.4 - ph * r * 0.9, r * (0.07 + 0.05 * (i % 2)), 1.4,
+                            Colors.withAlpha(Colors.lighten(c, 0.5), 1 - ph));
+                }
+                g.fillCircle(-r * 0.12, r * 0.12, r * 0.09, Colors.lighten(c, 0.6));
+                break;
+            }
+            case SHREDDER: {
+                // Fächer aus drei kurzen Läufen
+                g.rotate(aim);
+                double k = recoil * r * 0.22;
+                g.beginPath();
+                g.ngon(0, 0, r * 0.5, 6, 0);
+                g.fill(Colors.withAlpha(c, 0.3));
+                Neon.stroke(g, 2.2, Colors.lighten(c, 0.2), 6);
+                for (int s2 = -1; s2 <= 1; s2++) {
+                    double ang = s2 * 0.34;
+                    double ca = Math.cos(ang);
+                    double sa = Math.sin(ang);
+                    Neon.line(g, ca * r * 0.25 - k, sa * r * 0.25, ca * r * 0.98 - k, sa * r * 0.98, 3.2,
+                            Colors.lighten(c, 0.3), 5);
+                }
+                break;
+            }
+            case GRAVITON: {
+                // Strudel: gegenläufige Bögen um einen dunklen Kern
+                for (int i = 0; i < 3; i++) {
+                    double rr = r * (0.28 + 0.2 * i);
+                    double spin = time * (i % 2 == 0 ? 1.4 : -1.1) * (1 + 0.4 * recoil) + i * 2.1;
+                    g.beginPath();
+                    g.arc(0, 0, rr, spin, spin + Math.PI * 1.25);
+                    Neon.stroke(g, 2.1, Colors.lighten(c, 0.15 + 0.1 * i), 5);
+                }
+                g.fillCircle(0, 0, r * 0.12, Colors.lighten(c, 0.6));
+                break;
+            }
+            case MINT: {
+                // Münze mit Raute; pulsiert beim Prägen
+                double pulse = 1 + recoil * 0.2;
+                g.scale(pulse, pulse);
+                g.beginPath();
+                g.circle(0, 0, r * 0.56);
+                g.fill(Colors.withAlpha(c, 0.3));
+                Neon.stroke(g, 2.4, Colors.lighten(c, 0.25), 6);
+                g.strokeCircle(0, 0, r * 0.42, 1.2, Colors.withAlpha(c, 0.55));
+                g.beginPath();
+                g.ngon(0, 0, r * 0.26, 4, 0);
+                g.fill(Colors.withAlpha(Colors.lighten(c, 0.5), 0.55));
+                Neon.stroke(g, 1.6, Colors.lighten(c, 0.6), 3);
+                for (int i = 0; i < 3; i++) {
+                    double ph = (time * 0.5 + i / 3.0) % 1.0;
+                    g.fillCircle(Math.cos(i * 2.1 + 0.6) * r * (0.7 + 0.15 * ph), Math.sin(i * 2.1 + 0.6) * r * (0.7 + 0.15 * ph),
+                            1.6, Colors.withAlpha(Colors.lighten(c, 0.6), 1 - ph));
+                }
+                break;
+            }
+            case PRISMA: {
+                // Dreieck mit Fächer aus Lichtstrahlen
+                g.rotate(aim);
+                double k = recoil * r * 0.12;
+                g.beginPath();
+                g.ngon(0, 0, r * 0.52, 3, 0);
+                g.fill(Colors.withAlpha(c, 0.3));
+                Neon.stroke(g, 2.2, Colors.lighten(c, 0.3), 6);
+                int[] ray = {0xFF5470, 0xFFD60A, 0x00E5FF};
+                for (int i = 0; i < 3; i++) {
+                    double ang = (i - 1) * 0.16;
+                    Neon.line(g, r * 0.4 - k, 0, Math.cos(ang) * r * 1.0 - k, Math.sin(ang) * r * 1.0, 2.0,
+                            Colors.lerp(c, ray[i], 0.6), 5);
+                }
+                break;
+            }
+            case BEACON: {
+                // Sendemast mit pulsierenden Wellen
+                Neon.line(g, 0, r * 0.62, 0, -r * 0.18, 2.4, Colors.lighten(c, 0.3), 5);
+                g.beginPath();
+                g.rect(-r * 0.28, r * 0.5, r * 0.56, r * 0.14);
+                g.fill(Colors.withAlpha(c, 0.4));
+                Neon.stroke(g, 1.8, Colors.lighten(c, 0.3), 4);
+                g.fillCircle(0, -r * 0.3, r * 0.12, Colors.lighten(c, 0.7));
+                for (int i = 0; i < 2; i++) {
+                    double ph = (time * 0.9 + i * 0.5) % 1.0;
+                    double rr = r * (0.3 + 0.45 * ph);
+                    g.beginPath();
+                    g.arc(0, -r * 0.3, rr, -Math.PI * 0.85, -Math.PI * 0.15);
+                    g.stroke(1.8, Colors.withAlpha(Colors.lighten(c, 0.3), 0.9 * (1 - ph)));
+                    g.beginPath();
+                    g.arc(0, -r * 0.3, rr, Math.PI * 0.15, Math.PI * 0.85);
+                    g.stroke(1.8, Colors.withAlpha(Colors.lighten(c, 0.3), 0.9 * (1 - ph)));
+                }
+                break;
+            }
+            case ORBITAL: {
+                // Fadenkreuz mit kreisenden Satelliten
+                double rr = r * (0.55 + 0.1 * recoil);
+                g.beginPath();
+                g.circle(0, 0, rr);
+                Neon.stroke(g, 2.0, Colors.lighten(c, 0.2), 6);
+                g.beginPath();
+                g.moveTo(-r * 0.85, 0);
+                g.lineTo(-r * 0.3, 0);
+                g.moveTo(r * 0.3, 0);
+                g.lineTo(r * 0.85, 0);
+                g.moveTo(0, -r * 0.85);
+                g.lineTo(0, -r * 0.3);
+                g.moveTo(0, r * 0.3);
+                g.lineTo(0, r * 0.85);
+                Neon.stroke(g, 1.8, Colors.lighten(c, 0.3), 4);
+                for (int i = 0; i < 3; i++) {
+                    double ang = time * 0.8 + i * 2.094;
+                    g.fillCircle(Math.cos(ang) * rr, Math.sin(ang) * rr, 2.6, Colors.lighten(c, 0.6));
+                }
+                g.fillCircle(0, 0, r * 0.1, Colors.lighten(c, 0.6));
+                break;
+            }
             default:
                 break;
         }
         g.restore();
+    }
+
+    /** Flammenumriss im Ursprung (Höhe etwa 1,5 r). */
+    private static void flame(Gfx g, double r) {
+        g.moveTo(0, -r * 0.95);
+        g.lineTo(r * 0.3, -r * 0.35);
+        g.lineTo(r * 0.62, r * 0.05);
+        g.lineTo(r * 0.48, r * 0.6);
+        g.lineTo(0, r * 0.88);
+        g.lineTo(-r * 0.48, r * 0.6);
+        g.lineTo(-r * 0.62, r * 0.05);
+        g.lineTo(-r * 0.26, -r * 0.3);
+        g.closePath();
     }
 }

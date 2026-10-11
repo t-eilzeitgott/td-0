@@ -27,6 +27,8 @@ public final class Theme {
     public static final int VIOLET = 0x9B7DFF;
 
     public static final int MONEY = YELLOW;
+    /** Die Shop-Währung (Kristalle). */
+    public static final int CRYSTAL = 0xB78BFF;
     public static final int LIFE = 0xFF3D71;
     public static final int GOOD = GREEN;
     public static final int BAD = RED;

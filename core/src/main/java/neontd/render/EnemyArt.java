@@ -33,9 +33,15 @@ public final class EnemyArt {
         g.save();
         g.translate(x, y);
         g.scale(spawn * visualScale, spawn * visualScale);
-        g.alpha(Math.min(1, e.age * 5));
+        g.alpha(Math.min(1, e.age * 5) * (e.phased() ? 0.3 : 1));
 
         Neon.halo(g, 0, 0, r * 2.1, c, 0.16 + 0.22 * flash);
+        if (e.burning()) {
+            Neon.halo(g, 0, 0, r * 2.6, 0xFF5A1F, 0.30 + 0.12 * Math.sin(time * 18 + e.id));
+        }
+        if (e.poisonStacks > 0) {
+            Neon.halo(g, 0, 0, r * 2.4, 0x3DFF9A, 0.12 + 0.05 * e.poisonStacks);
+        }
 
         g.save();
         g.rotate(e.heading);
@@ -59,6 +65,23 @@ public final class EnemyArt {
             g.beginPath();
             g.circle(0, 0, r + 6);
             g.strokeDashed(1.6, Colors.withAlpha(0xA8E6FF, 0.85), 5, 5, time * 20);
+        }
+        if (e.shield > 0) {
+            // Schild: Ring, der mit dem Rest schrumpft
+            double f = Mathx.clamp01((double) e.shield / Math.max(1, e.shieldMax));
+            g.beginPath();
+            g.arc(0, 0, r + 4.5, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * f);
+            Neon.stroke(g, 2.4, 0x7DE8FF, 5);
+        }
+        if (e.stunTimer > 0) {
+            g.beginPath();
+            g.circle(0, 0, r + 9);
+            g.strokeDashed(2, Colors.withAlpha(0xFFE600, 0.9), 3, 6, -time * 40);
+        }
+        if (e.vulnTimer > 0) {
+            g.beginPath();
+            g.circle(0, 0, r + 12);
+            g.strokeDashed(1.4, Colors.withAlpha(0xFF3DCB, 0.9), 2, 4, time * 25);
         }
 
         String label = HpLabel.of(e);
@@ -88,6 +111,42 @@ public final class EnemyArt {
                 break;
             case HEXAGON:
                 g.ngon(0, 0, r * 1.05, 6, Math.PI / 6);
+                break;
+            case PENTAGON:
+                g.ngon(0, 0, r * 1.12, 5, -Math.PI / 2);
+                break;
+            case SHIELD:
+                g.circle(0, 0, r * 0.98);
+                break;
+            case CROSS: {
+                double a = r * 1.05;
+                double t = r * 0.38;
+                g.moveTo(-t, -a);
+                g.lineTo(t, -a);
+                g.lineTo(t, -t);
+                g.lineTo(a, -t);
+                g.lineTo(a, t);
+                g.lineTo(t, t);
+                g.lineTo(t, a);
+                g.lineTo(-t, a);
+                g.lineTo(-t, t);
+                g.lineTo(-a, t);
+                g.lineTo(-a, -t);
+                g.lineTo(-t, -t);
+                g.closePath();
+                break;
+            }
+            case STAR:
+                for (int i = 0; i < 8; i++) {
+                    double ang = -Math.PI / 2 + Math.PI * i / 4;
+                    double rr = (i % 2 == 0) ? r * 1.3 : r * 0.55;
+                    if (i == 0) {
+                        g.moveTo(Math.cos(ang) * rr, Math.sin(ang) * rr);
+                    } else {
+                        g.lineTo(Math.cos(ang) * rr, Math.sin(ang) * rr);
+                    }
+                }
+                g.closePath();
                 break;
             case OCTAGON:
             default:

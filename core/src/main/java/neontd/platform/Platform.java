@@ -24,6 +24,11 @@ public interface Platform {
         return 0;
     }
 
+    /** Versatz der Ortszeit gegenüber UTC in Millisekunden (für den Tageswechsel der Aufgaben). */
+    default double localOffsetMillis() {
+        return 0;
+    }
+
     /** Netzwerkzugriff für den Cloud-Speicher oder {@code null}, wenn die Plattform keinen anbietet. */
     default Http http() {
         return null;

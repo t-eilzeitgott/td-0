@@ -187,6 +187,11 @@ public final class DesktopMain {
             }
 
             @Override
+            public double localOffsetMillis() {
+                return java.util.TimeZone.getDefault().getOffset(System.currentTimeMillis());
+            }
+
+            @Override
             public neontd.save.Http http() {
                 return http;
             }

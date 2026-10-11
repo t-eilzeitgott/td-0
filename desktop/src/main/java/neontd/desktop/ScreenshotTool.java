@@ -84,6 +84,27 @@ public final class ScreenshotTool {
             case "chapter3":
                 app.goTo(new neontd.scene.LevelSelectScene(app, 3));
                 break;
+            case "shop":
+                app.goTo(new neontd.scene.ShopScene(app));
+                break;
+            case "shop2":
+                app.goTo(new neontd.scene.ShopScene(app, 1));
+                break;
+            case "shop3":
+                app.goTo(new neontd.scene.ShopScene(app, 2));
+                break;
+            case "missions":
+                app.goTo(new neontd.scene.MissionsScene(app));
+                break;
+            case "season":
+                app.goTo(new neontd.scene.MissionsScene(app, 1));
+                break;
+            case "achievements":
+                app.goTo(new neontd.scene.AchievementsScene(app));
+                break;
+            case "settings":
+                app.goTo(new neontd.scene.SettingsScene(app));
+                break;
             case "editor":
                 app.goTo(new neontd.scene.EditorScene(app, null));
                 break;
@@ -188,6 +209,34 @@ public final class ScreenshotTool {
                     app.progress.xp = neontd.progress.Progress.xpAtLevel(lv) + 10;
                     break;
                 }
+                case "crystals":
+                    // crystals N  – Kristalle gutschreiben
+                    app.progress.addCrystals(Double.parseDouble(p[1]));
+                    break;
+                case "own": {
+                    // own TURM|SPECIAL-Schlüssel  – ohne Preis freischalten (nur für Bilder)
+                    String what = p[1];
+                    if (neontd.sim.Special.byKey(what) != null) {
+                        app.progress.ownedSpecials.add(what);
+                    } else {
+                        app.progress.ownedTowers.add(what.toUpperCase());
+                    }
+                    break;
+                }
+                case "ownall":
+                    for (neontd.sim.TowerType t : neontd.sim.TowerType.values()) {
+                        if (t.tier == 2) {
+                            app.progress.ownedTowers.add(t.name());
+                        }
+                    }
+                    for (neontd.sim.Special sp : neontd.sim.Special.values()) {
+                        app.progress.ownedSpecials.add(sp.key);
+                    }
+                    break;
+                case "metric":
+                    // metric NAME N  – Zähler erhöhen (Aufgaben und Errungenschaften)
+                    app.progress.addMetric(neontd.progress.Metric.valueOf(p[1].toUpperCase()), Integer.parseInt(p[2]));
+                    break;
                 case "best":
                     // best LEVEL WELLE  – Rekord setzen (schaltet Medaillen und Folgelevel frei)
                     app.progress.onRecord(p[1], Integer.parseInt(p[2]), true);

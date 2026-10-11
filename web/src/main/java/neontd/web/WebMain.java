@@ -56,6 +56,11 @@ public final class WebMain {
             }
 
             @Override
+            public double localOffsetMillis() {
+                return Js.localOffsetMillis();
+            }
+
+            @Override
             public Http http() {
                 return http;
             }

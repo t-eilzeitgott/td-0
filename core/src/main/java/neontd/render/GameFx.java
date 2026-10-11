@@ -67,6 +67,14 @@ public class GameFx implements SimListener {
 
     @Override
     public void onNova(Tower t, double radius) {
+        if (t.type == TowerType.INFERNO) {
+            fx.flash(t.x, t.y, 40, t.type.color, 0.22);
+            for (int i = 0; i < 10; i++) {
+                double a = fx.particles.rng().angle();
+                fx.sparks(t.x + Math.cos(a) * radius * 0.7, t.y + Math.sin(a) * radius * 0.7, a, 0.6, 2, 90,
+                        Colors.lighten(t.type.color, 0.3));
+            }
+        }
         fx.ring(t.x, t.y, radius, t.type.color, 0.55);
         fx.ring(t.x, t.y, radius * 0.7, Colors.lighten(t.type.color, 0.5), 0.4);
         fx.flash(t.x, t.y, 34, t.type.color, 0.25);
@@ -98,11 +106,33 @@ public class GameFx implements SimListener {
             fx.sparks(mx, my, angle, 0.3, 2, 180, c);
         } else if (t.type == TowerType.TESLA) {
             fx.ring(t.x, t.y, 40, c, 0.25);
+        } else if (t.type == TowerType.VENOM) {
+            fx.sparks(mx, my, angle, 0.5, 4, 150, c);
+        } else if (t.type == TowerType.SHREDDER) {
+            fx.flash(mx, my, 26, c, 0.12);
+            fx.sparks(mx, my, angle, 0.45, 7, 260, c);
+        } else if (t.type == TowerType.ORBITAL) {
+            fx.flash(t.x, t.y, 60, c, 0.3);
+            fx.ring(t.x, t.y, 46, c, 0.4);
+            fx.shake = Math.max(fx.shake, 1.5);
         } else if (t.type == TowerType.RAILGUN) {
             fx.flash(mx, my, 40, c, 0.22);
             fx.sparks(mx, my, angle, 0.25, 8, 260, c);
             fx.shake = Math.max(fx.shake, 2);
         }
+    }
+
+    @Override
+    public void onTowerIncome(Tower t, double amount) {
+        fx.ring(t.x, t.y, 42, t.type.color, 0.4);
+        fx.sparks(t.x, t.y - 10, -Math.PI / 2, 0.7, 4, 130, t.type.color);
+        fx.moneyPopup(t.x, t.y - 36, amount, Theme.MONEY, 14);
+    }
+
+    @Override
+    public void onSpecialSet(Tower t, neontd.sim.Special special) {
+        fx.ring(t.x, t.y, 70, special.color, 0.5);
+        fx.sparks(t.x, t.y, -Math.PI / 2, Math.PI, 12, 160, special.color);
     }
 
     @Override

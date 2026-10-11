@@ -1,5 +1,7 @@
 package neontd.scene;
 
+import java.util.ArrayList;
+import java.util.List;
 import neontd.app.App;
 import neontd.fx.Effects;
 import neontd.gfx.Colors;
@@ -14,6 +16,7 @@ import neontd.level.LevelDef;
 import neontd.math.Mathx;
 import neontd.physics.FixedTimestep;
 import neontd.progress.Medals;
+import neontd.progress.Metric;
 import neontd.progress.Progress;
 import neontd.render.EnemyArt;
 import neontd.render.GameFx;
@@ -22,6 +25,7 @@ import neontd.render.TowerArt;
 import neontd.render.WorldView;
 import neontd.save.RunSave;
 import neontd.sim.EnemyType;
+import neontd.sim.Special;
 import neontd.sim.Tower;
 import neontd.sim.TowerType;
 import neontd.sim.UpgradeTrack;
@@ -45,9 +49,8 @@ import neontd.ui.Viewport;
  * sie die Höhe füllt. Mit Profil: gesperrte Türme, XP und Level, Endlosmodus, Speichern und Fortsetzen.
  */
 public final class GameScene extends Scene {
-    private enum Overlay { NONE, PAUSE, WON, LOST }
+    private enum Overlay { NONE, PAUSE, WON, LOST, SPECIAL }
 
-    private static final TowerType[] TYPES = TowerType.values();
     private static final double[] SPEEDS = {1, 2, 3};
     private static final double[] SPEEDS_ENDLESS = {1, 2, 3, 5};
     private static final String RAIL_KEY = "neontd.ui.rail";
@@ -73,7 +76,17 @@ public final class GameScene extends Scene {
 
     private final Ui ui = new Ui();
     private final Ui overlayUi = new Ui();
-    private final Button[] cards = new Button[TYPES.length];
+    private final Button[] cards = new Button[GameLayout.TOWERS];
+    /** Die Türme im Shop in Anzeigereihenfolge: erst die Grundtürme, dann die gekauften Elite-Türme. */
+    private final List<TowerType> shopList = new ArrayList<>();
+    private int shopPage;
+    private Button pagerBtn;
+    private Button specialBtn;
+    /** Auswahl der Spezial-Upgrades (Overlay) mit Seitenzahl. */
+    private final List<Special> specialOptions = new ArrayList<>();
+    private int specialPage;
+    private double crystalsAtStart;
+    private int crystalsWave;
     private Button startBtn;
     private Button speedBtn;
     private Button pauseBtn;
@@ -188,6 +201,14 @@ public final class GameScene extends Scene {
             run.startLives += progress.startLivesBonus();
         }
         this.world = new World(run, listener);
+        if (progressOn) {
+            world.setPerks(progress.perks());
+            crystalsAtStart = progress.crystalsEarned;
+            if (resume == null) {
+                progress.addMetric(Metric.PLAYS, 1);
+            }
+        }
+        refreshShopList();
         if (endless) {
             world.enableEndless();
         }
@@ -205,14 +226,21 @@ public final class GameScene extends Scene {
     // ------------------------------------------------------------------------------------------ Aufbau
 
     private void buildUi() {
-        for (int i = 0; i < TYPES.length; i++) {
-            final TowerType type = TYPES[i];
+        for (int i = 0; i < cards.length; i++) {
             final int idx = i;
-            Button b = new Button("", null, type.color, null);
-            b.painter = (g, btn) -> paintCard(g, btn, type, idx);
+            Button b = new Button("", null, Theme.CYAN, null);
+            b.painter = (g, btn) -> {
+                TowerType type = cardType(idx);
+                if (type != null) {
+                    btn.color = type.color;
+                    paintCard(g, btn, type, idx);
+                }
+            };
             b.appearAfter(0.15 + 0.07 * i);
             cards[i] = b;
         }
+        pagerBtn = ui.add(new Button("", null, Theme.TEXT_DIM, this::flipShopPage));
+        pagerBtn.painter = this::paintPager;
         startBtn = ui.add(new Button("START", Icon.PLAY, Theme.GREEN, this::startWave));
         speedBtn = ui.add(new Button("1x", null, Theme.CYAN, this::cycleSpeed));
         pauseBtn = ui.add(new Button("", Icon.PAUSE, Theme.VIOLET, () -> setOverlay(Overlay.PAUSE)));
@@ -234,6 +262,8 @@ public final class GameScene extends Scene {
             b.painter = (g, btn) -> paintTrackRow(g, btn, track);
             trackBtns[i] = b;
         }
+        specialBtn = new Button("SPEZIAL", Icon.STAR, Theme.CRYSTAL, this::openSpecials);
+        specialBtn.painter = this::paintSpecial;
         sellBtn = new Button("VERKAUFEN", Icon.GEM, Theme.MONEY, this::sellSelected);
         sellBtn.painter = this::paintSell;
         modeBtn = new Button("", Icon.TARGET, Theme.TEXT_DIM, () -> {
@@ -276,6 +306,7 @@ public final class GameScene extends Scene {
     private void applyLayout() {
         double sx = selected != null ? selected.x : 0;
         double sy = selected != null ? selected.y : 0;
+        lay.pages = pageCount();
         lay.compute(app.vp, world.width, world.height, railT.value, selected != null, sx, sy);
         laidOutRail = railT.value;
         laidOutSelected = selected != null;
@@ -299,10 +330,63 @@ public final class GameScene extends Scene {
         startBtn.painter = startPainter;
         for (int i = 0; i < cards.length; i++) {
             cards[i].bounds(lay.tiles[i].x, lay.tiles[i].y, lay.tiles[i].w, lay.tiles[i].h);
-            cards[i].visible = tilesVisible();
+            cards[i].visible = tilesVisible() && cardType(i) != null;
         }
+        pagerBtn.bounds(lay.pager.x, lay.pager.y, lay.pager.w, lay.pager.h);
+        pagerBtn.visible = tilesVisible() && pageCount() > 1;
         layoutUpgradePanel();
         layoutOverlay();
+    }
+
+    /** Baut die Liste der Turm-Kacheln neu: Grundtürme immer, Elite-Türme nur, wenn sie gekauft sind (im Editor-Test alle). */
+    private void refreshShopList() {
+        shopList.clear();
+        for (TowerType t : TowerType.values()) {
+            if (t.tier == 1 || !progressOn || progress.ownedTowers.contains(t.name())) {
+                shopList.add(t);
+            }
+        }
+        shopPage = Math.min(shopPage, Math.max(0, pageCount() - 1));
+    }
+
+    private int pageCount() {
+        return Math.max(1, (shopList.size() + GameLayout.TOWERS - 1) / GameLayout.TOWERS);
+    }
+
+    /** Der Turm auf Kachel {@code i} der aktuellen Seite oder {@code null}. */
+    private TowerType cardType(int i) {
+        int k = shopPage * GameLayout.TOWERS + i;
+        return k >= 0 && k < shopList.size() ? shopList.get(k) : null;
+    }
+
+    private void flipShopPage() {
+        shopPage = (shopPage + 1) % pageCount();
+        cancelPlacing();
+        applyLayout();
+    }
+
+    private void paintPager(Gfx g, Button b) {
+        double w = b.w;
+        double h = b.h;
+        double hv = b.hover.value;
+        g.fillRoundRect(-w / 2, -h / 2, w, h, h * 0.3, Colors.withAlpha(Theme.PANEL, 0.94));
+        Neon.roundRect(g, -w / 2, -h / 2, w, h, h * 0.3, 1.4, Colors.withAlpha(Theme.TEXT_DIM, 0.75 + 0.25 * hv),
+                2 + 4 * hv);
+        String t = (shopPage + 1) + "/" + pageCount();
+        if (h > w * 1.2) {
+            // schmale Spalte (Handy hoch): Symbol über der Seitenzahl
+            Icons.draw(g, Icon.LOOP, 0, -h * 0.17, Math.min(w, h) * 0.27, Theme.TEXT_DIM, 0);
+            g.text(t, 0, h * 0.22, Math.max(8, Math.min(w * 0.36, h * 0.18)), Theme.TEXT, Gfx.ALIGN_CENTER, true);
+        } else if (w < h * 3.4) {
+            // kurze Leiste (Handy quer): Symbol und Seitenzahl nebeneinander
+            double fs = Math.max(8, Math.min(h * 0.5, w * 0.3));
+            Icons.draw(g, Icon.LOOP, -w * 0.28, 0, Math.min(h * 0.3, w * 0.12), Theme.TEXT_DIM, 0);
+            g.text(t, w * 0.12, 0, fs, Theme.TEXT, Gfx.ALIGN_CENTER, true);
+        } else {
+            double fs = Math.max(8, Math.min(h * 0.46, w * 0.34));
+            Icons.draw(g, Icon.LOOP, -w * 0.3, 0, Math.min(h * 0.32, w * 0.1), Theme.TEXT_DIM, 0);
+            g.text("SEITE " + t, w * 0.06, 0, fs, Theme.TEXT, Gfx.ALIGN_CENTER, true);
+        }
     }
 
     private boolean tilesVisible() {
@@ -325,12 +409,14 @@ public final class GameScene extends Scene {
             case COMPACT_LAND: {
                 double k = lay.k;
                 double gap = 4 * k;
-                double rs = p.h / ((34 + 3 * 52 + 34 + 38 + 5 * 4) * k);
+                double rs = p.h / ((34 + 3 * 52 + 34 + 34 + 38 + 6 * 4) * k);
                 double y = p.y + (34 * k + gap) * rs;
                 for (int i = 0; i < 3; i++) {
                     trackBtns[i].bounds(p.x, y, p.w, 52 * k * rs);
                     y += 52 * k * rs + gap;
                 }
+                specialBtn.bounds(p.x, y, p.w, 34 * k * rs);
+                y += 34 * k * rs + gap;
                 modeBtn.bounds(p.x, y, p.w, 34 * k * rs);
                 y += 34 * k * rs + gap;
                 sellBtn.bounds(p.x, y, p.w, 38 * k * rs);
@@ -346,17 +432,20 @@ public final class GameScene extends Scene {
                 }
                 double y = p.y + th + gap;
                 double rh = p.h - th - gap;
-                double w1 = (p.w - 2 * gap) * 0.26;
-                double w2 = (p.w - 2 * gap) * 0.38;
-                double w3 = p.w - 2 * gap - w1 - w2;
-                modeBtn.bounds(p.x + w1 + gap, y, w2, rh);
-                sellBtn.bounds(p.x + w1 + w2 + 2 * gap, y, w3, rh);
+                double avail = p.w - 3 * gap;
+                double w1 = avail * 0.17;
+                double w2 = avail * 0.30;
+                double w3 = avail * 0.24;
+                double w4 = avail - w1 - w2 - w3;
+                specialBtn.bounds(p.x + w1 + gap, y, w2, rh);
+                modeBtn.bounds(p.x + w1 + w2 + 2 * gap, y, w3, rh);
+                sellBtn.bounds(p.x + w1 + w2 + w3 + 3 * gap, y, w4, rh);
                 break;
             }
             default: {
                 double gap = 6 * u;
-                double rows = 5.4;
-                double rowH = Math.min(58 * u, (p.h - gap * 4) / rows);
+                double rows = 6.2;
+                double rowH = Math.min(58 * u, (p.h - gap * 5) / rows);
                 double y = p.y;
                 sellBtn.bounds(p.x + p.w * 0.52, y, p.w * 0.48, rowH * 0.8);
                 y += rowH * 0.8 + gap;
@@ -364,6 +453,8 @@ public final class GameScene extends Scene {
                     trackBtns[i].bounds(p.x, y, p.w, rowH);
                     y += rowH + gap;
                 }
+                specialBtn.bounds(p.x, y, p.w, rowH * 0.78);
+                y += rowH * 0.78 + gap;
                 modeBtn.bounds(p.x, y, p.w, rowH * 0.78);
                 break;
             }
@@ -371,6 +462,10 @@ public final class GameScene extends Scene {
     }
 
     private void layoutOverlay() {
+        if (overlay == Overlay.SPECIAL) {
+            buildSpecialButtons();
+            return;
+        }
         double u = app.vp.u;
         double bw = Math.min(app.vp.safeW() * 0.84, 360 * u);
         double bh = 56 * u;
@@ -431,7 +526,7 @@ public final class GameScene extends Scene {
             deny(t.label + " ab Spielerlevel " + t.unlockLevel);
             return false;
         }
-        if (world.money < t.cost) {
+        if (world.money < world.buildCost(t)) {
             deny("Zu wenig Geld für " + t.label);
             return false;
         }
@@ -450,6 +545,10 @@ public final class GameScene extends Scene {
         overlayUi.clear();
         cancelPlacing();
         if (o == Overlay.NONE) {
+            return;
+        }
+        if (o == Overlay.SPECIAL) {
+            buildSpecialButtons();
             return;
         }
         if (o == Overlay.PAUSE) {
@@ -582,7 +681,7 @@ public final class GameScene extends Scene {
         }
         int dk = world.kills - killsCommitted;
         if (dk > 0) {
-            progress.kills = (int) Math.min(Progress.MAX_COUNT, (double) progress.kills + dk);
+            progress.addMetric(Metric.KILLS, dk);
             killsCommitted = world.kills;
         }
         int before = progress.best(level.id, world.endless);
@@ -597,9 +696,10 @@ public final class GameScene extends Scene {
             int xp = Medals.xpBetween(medalBefore, medalNow);
             progress.addXp(xp);
             xpRun += xp;
+            int cr = progress.onMedals(medalBefore, medalNow);
             medalText = Medals.NAMES[medalNow - 1];
             showBanner(Medals.NAMES[medalNow - 1] + "-MEDAILLE!", "Welle " + Medals.WAVES[medalNow - 1] + " geschafft  ·  +" + xp
-                    + " XP", Medals.COLORS[medalNow - 1], 3.6);
+                    + " XP  ·  +" + cr + " Kristalle", Medals.COLORS[medalNow - 1], 3.6);
             fx.fireworkLater(0.0, world.width * 0.5, world.height * 0.4, Medals.COLORS[medalNow - 1], 2.2);
             fx.fireworkLater(0.25, world.width * 0.3, world.height * 0.3, Medals.COLORS[medalNow - 1], 1.8);
             fx.fireworkLater(0.5, world.width * 0.7, world.height * 0.3, Medals.COLORS[medalNow - 1], 1.8);
@@ -607,7 +707,22 @@ public final class GameScene extends Scene {
                 onLevelUp(levelBefore, progress.level());
             }
         }
+        announceAchievements();
         app.commitProgress();
+    }
+
+    /** Prüft die Errungenschaften und zeigt neu erreichte Stufen als Banner. */
+    private void announceAchievements() {
+        if (!progressOn) {
+            return;
+        }
+        List<String> got = progress.checkAchievements();
+        if (!got.isEmpty()) {
+            String first = got.get(0);
+            int cut = first.indexOf(" · ");
+            showBanner("ERRUNGENSCHAFT", got.size() > 1 ? got.size() + " neue Stufen!"
+                    : (cut > 0 ? first.substring(0, cut) : first), Theme.YELLOW, 3.0);
+        }
     }
 
     /** Speichert den Lauf, wenn der Zustand es erlaubt (alle Gegner der laufenden Wellen sind schon erschienen). */
@@ -1097,7 +1212,7 @@ public final class GameScene extends Scene {
         double w = b.w;
         double h = b.h;
         boolean unlocked = canBuild(type);
-        boolean can = unlocked && world.money >= type.cost;
+        boolean can = unlocked && world.money >= world.buildCost(type);
         boolean active = placing == type;
         double hv = Math.max(b.hover.value, active ? 1 : 0);
         int c = type.color;
@@ -1109,7 +1224,7 @@ public final class GameScene extends Scene {
         g.save();
         g.alpha(!unlocked ? 0.32 : (can ? 1 : 0.5));
         boolean horizontal = w > h * 1.5;
-        String cost = Fmt.compact(type.cost);
+        String cost = Fmt.compact(world.buildCost(type));
         if (horizontal) {
             double ir = h * 0.33;
             TowerArt.drawIcon(g, type, -w / 2 + h * 0.52, 0, ir, app.time);
@@ -1200,7 +1315,7 @@ public final class GameScene extends Scene {
                 g.fillRoundRect(p.x - 4 * k, p.y - 4 * k, p.w + 8 * k, p.h + 8 * k, 10 * k, Colors.withAlpha(0x000000, 0.86));
                 g.strokeRoundRect(p.x - 4 * k, p.y - 4 * k, p.w + 8 * k, p.h + 8 * k, 10 * k, 1.2,
                         Colors.withAlpha(t.type.color, 0.5));
-                double hh = 34 * k * (p.h / ((34 + 3 * 52 + 34 + 38 + 5 * 4) * k));
+                double hh = 34 * k * (p.h / ((34 + 3 * 52 + 34 + 34 + 38 + 6 * 4) * k));
                 TowerArt.drawIcon(g, t.type, p.x + hh * 0.5, p.y + hh / 2, hh * 0.34, app.time);
                 g.text(t.type.label, p.x + hh * 1.0, p.y + hh * 0.34, Math.max(11, hh * 0.34), Theme.TEXT,
                         Gfx.ALIGN_LEFT, true);
@@ -1236,6 +1351,7 @@ public final class GameScene extends Scene {
         for (Button b : trackBtns) {
             b.render(g);
         }
+        specialBtn.render(g);
         modeBtn.render(g);
     }
 
@@ -1314,18 +1430,42 @@ public final class GameScene extends Scene {
 
     private String statText(Tower t, UpgradeTrack track, boolean next) {
         int lvl = t.level(track) + (next ? 1 : 0);
+        TowerType type = t.type;
         switch (track) {
             case RANGE:
-                return Integer.toString(Mathx.roundToInt(t.type.range * track.multAt(lvl)));
+                if (type == TowerType.MINT) {
+                    return "–";
+                }
+                return Integer.toString(Mathx.roundToInt(type.range * track.multAt(lvl) * t.perkRange
+                        * (t.special == Special.LONGSHOT ? Special.LONGSHOT_RANGE : 1)));
             case DAMAGE:
-                double d = t.type.damage * track.multAt(lvl);
+                if (type == TowerType.BEACON) {
+                    return "+" + Mathx.roundToInt(100 * Math.min(TowerType.BEACON_CAP,
+                            TowerType.BEACON_DAMAGE + TowerType.BEACON_DAMAGE_PER_LEVEL * lvl)) + "%";
+                }
+                double d = type.damage * track.multAt(lvl) * t.perkDamage;
                 return Fmt.compact(d >= Tower.MAX_DAMAGE ? Tower.MAX_DAMAGE : Math.max(1, Mathx.roundToInt(d)));
             case SPEED:
             default: {
-                double perSec = UpgradeTrack.SPEED.multAt(lvl) / t.type.interval;
-                return Mathx.round1(perSec) + "/s";
+                if (type == TowerType.BEACON) {
+                    return "+" + Mathx.roundToInt(100 * Math.min(TowerType.BEACON_CAP,
+                            TowerType.BEACON_SPEED + TowerType.BEACON_SPEED_PER_LEVEL * lvl)) + "%";
+                }
+                double speed = UpgradeTrack.SPEED.multAt(lvl) * (t.special == Special.OVERCLOCK ? Special.OVERCLOCK_SPEED : 1);
+                return Mathx.round1(speed / type.interval) + "/s";
             }
         }
+    }
+
+    /** Beschriftung einer Upgrade-Kategorie; Münze und Kommando haben eigene Bedeutungen. */
+    private static String trackLabel(Tower t, UpgradeTrack track) {
+        if (t.type == TowerType.MINT) {
+            return track == UpgradeTrack.DAMAGE ? "ERTRAG" : track == UpgradeTrack.SPEED ? "TAKT" : track.label;
+        }
+        if (t.type == TowerType.BEACON) {
+            return track == UpgradeTrack.DAMAGE ? "STÄRKE" : track == UpgradeTrack.SPEED ? "TEMPO+" : track.label;
+        }
+        return track.label;
     }
 
     private void paintTrackRow(Gfx g, Button b, UpgradeTrack track) {
@@ -1333,6 +1473,7 @@ public final class GameScene extends Scene {
             return;
         }
         Tower t = selected;
+        String label = trackLabel(t, track);
         double w = b.w;
         double h = b.h;
         int lvl = t.level(track);
@@ -1354,7 +1495,7 @@ public final class GameScene extends Scene {
             // Schmale Kachel (Handy hoch): Kopf, Stufenpunkte + nächster Wert, Preis
             double labelSize = Math.max(8, h * 0.17);
             Icons.draw(g, trackIcon(track), -w / 2 + h * 0.2, -h * 0.31, h * 0.13, c, 2);
-            g.text(track.label, -w / 2 + h * 0.38, -h * 0.31, labelSize, Theme.TEXT, Gfx.ALIGN_LEFT, true);
+            g.text(label, -w / 2 + h * 0.38, -h * 0.31, labelSize, Theme.TEXT, Gfx.ALIGN_LEFT, true);
             double pip = h * 0.055;
             double px0 = -w / 2 + h * 0.14;
             for (int i = 0; i < UpgradeTrack.MAX_LEVEL; i++) {
@@ -1400,8 +1541,8 @@ public final class GameScene extends Scene {
         double tx = -w / 2 + h * 1.0;
         double priceW = Math.min(w * (w < 240 ? 0.28 : 0.32), h * 1.5);
         double avail = (w / 2 - priceW - h * 0.12) - h * 0.1 - tx;
-        double labelSize = Math.max(8, Math.min(h * 0.23, avail / Math.max(1, track.label.length() * 0.64)));
-        g.text(track.label, tx, -h * 0.25, labelSize, Theme.TEXT, Gfx.ALIGN_LEFT, true);
+        double labelSize = Math.max(8, Math.min(h * 0.23, avail / Math.max(1, label.length() * 0.64)));
+        g.text(label, tx, -h * 0.25, labelSize, Theme.TEXT, Gfx.ALIGN_LEFT, true);
         // Stufenpunkte (Meisterstufen als goldene Zahl dahinter)
         double pip = Math.min(h * 0.09, avail / (5 * 2.9 + (lvl > UpgradeTrack.MAX_LEVEL ? 3.5 : 0)));
         for (int i = 0; i < UpgradeTrack.MAX_LEVEL; i++) {
@@ -1508,6 +1649,185 @@ public final class GameScene extends Scene {
         g.text(selected.mode.label, w / 2 - h * 0.35, -h * 0.02, fs, Theme.TEXT, Gfx.ALIGN_RIGHT, true);
     }
 
+    // ------------------------------------------------------------------------------ Spezial-Upgrades
+
+    private void openSpecials() {
+        if (selected == null || overlay != Overlay.NONE) {
+            return;
+        }
+        specialOptions.clear();
+        for (Special sp : Special.values()) {
+            if (sp.allowedFor(selected.type) && (!progressOn || progress.owns(sp))) {
+                specialOptions.add(sp);
+            }
+        }
+        specialPage = 0;
+        setOverlay(Overlay.SPECIAL);
+    }
+
+    /** Wie viele Spezial-Zeilen auf eine Seite passen. */
+    private int specialPerPage() {
+        double u = app.vp.u;
+        double avail = app.vp.safeH() - 24 * u - 54 * u /* Titel */ - 58 * u /* Fußzeile */;
+        return Math.max(2, Math.min(6, (int) Math.floor(avail / (50 * u))));
+    }
+
+    private void buildSpecialButtons() {
+        overlayUi.clear();
+        Viewport vp = app.vp;
+        double u = vp.u;
+        int per = specialPerPage();
+        int pages = Math.max(1, (specialOptions.size() + per - 1) / per);
+        specialPage = Math.min(specialPage, pages - 1);
+        double bw = Math.min(vp.safeW() * 0.92, 420 * u);
+        double rh = 44 * u;
+        double gap = 6 * u;
+        int rows = Math.min(per, Math.max(0, specialOptions.size() - specialPage * per));
+        int shown = Math.max(rows, specialOptions.isEmpty() ? 2 : 0);
+        double total = 54 * u + shown * (rh + gap) + 52 * u;
+        double top = Math.max(vp.insetT + 8 * u, vp.h / 2 - total / 2);
+        double y = top + 54 * u;
+        for (int i = 0; i < rows; i++) {
+            final Special sp = specialOptions.get(specialPage * per + i);
+            Button b = new Button(sp.label, null, sp.color, () -> chooseSpecial(sp));
+            b.painter = (g, btn) -> paintSpecialRow(g, btn, sp);
+            b.bounds(vp.w / 2 - bw / 2, y, bw, rh);
+            overlayUi.add(b).appearAfter(0.04 * i);
+            y += rh + gap;
+        }
+        y = top + 54 * u + shown * (rh + gap);
+        double fh = 44 * u;
+        boolean multi = pages > 1;
+        double cw = multi ? (bw - gap) / 2 : bw;
+        if (multi) {
+            Button next = new Button("SEITE " + (specialPage + 1) + "/" + pages, Icon.LOOP, Theme.TEXT_DIM, () -> {
+                specialPage = (specialPage + 1) % pages;
+                buildSpecialButtons();
+            });
+            next.neonFont = true;
+            next.fontScale = 0.7;
+            next.bounds(vp.w / 2 - bw / 2, y, cw, fh);
+            overlayUi.add(next);
+        }
+        Button cancel = new Button("SCHLIESSEN", Icon.CROSS, Theme.CYAN, () -> setOverlay(Overlay.NONE));
+        cancel.neonFont = true;
+        cancel.fontScale = 0.7;
+        cancel.bounds(multi ? vp.w / 2 + gap / 2 : vp.w / 2 - bw / 2, y, cw, fh);
+        overlayUi.add(cancel);
+    }
+
+    private void chooseSpecial(Special sp) {
+        if (selected == null) {
+            setOverlay(Overlay.NONE);
+            return;
+        }
+        if (selected.special == sp) {
+            return;
+        }
+        if (world.setSpecial(selected, sp)) {
+            Tower t = selected;
+            setOverlay(Overlay.NONE);
+            showToast(sp.label + " eingebaut: " + sp.desc, sp.color);
+        } else {
+            deny("Zu wenig Geld (" + Fmt.compact(world.specialCost(selected)) + ")");
+        }
+    }
+
+    private void drawSpecialOverlay(Gfx g, double u) {
+        Viewport vp = app.vp;
+        double a = Easing.outCubic(overlayIn);
+        g.save();
+        g.alpha(a);
+        g.fillRect(0, 0, vp.w, vp.h, Colors.withAlpha(0x000000, 0.84));
+        double bw = Math.min(vp.safeW() * 0.92, 420 * u);
+        double top = overlayUi.buttons.isEmpty() ? vp.h / 2 : overlayUi.buttons.get(0).y - 54 * u;
+        String name = selected == null ? "" : selected.type.label;
+        NeonText.draw(g, "SPEZIAL · " + name, vp.w / 2, top + 12 * u,
+                Math.min(28 * u, bw / Math.max(8, ("SPEZIAL · " + name).length() * 0.8)), Theme.CRYSTAL, 9, 0.3, time);
+        if (specialOptions.isEmpty()) {
+            double y = vp.h / 2 - 8 * u;
+            String[] lines = selected != null && selected.type.passive
+                    ? new String[] {"Hilfstürme tragen nur das Spezial ZINSEN.", "Kaufe es im Shop (Hauptmenü)."}
+                    : new String[] {"Noch keine Spezial-Upgrades für diesen Turm.", "Kaufe sie im Shop im Hauptmenü (SPEZIAL)."};
+            for (String l : lines) {
+                g.text(l, vp.w / 2, y, Math.max(11, 14 * u), Theme.TEXT, Gfx.ALIGN_CENTER, true);
+                y += 20 * u;
+            }
+        } else if (selected != null) {
+            g.text("Einbau " + Fmt.compact(world.specialCost(selected)) + " Geld  ·  Tauschen geht jederzeit",
+                    vp.w / 2, top + 40 * u, Math.max(10, 12 * u), Theme.TEXT_DIM, Gfx.ALIGN_CENTER, false);
+        }
+        overlayUi.render(g);
+        g.restore();
+    }
+
+    private void paintSpecialRow(Gfx g, Button b, Special sp) {
+        double w = b.w;
+        double h = b.h;
+        boolean active = selected != null && selected.special == sp;
+        boolean can = selected != null && (active || world.money >= world.specialCost(selected));
+        double hv = Math.max(b.hover.value, active ? 1 : 0);
+        double r = h * 0.22;
+        g.fillRoundRect(-w / 2, -h / 2, w, h, r, Colors.withAlpha(Theme.PANEL, 0.96));
+        g.fillRoundRect(-w / 2, -h / 2, w, h, r, Colors.withAlpha(sp.color, 0.05 + 0.12 * hv + 0.2 * b.press.value));
+        Neon.roundRect(g, -w / 2, -h / 2, w, h, r, 1.6, Colors.withAlpha(sp.color, can ? 0.95 : 0.4), can ? 3 + 5 * hv : 0);
+        g.save();
+        g.alpha(can ? 1 : 0.55);
+        Neon.ngon(g, -w / 2 + h * 0.55, 0, h * 0.3, 6, Math.PI / 6, 1.8, sp.color, 4);
+        Icons.draw(g, Icon.STAR, -w / 2 + h * 0.55, 0, h * 0.17, sp.color, 2);
+        double tx = -w / 2 + h * 1.05;
+        double right = w / 2 - h * 0.25;
+        double priceW = h * 1.5;
+        double tw = right - priceW - tx;
+        double fs = Math.max(9, h * 0.3);
+        double lw = g.textWidth(sp.label, fs, true);
+        g.text(sp.label, tx, -h * 0.17, tw < lw ? fs * tw / lw : fs, Theme.TEXT, Gfx.ALIGN_LEFT, true);
+        double ds = Math.max(8, h * 0.22);
+        double dw = g.textWidth(sp.desc, ds, false);
+        g.text(sp.desc, tx, h * 0.24, tw < dw ? ds * tw / dw : ds, Theme.TEXT_DIM, Gfx.ALIGN_LEFT, false);
+        g.restore();
+        if (active) {
+            Icons.draw(g, Icon.CHECK, right - h * 0.2, 0, h * 0.2, Theme.GREEN, 3);
+            g.text("AKTIV", right - h * 0.55, 0, Math.max(8, h * 0.25), Theme.GREEN, Gfx.ALIGN_RIGHT, true);
+        } else if (selected != null) {
+            Icons.draw(g, Icon.GEM, right - priceW + h * 0.1, 0, h * 0.14, can ? Theme.MONEY : Colors.withAlpha(Theme.MONEY, 0.5), 0);
+            g.text(Fmt.compact(world.specialCost(selected)), right - priceW + h * 0.32, 0, Math.max(8, h * 0.3),
+                    can ? Theme.TEXT : Colors.withAlpha(Theme.RED, 0.9), Gfx.ALIGN_LEFT, true);
+        }
+    }
+
+    /** Der Spezial-Platz im Upgrade-Panel: zeigt das eingebaute Spezial oder lädt zum Einbauen ein. */
+    private void paintSpecial(Gfx g, Button b) {
+        if (selected == null) {
+            return;
+        }
+        double w = b.w;
+        double h = b.h;
+        Special sp = selected.special;
+        int c = sp != null ? sp.color : Theme.CRYSTAL;
+        double hv = b.hover.value;
+        double r = h * 0.25;
+        g.fillRoundRect(-w / 2, -h / 2, w, h, r, Colors.withAlpha(Theme.PANEL, 0.94));
+        g.fillRoundRect(-w / 2, -h / 2, w, h, r, Colors.withAlpha(c, (sp != null ? 0.10 : 0.04) + 0.12 * hv + 0.2 * b.press.value));
+        Neon.roundRect(g, -w / 2, -h / 2, w, h, r, 1.5, Colors.withAlpha(c, sp != null ? 0.95 : 0.7 + 0.2 * hv), 2 + 4 * hv);
+        double ir = Math.min(h * 0.3, w * 0.12);
+        Icons.draw(g, Icon.STAR, -w / 2 + h * 0.55, 0, ir, c, sp != null ? 4 : 1);
+        double tx = -w / 2 + h * 1.0;
+        double avail = w / 2 - h * 0.2 - tx;
+        String label = sp != null ? sp.label : "SPEZIAL";
+        double fs = Math.max(8, Math.min(h * 0.34, avail / Math.max(1, label.length() * 0.62)));
+        if (w < 110) {
+            // sehr schmal: nur Name
+            g.text(label, w / 2 - h * 0.2, 0, Math.max(7, Math.min(h * 0.3, (w - h * 1.1) / Math.max(1, label.length() * 0.62))),
+                    Theme.TEXT, Gfx.ALIGN_RIGHT, true);
+            return;
+        }
+        g.text(label, tx, sp != null ? -h * 0.12 : 0, fs, Theme.TEXT, Gfx.ALIGN_LEFT, true);
+        if (sp != null) {
+            g.text("tauschen", tx, h * 0.26, Math.max(7, h * 0.22), Theme.TEXT_DIM, Gfx.ALIGN_LEFT, false);
+        }
+    }
+
     // ---------------------------------------------------------------------------------------- Overlay
 
     private String newTowersText() {
@@ -1525,6 +1845,10 @@ public final class GameScene extends Scene {
     }
 
     private void drawOverlay(Gfx g, double u) {
+        if (overlay == Overlay.SPECIAL) {
+            drawSpecialOverlay(g, u);
+            return;
+        }
         Viewport vp = app.vp;
         double a = Easing.outCubic(overlayIn);
         g.save();
@@ -1576,6 +1900,10 @@ public final class GameScene extends Scene {
                 if (!medalText.isEmpty()) {
                     xp += "   ·   " + medalText + "!";
                 }
+                int cr = (int) (progress.crystalsEarned - crystalsAtStart);
+                if (cr > 0) {
+                    xp += "   ·   +" + cr + " Kristalle";
+                }
                 g.text(xp, cx, ty + th * 1.0 + fs * 1.5, fs * 0.9, Theme.MAGENTA, Gfx.ALIGN_CENTER, true);
                 String nt = newTowersText();
                 if (!nt.isEmpty()) {
@@ -1609,7 +1937,7 @@ public final class GameScene extends Scene {
     }
 
     private Button[] panelButtons() {
-        return new Button[] {sellBtn, trackBtns[0], trackBtns[1], trackBtns[2], modeBtn};
+        return new Button[] {sellBtn, trackBtns[0], trackBtns[1], trackBtns[2], specialBtn, modeBtn};
     }
 
     @Override
@@ -1654,7 +1982,7 @@ public final class GameScene extends Scene {
         if (ci >= 0) {
             cardDown = true;
             dragging = false;
-            dragType = TYPES[ci];
+            dragType = cardType(ci);
             dragX0 = x;
             dragY0 = y;
             cards[ci].press.target = 1;
@@ -1726,7 +2054,7 @@ public final class GameScene extends Scene {
         double u = app.vp.u;
         if (cardDown && pressed) {
             if (!dragging && Mathx.dist(x, y, dragX0, dragY0) > 12 * u) {
-                if (canBuild(dragType) && world.money >= dragType.cost) {
+                if (canBuild(dragType) && world.money >= world.buildCost(dragType)) {
                     dragging = true;
                     placing = dragType;
                     select(null);
@@ -1829,7 +2157,7 @@ public final class GameScene extends Scene {
 
     private void placeTower(TowerType type, double wx, double wy) {
         Tower t = world.placeTower(type, wx, wy);
-        if (t == null && world.money < type.cost) {
+        if (t == null && world.money < world.buildCost(type)) {
             deny("Zu wenig Geld");
         }
     }
@@ -1860,6 +2188,15 @@ public final class GameScene extends Scene {
                 return true;
             case "KeyP":
                 setOverlay(Overlay.PAUSE);
+                return true;
+            case "KeyG":
+                if (pageCount() > 1) {
+                    flipShopPage();
+                    return true;
+                }
+                return false;
+            case "KeyR":
+                openSpecials();
                 return true;
             case "KeyF":
                 cycleSpeed();
@@ -1900,11 +2237,11 @@ public final class GameScene extends Scene {
         }
         if (code.startsWith("Digit") && code.length() == 6) {
             int i = code.charAt(5) - '1';
-            if (i >= 0 && i < TYPES.length) {
-                if (placing == TYPES[i]) {
+            if (i >= 0 && i < cards.length && cardType(i) != null) {
+                if (placing == cardType(i)) {
                     cancelPlacing();
                 } else {
-                    beginPlacing(TYPES[i], false);
+                    beginPlacing(cardType(i), false);
                 }
                 return true;
             }
@@ -1914,7 +2251,7 @@ public final class GameScene extends Scene {
 
     @Override
     public boolean back() {
-        if (overlay == Overlay.PAUSE) {
+        if (overlay == Overlay.PAUSE || overlay == Overlay.SPECIAL) {
             setOverlay(Overlay.NONE);
         } else if (overlay != Overlay.NONE) {
             return true;
@@ -2001,6 +2338,12 @@ public final class GameScene extends Scene {
                 case "mode":
                     b = modeBtn;
                     break;
+                case "special":
+                    b = specialBtn;
+                    break;
+                case "pager":
+                    b = pagerBtn;
+                    break;
                 default:
                     break;
             }
@@ -2053,7 +2396,10 @@ public final class GameScene extends Scene {
             int xp = 0;
             if (progressOn) {
                 int before = progress.level();
-                xp = progress.onWaveCleared(index + 1, hasBoss(world.waveAt(index)));
+                double c0 = progress.crystalsEarned;
+                xp = progress.onWaveCleared(index + 1, hasBoss(world.waveAt(index)), world.endless);
+                crystalsWave = (int) (progress.crystalsEarned - c0 - (progress.level() > before
+                        ? Progress.LEVEL_UP_CRYSTALS * (progress.level() - before) : 0));
                 xpRun += xp;
                 if (progress.level() > before) {
                     onLevelUp(before, progress.level());
@@ -2061,7 +2407,46 @@ public final class GameScene extends Scene {
                 commitStats();
                 saveSoon = true; // erst nach dem Simulationsschritt speichern, nicht mittendrin
             }
-            showToast("Welle geschafft!  +" + Fmt.compact(bonus) + (xp > 0 ? "  ·  +" + xp + " XP" : ""), Theme.GREEN);
+            showToast("Welle geschafft!  +" + Fmt.compact(bonus) + (xp > 0 ? "  ·  +" + xp + " XP" : "")
+                    + (crystalsWave > 0 ? "  ·  +" + crystalsWave + " Kristalle" : ""), Theme.GREEN);
+        }
+
+        @Override
+        public void onEnemyKilled(neontd.sim.Enemy e, int reward) {
+            super.onEnemyKilled(e, reward);
+            if (!progressOn) {
+                return;
+            }
+            if (e.type == EnemyType.BOSS) {
+                progress.addMetric(Metric.BOSSES, 1);
+            } else if (e.type == EnemyType.ARMORED || e.type == EnemyType.SHIELD || e.type == EnemyType.HEALER
+                    || e.type == EnemyType.GHOST) {
+                progress.addMetric(Metric.ELITES, 1);
+            }
+        }
+
+        @Override
+        public void onTowerPlaced(Tower t) {
+            super.onTowerPlaced(t);
+            if (progressOn) {
+                progress.addMetric(Metric.BUILDS, 1);
+            }
+        }
+
+        @Override
+        public void onTowerUpgraded(Tower t, UpgradeTrack track) {
+            super.onTowerUpgraded(t, track);
+            if (progressOn) {
+                progress.addMetric(Metric.UPGRADES, 1);
+            }
+        }
+
+        @Override
+        public void onSpecialSet(Tower t, Special special) {
+            super.onSpecialSet(t, special);
+            if (progressOn) {
+                progress.addMetric(Metric.SPECIALS, 1);
+            }
         }
 
         @Override

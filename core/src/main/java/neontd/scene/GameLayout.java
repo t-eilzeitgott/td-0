@@ -50,7 +50,8 @@ final class GameLayout {
 
     /** Ab dieser kleinsten Fensterkante (logische Pixel) gilt das Fenster als Handy. */
     static final double COMPACT_BELOW = 480;
-    static final int TOWERS = neontd.sim.TowerType.values().length;
+    /** Kacheln pro Seite im Turm-Shop; weitere Türme (Elite-Türme aus dem Shop) liegen auf Folgeseiten. */
+    static final int TOWERS = 8;
 
     Mode mode = Mode.DOCKED;
     /** Karte um 90° im Uhrzeigersinn gedreht (Welt-x läuft nach unten). */
@@ -64,6 +65,10 @@ final class GameLayout {
 
     final Rect hud = new Rect();
     final Rect[] tiles = new Rect[TOWERS];
+    /** Umschalter für die Seiten des Turm-Shops (nur sichtbar, wenn {@link #pages} > 1). */
+    final Rect pager = new Rect();
+    /** Anzahl der Shop-Seiten; vor {@link #compute} setzen. */
+    int pages = 1;
     final Rect start = new Rect();
     final Rect speed = new Rect();
     final Rect auto = new Rect();
@@ -156,10 +161,12 @@ final class GameLayout {
         info.set(px, panelY, pw, panelH);
         controls(px, ctrlY, pw, ctrlH, 6 * u);
         double gap = 6 * u;
-        double ch = Math.min(64 * u, (panelH - gap * (TOWERS - 1)) / TOWERS);
+        double pagerH = pages > 1 ? 26 * u : 0;
+        double ch = Math.min(64 * u, (panelH - pagerH - (pages > 1 ? gap : 0) - gap * (TOWERS - 1)) / TOWERS);
         for (int i = 0; i < TOWERS; i++) {
             tiles[i].set(px, panelY + i * (ch + gap), pw, ch);
         }
+        pager.set(px, panelY + TOWERS * (ch + gap), pw, pagerH);
         showTiles = true;
         showExtras = true;
         showToggle = false;
@@ -190,15 +197,17 @@ final class GameLayout {
         double panelY = mapAvY + mapAvH + m;
         double panelH = ctrlY - m - panelY;
         controls(hx, ctrlY, hw, ctrlH, 6 * u);
-        double shopH = Math.min(panelH, 150 * u);
         double gap = 6 * u;
+        double pagerH = pages > 1 ? 24 * u : 0;
+        double shopH = Math.min(panelH, 150 * u + (pages > 1 ? pagerH + gap : 0));
         // Zwei Reihen à vier Kacheln
         int perRow = (TOWERS + 1) / 2;
         double cw = (hw - gap * (perRow - 1)) / perRow;
-        double rowH = (shopH - gap) / 2;
+        double rowH = (shopH - pagerH - (pages > 1 ? gap : 0) - gap) / 2;
         for (int i = 0; i < TOWERS; i++) {
             tiles[i].set(hx + (i % perRow) * (cw + gap), panelY + (i / perRow) * (rowH + gap), cw, rowH);
         }
+        pager.set(hx, panelY + 2 * rowH + 2 * gap, hw, pagerH);
         double upY = panelY + shopH + m;
         panel.set(hx, upY, hw, panelY + panelH - upY);
         info.set(hx, upY, hw, panelY + panelH - upY);
@@ -244,11 +253,13 @@ final class GameLayout {
         showExtras = open > 0.02;
 
         // Turmspalte links neben der Steuerspalte
-        double th = Math.min(66 * k, (availH - gap * (TOWERS - 1)) / TOWERS);
+        double pagerH = pages > 1 ? 24 * k : 0;
+        double th = Math.min(66 * k, (availH - pagerH - (pages > 1 ? gap : 0) - gap * (TOWERS - 1)) / TOWERS);
         double tx = cx - gap - tile;
         for (int i = 0; i < TOWERS; i++) {
             tiles[i].set(tx, sy0 + i * (th + gap), tile, th);
         }
+        pager.set(tx, sy0 + TOWERS * (th + gap), tile, pagerH);
         showTiles = open > 0.02;
         panelReplacesTiles = false;
 
@@ -256,7 +267,7 @@ final class GameLayout {
         hud.set(mapX + 4 * k, mapY + 4 * k, Math.min(mapW - 8 * k, 330 * k), 24 * k);
 
         // Upgrade-Panel neben dem Turm: rechts neben der Leiste, sonst am linken Rand
-        double rows = 34 + 3 * 52 + 34 + 38 + 5 * 4;
+        double rows = 34 + 3 * 52 + 34 + 34 + 38 + 6 * 4;
         double rs = Math.min(1, availH / (rows * k));
         double pw = Math.min(178 * k, Math.max(150, (sx1 - sx0) * 0.3));
         double ph = rows * k * rs;
@@ -310,10 +321,12 @@ final class GameLayout {
         showToggle = true;
         showExtras = true; // Tempo/Auto/Pause bleiben auch eingeklappt erreichbar
 
-        double tw = (w - gap * (TOWERS - 1)) / TOWERS;
+        double pagerW = pages > 1 ? 26 * k : 0;
+        double tw = (w - gap * (TOWERS - 1) - (pages > 1 ? pagerW + gap : 0)) / TOWERS;
         for (int i = 0; i < TOWERS; i++) {
             tiles[i].set(sx0 + i * (tw + gap), dockY, tw, towerRow);
         }
+        pager.set(sx0 + TOWERS * (tw + gap), dockY, pagerW, towerRow);
         showTiles = eff > 0.02;
         panelReplacesTiles = selected;
         // Panel nimmt die ganze Leiste ein (Steuerzeile inbegriffen)

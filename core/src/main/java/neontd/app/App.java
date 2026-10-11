@@ -39,6 +39,7 @@ public final class App {
     private double fastFor;
     private boolean started;
     private double cloudTick;
+    private int periodTick;
 
     public App(Platform platform) {
         this.platform = platform;
@@ -46,7 +47,42 @@ public final class App {
         this.levels = new LevelStore(platform.store(), platform::nowMillis);
         this.progress = saves.loadProgress();
         this.cloud = new GistSync(platform.http(), saves, levels, progress);
+        if (progress.grantLegacyCrystals()) {
+            commitProgress();
+        }
+        checkPeriods();
         this.scene = new MenuScene(this);
+    }
+
+    /** Setzt Spielerlevel und XP zurück (Einstellungen). */
+    public void resetPlayerLevel() {
+        progress.resetPlayerLevel(platform.nowMillis());
+        commitProgress();
+        cloud.flush();
+    }
+
+    /** Setzt das ganze Profil zurück und beendet alle gespeicherten Läufe (Einstellungen). Eigene Level bleiben. */
+    public void resetEverything() {
+        progress.resetAll(platform.nowMillis());
+        for (String id : saves.runLevelIds()) {
+            saves.endRun(id);
+        }
+        progress.refreshPeriods(today());
+        progress.grantLegacyCrystals();
+        commitProgress();
+        cloud.flush();
+    }
+
+    /** Heutiger Tag (Tageszahl seit 1970, Ortszeit). */
+    public int today() {
+        return neontd.progress.Calendar.dayOf(platform.nowMillis(), platform.localOffsetMillis());
+    }
+
+    /** Stellt Tagesaufgaben und Season auf das aktuelle Datum um; schreibt das Profil bei einer Änderung weg. */
+    public void checkPeriods() {
+        if (progress.refreshPeriods(today())) {
+            commitProgress();
+        }
     }
 
     /** Schreibt das Profil weg und merkt es für den nächsten Cloud-Abgleich vor. */
@@ -110,6 +146,11 @@ public final class App {
         if (cloudTick >= 1) {
             cloudTick = 0;
             cloud.tick();
+            periodTick++;
+            if (periodTick >= 5) {
+                periodTick = 0;
+                checkPeriods();
+            }
         }
         transition.update(dt);
         scene.update(dt);

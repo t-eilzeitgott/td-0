@@ -7,7 +7,7 @@ public final class Icons {
 
     public enum Icon {
         PLAY, PAUSE, FAST, HEART, GEM, BACK, HOME, PLUS, CROSS, CHECK, TRASH, UNDO, PENCIL, NODE, DRAW, UP,
-        RANGE, DAMAGE, SPEED, LOCK, FLAG, LOOP, TARGET, SAVE, STAR, EDITOR, WAVES
+        RANGE, DAMAGE, SPEED, LOCK, FLAG, LOOP, TARGET, SAVE, STAR, EDITOR, WAVES, CRYSTAL, GEAR, TROPHY
     }
 
     private static final double TAU = Math.PI * 2;
@@ -294,6 +294,67 @@ public final class Icons {
                     }
                 }
                 Neon.stroke(g, lw, color, gl);
+                break;
+            case CRYSTAL:
+                g.moveTo(0, -0.95);
+                g.lineTo(0.62, -0.35);
+                g.lineTo(0.42, 0.85);
+                g.lineTo(-0.42, 0.85);
+                g.lineTo(-0.62, -0.35);
+                g.closePath();
+                filledShape(g, color, lw, gl);
+                g.beginPath();
+                g.moveTo(-0.62, -0.35);
+                g.lineTo(0.62, -0.35);
+                g.moveTo(-0.22, -0.35);
+                g.lineTo(0, -0.95);
+                g.lineTo(0.22, -0.35);
+                g.lineTo(0.12, 0.85);
+                g.moveTo(-0.22, -0.35);
+                g.lineTo(-0.12, 0.85);
+                Neon.stroke(g, lw * 0.7, color, 0);
+                break;
+            case GEAR:
+                for (int i = 0; i < 32; i++) {
+                    double a = TAU * i / 32 - TAU / 64;
+                    double r = (i % 4 < 2) ? 0.7 : 0.97;
+                    if (i == 0) {
+                        g.moveTo(Math.cos(a) * r, Math.sin(a) * r);
+                    } else {
+                        g.lineTo(Math.cos(a) * r, Math.sin(a) * r);
+                    }
+                }
+                g.closePath();
+                filledShape(g, color, lw, gl);
+                g.beginPath();
+                g.circle(0, 0, 0.3);
+                Neon.stroke(g, lw, color, 0);
+                break;
+            case TROPHY:
+                g.moveTo(-0.55, -0.85);
+                g.lineTo(0.55, -0.85);
+                g.lineTo(0.45, 0.0);
+                g.lineTo(0.16, 0.3);
+                g.lineTo(0.16, 0.52);
+                g.lineTo(0.5, 0.52);
+                g.lineTo(0.5, 0.85);
+                g.lineTo(-0.5, 0.85);
+                g.lineTo(-0.5, 0.52);
+                g.lineTo(-0.16, 0.52);
+                g.lineTo(-0.16, 0.3);
+                g.lineTo(-0.45, 0.0);
+                g.closePath();
+                filledShape(g, color, lw, gl);
+                g.beginPath();
+                g.moveTo(-0.52, -0.62);
+                g.lineTo(-0.92, -0.62);
+                g.lineTo(-0.86, -0.15);
+                g.lineTo(-0.46, 0.05);
+                g.moveTo(0.52, -0.62);
+                g.lineTo(0.92, -0.62);
+                g.lineTo(0.86, -0.15);
+                g.lineTo(0.46, 0.05);
+                Neon.stroke(g, lw * 0.8, color, 0);
                 break;
             default:
                 break;

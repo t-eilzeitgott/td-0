@@ -136,6 +136,10 @@ final class Js {
     @JSBody(params = {}, script = "return Date.now();")
     static native double nowMillis();
 
+    /** Versatz der Ortszeit gegenüber UTC in Millisekunden. */
+    @JSBody(params = {}, script = "return -new Date().getTimezoneOffset() * 60000;")
+    static native double localOffsetMillis();
+
     /** Eingabefeld des Browsers; {@code null} bei Abbruch. */
     @JSBody(params = {"title", "initial"}, script = "var r = window.prompt(title, initial); return r === null ? null : r;")
     static native String prompt(String title, String initial);
