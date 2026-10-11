@@ -272,6 +272,52 @@ class GameFlowTest {
     }
 
     @Test
+    void winningABuiltInLevelOffersTheNextOneAndStartsIt() {
+        winAndStartNext(1280, 720, false);
+    }
+
+    @Test
+    void theFourVictoryButtonsFitOnAPhoneInLandscape() {
+        winAndStartNext(852, 393, true);
+    }
+
+    private static void winAndStartNext(double width, double height, boolean touch) {
+        Harness h = new Harness(width, height, touch);
+        GameScene gs = open(h);
+        World w = gs.testWorld();
+        neontd.sim.AutoPlayer bot = new neontd.sim.AutoPlayer(w, true, 40, null);
+        double[] sp = gs.anchor("speed");
+        h.tap(sp[0], sp[1]);
+        h.tap(sp[0], sp[1]);
+        for (int i = 0; i < 40000 && w.state == World.State.RUNNING; i++) {
+            if (i % 10 == 0) {
+                bot.think();
+            }
+            h.run(1.0 / 60);
+        }
+        assertEquals(World.State.WON, w.state);
+        h.run(3);
+        assertTrue(h.app.progress.levelUnlocked("serpentine-02"), "Bronze schaltet das nächste Level frei");
+        double[] next = gs.anchor("ov0");
+        assertNotNull(next, "NÄCHSTES LEVEL steht oben");
+        // dahinter folgen ENDLOS WEITER, NOCHMAL und das Hauptmenü
+        double prevY = -1;
+        for (int i = 0; i < 4; i++) {
+            double[] a = gs.anchor("ov" + i);
+            assertNotNull(a, "Schaltfläche " + i);
+            assertTrue(a[1] > prevY, "untereinander, ohne Überlappung");
+            assertTrue(a[1] < height - 12, "Schaltfläche " + i + " liegt im Bild: y=" + a[1] + " von " + height);
+            prevY = a[1];
+        }
+        h.tap(next[0], next[1]);
+        h.run(1.5);
+        assertEquals("GameScene", h.scene());
+        GameScene gs2 = (GameScene) h.app.scene();
+        assertEquals("serpentine-02", gs2.testWorld().level.id);
+        assertEquals(0, gs2.testWorld().waveIndex);
+    }
+
+    @Test
     void levelSelectOffersContinueAndEndlessWhenAvailable() {
         Harness h = new Harness(852, 393, true);
         // Ohne Lauf und ohne Sieg: direkt ins Spiel

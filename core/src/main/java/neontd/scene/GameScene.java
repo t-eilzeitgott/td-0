@@ -13,6 +13,7 @@ import neontd.gfx.NeonText;
 import neontd.gfx.Theme;
 import neontd.gfx.UprightGfx;
 import neontd.level.LevelDef;
+import neontd.level.Levels;
 import neontd.math.Mathx;
 import neontd.physics.FixedTimestep;
 import neontd.progress.Medals;
@@ -467,11 +468,22 @@ public final class GameScene extends Scene {
             return;
         }
         double u = app.vp.u;
-        double bw = Math.min(app.vp.safeW() * 0.84, 360 * u);
+        Viewport vp = app.vp;
+        int n = overlayUi.buttons.size();
+        double bw = Math.min(vp.safeW() * 0.84, 360 * u);
         double bh = 56 * u;
-        double top = app.vp.h / 2 - 20 * u;
-        for (int i = 0; i < overlayUi.buttons.size(); i++) {
-            overlayUi.buttons.get(i).bounds(app.vp.w / 2 - bw / 2, top + i * (bh + 12 * u), bw, bh);
+        double gap = 12 * u;
+        double top = vp.h / 2 - 20 * u;
+        double bottom = vp.h - vp.insetB - 8 * u;
+        if (n > 3 && top + n * bh + (n - 1) * gap > bottom) {
+            // Vier Schaltflächen (Sieg mit "Nächstes Level") auf kleinen Bildschirmen: enger setzen und höher beginnen.
+            gap = 8 * u;
+            double textBottom = vp.h / 2 - 150 * u + Math.min(64 * u, vp.safeW() * 0.84 / 6.2) + Math.max(12, 15 * u) * 3.4;
+            top = Math.max(textBottom, Math.min(top, bottom - n * 40 * u - (n - 1) * gap));
+            bh = Math.max(34 * u, Math.min(56 * u, (bottom - top - (n - 1) * gap) / n));
+        }
+        for (int i = 0; i < n; i++) {
+            overlayUi.buttons.get(i).bounds(vp.w / 2 - bw / 2, top + i * (bh + gap), bw, bh);
         }
     }
 
@@ -586,13 +598,42 @@ public final class GameScene extends Scene {
         }
         a.neonFont = true;
         b.neonFont = true;
-        overlayUi.add(a).appearAfter(0.25);
-        overlayUi.add(b).appearAfter(0.35);
+        double delay = 0.25;
+        LevelDef next = o == Overlay.WON ? nextLevel() : null;
+        if (next != null) {
+            // Nach einem Sieg gleich mit dem nächsten Level weitermachen (die wichtigste Schaltfläche steht oben).
+            Button n = new Button("NÄCHSTES LEVEL", Icon.PLAY, Theme.CYAN, () -> startNext(next));
+            n.neonFont = true;
+            overlayUi.add(n).appearAfter(delay);
+            delay += 0.1;
+        }
+        overlayUi.add(a).appearAfter(delay);
+        overlayUi.add(b).appearAfter(delay + 0.1);
         if (c != null) {
             c.neonFont = true;
-            overlayUi.add(c).appearAfter(0.45);
+            overlayUi.add(c).appearAfter(delay + 0.2);
         }
         layoutOverlay();
+    }
+
+    /** Das Level, das nach diesem kommt, wenn es eingebaut und schon spielbar ist (sonst {@code null}). */
+    private LevelDef nextLevel() {
+        if (!progressOn) {
+            return null;
+        }
+        int i = Levels.indexOf(level.id);
+        List<LevelDef> all = Levels.builtins();
+        if (i < 0 || i + 1 >= all.size()) {
+            return null;
+        }
+        LevelDef n = all.get(i + 1);
+        return progress.levelUnlocked(n.id) ? n : null;
+    }
+
+    /** Startet das nächste Level; ein dort gespeicherter Lauf wird fortgesetzt statt verworfen. */
+    private void startNext(LevelDef n) {
+        RunSave saved = app.saves.resumable(n.id);
+        app.goTo(saved != null ? GameScene.resume(app, n, saved) : new GameScene(app, n));
     }
 
     /** Nach dem Sieg über die letzten festen Wellen weiterspielen: ab jetzt Endlosmodus mit Meisterstufen. */

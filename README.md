@@ -33,6 +33,7 @@ BBTAN, mit dem Ablauf von Bloons TD. Die gesamte Spiellogik ist in **Java** gesc
 - **Spielerprofil mit Fortschritt**: Du startest auf Level 1 mit nur *einem* Turm (PULS). Jede besiegte Welle bringt XP,
   mit den Spielerleveln schaltest du FROST, MÖRSER, BLITZ und SNIPER frei und bekommst dauerhaft mehr Startgeld und
   Start-Leben – siehe [Fortschritt](#fortschritt).
+- **Direkt ins nächste Level**: Nach einem Sieg steht oben **NÄCHSTES LEVEL** (sobald es freigeschaltet ist, auch ein dort gespeicherter Lauf wird fortgesetzt), darunter ENDLOS WEITER, NOCHMAL und Hauptmenü.
 - **Endlosmodus bis Welle 1000**: Nach dem Sieg über die 20 Wellen geht es mit **ENDLOS WEITER** weiter – mit
   Meisterstufen für alle Upgrades, Tempo 5× und Wellen, die bis über 1000 hinaus tragen
   (siehe [Endlosmodus](#endlosmodus)).
