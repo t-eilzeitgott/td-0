@@ -17,7 +17,7 @@ shot "size 1280 720; level 7; wait 0.5; wait 9; shot menu"
 
 # Spiel: Gefecht und Upgrade-Panel (Level 16 = alle Türme frei)
 shot "size 1280 720; level 16; open gamerich; wait 3.5; $PLACE; tap start; wait 5; key Space; wait 6; key Space; wait 5; key Space; wait 8.8; shot game"
-shot "size 1280 720; level 16; open gamerich; wait 3.5; $PLACE; wait 0.5; wclick 300 250; wait 0.4; tap track1; wait 0.3; tap track2; wait 0.8; shot upgrade"
+shot "size 1280 720; level 16; open gamerich; wait 3.5; $PLACE; wait 0.5; wclick 300 250; wait 0.4; tap track1; wait 0.3; tap track2; wait 4; shot upgrade"
 
 # Level-Editor und Levelauswahl mit einem gespeicherten eigenen Level
 EDIT="click 60 200; click 300 200; click 430 330; click 300 450; click 150 520; click 420 575; click 700 500; click 860 330; wait 0.4"

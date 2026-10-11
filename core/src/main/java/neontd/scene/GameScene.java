@@ -1328,11 +1328,12 @@ public final class GameScene extends Scene {
                 // Kennung des Turms links neben "Ziel" und "Verkaufen"
                 double rh = modeBtn.h;
                 double bx = p.x;
-                double bw = modeBtn.x - 4 * k - p.x;
+                double bw = specialBtn.x - 4 * k - p.x;
                 Draw.softPanel(g, bx, modeBtn.y, bw, rh, rh * 0.25, t.type.color);
                 TowerArt.drawIcon(g, t.type, bx + rh * 0.5, modeBtn.y + rh / 2, rh * 0.3, app.time);
-                g.text(world.endless ? Integer.toString(t.totalLevels()) : t.totalLevels() + "/15", bx + rh * 0.95,
-                        modeBtn.y + rh / 2, Math.max(10, rh * 0.36), Theme.TEXT, Gfx.ALIGN_LEFT, true);
+                String lv = world.endless ? Integer.toString(t.totalLevels()) : t.totalLevels() + "/15";
+                double ls = Math.max(8, Math.min(rh * 0.36, (bw - rh * 1.0) / Math.max(1, lv.length() * 0.62)));
+                g.text(lv, bx + rh * 0.95, modeBtn.y + rh / 2, ls, Theme.TEXT, Gfx.ALIGN_LEFT, true);
                 break;
             }
             default: {
