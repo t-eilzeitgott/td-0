@@ -66,6 +66,7 @@ public final class RunSave {
             a.add(d.level[2]);
             a.add(d.invested);
             a.add(d.mode);
+            a.add(d.special);
             towers.add(a);
         }
         m.put("towers", towers);
@@ -80,6 +81,7 @@ public final class RunSave {
             a.add(d.reward);
             a.add(d.slowFactor);
             a.add(d.slowTimer);
+            a.add(d.shield);
             enemies.add(a);
         }
         m.put("enemies", enemies);
@@ -126,6 +128,7 @@ public final class RunSave {
             d.level[2] = (int) Json.at(a, 5);
             d.invested = Json.at(a, 6);
             d.mode = (int) Json.at(a, 7);
+            d.special = a.size() > 8 ? (int) Json.at(a, 8) : 0;
             s.towers.add(d);
         }
         for (Object o : enemies) {
@@ -142,6 +145,7 @@ public final class RunSave {
             d.reward = (int) Math.min(Integer.MAX_VALUE, Json.at(a, 5));
             d.slowFactor = Json.at(a, 6);
             d.slowTimer = Json.at(a, 7);
+            d.shield = a.size() > 8 ? (int) Math.min(Integer.MAX_VALUE, Json.at(a, 8)) : 0;
             s.enemies.add(d);
         }
         r.snapshot = s;

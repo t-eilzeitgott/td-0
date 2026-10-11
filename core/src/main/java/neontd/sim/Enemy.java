@@ -30,6 +30,24 @@ public final class Enemy {
     public boolean alive = true;
     public boolean leaked;
 
+    // Zustände der Elite-Gegner und der Spezial-Upgrades (alle flüchtig, nur das Schild wird gespeichert)
+    public int shield;
+    public int shieldMax;
+    /** Sekunden, bis sich das Schild wieder auflädt. */
+    public double shieldDelay;
+    public double healTimer;
+    /** Brennen/Gift: Schaden pro Sekunde, Restdauer, angesammelter Bruchteil. */
+    public double dotDps;
+    public double dotTimer;
+    public double dotAcc;
+    public int poisonStacks;
+    public double stunTimer;
+    /** Rüstungsbruch: erhöhter Schaden, solange der Timer läuft. */
+    public double vulnTimer;
+    /** Turm, der den letzten Treffer gesetzt hat (für Kopfgeld und Nachbeben). */
+    public Tower lastHitBy;
+    public double shieldAcc;
+
     /** Zwischengespeicherte Beschriftung der Lebenspunkte (spart String-Erzeugung beim Zeichnen). */
     public String hpLabel = "";
     public int hpLabelValue = -1;
@@ -52,10 +70,20 @@ public final class Enemy {
     }
 
     public double speed() {
-        return baseSpeed * slowFactor;
+        return stunTimer > 0 ? 0 : baseSpeed * slowFactor;
     }
 
     public boolean targetable() {
-        return alive && hp > 0;
+        return alive && hp > 0 && !phased();
+    }
+
+    /** Phantom: In den letzten {@link EnemyType#PHASE_LENGTH} Sekunden jedes Zyklus (nach der ersten Sekunde) nicht zu treffen. */
+    public boolean phased() {
+        return type == EnemyType.GHOST && age > 1.0
+                && (age % EnemyType.PHASE_CYCLE) >= EnemyType.PHASE_CYCLE - EnemyType.PHASE_LENGTH;
+    }
+
+    public boolean burning() {
+        return dotTimer > 0 && dotDps > 0;
     }
 }

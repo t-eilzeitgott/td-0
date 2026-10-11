@@ -5,6 +5,7 @@ import java.util.Arrays;
 import java.util.List;
 import neontd.level.LevelDef;
 import neontd.math.Mathx;
+import neontd.math.Rng;
 import neontd.math.Vec2;
 import neontd.physics.Collision;
 import neontd.physics.Path;
@@ -65,6 +66,8 @@ public final class World {
     /** Anzahl bereits gestarteter Wellen (= Index der nächsten Welle). */
     public int waveIndex;
     public boolean autoStart;
+    /** Dauerhafte Boni aus dem Shop; vor dem ersten Turm setzen (siehe {@link #setPerks}). */
+    public Perks perks = Perks.NONE;
     /** Endlosmodus: Nach der letzten festen Welle kommen immer weitere, es gibt keinen Sieg mehr. */
     public boolean endless;
 
@@ -72,6 +75,8 @@ public final class World {
     private final SpatialHash hash;
     private final int[] query = new int[QUERY_CAP];
     private final Vec2 tmp = new Vec2();
+    /** Zufall für Spezial-Upgrades (Volltreffer, Betäubung …): fester Seed, überall dieselbe Folge. */
+    private final Rng rng = new Rng(0x5EED1234);
     private int[] aliveByWave;
     private int[] spawnsLeft;
     private boolean[] cleared;
@@ -209,17 +214,67 @@ public final class World {
         return money >= cost;
     }
 
+    /** Übernimmt die Boni aus dem Shop (auch für schon stehende Türme). */
+    public void setPerks(Perks p) {
+        perks = p == null ? Perks.NONE : p;
+        for (int i = 0; i < towers.size(); i++) {
+            applyPerks(towers.get(i));
+        }
+    }
+
+    private void applyPerks(Tower t) {
+        t.perkDamage = perks.damage;
+        t.perkRange = perks.range;
+        t.recompute();
+    }
+
+    /** Tatsächlicher Baupreis eines Turmtyps (mit Rabatt aus dem Shop). */
+    public int buildCost(TowerType type) {
+        return perks.buildCost == 1 ? type.cost : Math.max(1, Mathx.roundToInt(type.cost * perks.buildCost));
+    }
+
     /** Baut einen Turm. Liefert {@code null}, wenn die Stelle ungültig ist oder das Geld nicht reicht. */
     public Tower placeTower(TowerType type, double x, double y) {
-        if (state != State.RUNNING || checkPlacement(x, y) != PlaceCheck.OK || money < type.cost) {
+        int cost = buildCost(type);
+        if (state != State.RUNNING || checkPlacement(x, y) != PlaceCheck.OK || money < cost) {
             return null;
         }
-        Tower t = new Tower(nextId++, type, x, y);
-        t.aim = -Mathx.PI / 2;
-        money -= type.cost;
+        Tower t = newTower(type, x, y);
+        t.invested = cost;
+        money -= cost;
         towers.add(t);
         listener.onTowerPlaced(t);
         return t;
+    }
+
+    private Tower newTower(TowerType type, double x, double y) {
+        Tower t = new Tower(nextId++, type, x, y);
+        t.aim = -Mathx.PI / 2;
+        if (type == TowerType.ORBITAL) {
+            t.mode = TargetMode.STRONG;
+        }
+        applyPerks(t);
+        return t;
+    }
+
+    /** Preis, ein Spezial-Upgrade in den Turm einzubauen oder zu tauschen. */
+    public int specialCost(Tower t) {
+        return Special.buildCost(t.type);
+    }
+
+    /** Baut ein Spezial-Upgrade ein (ersetzt ein vorhandenes). @return ob es geklappt hat */
+    public boolean setSpecial(Tower t, Special special) {
+        int cost = specialCost(t);
+        if (state != State.RUNNING || special == null || t.special == special || !special.allowedFor(t.type)
+                || money < cost) {
+            return false;
+        }
+        money -= cost;
+        t.invested = Math.min(MAX_MONEY, t.invested + cost);
+        t.special = special;
+        t.recompute();
+        listener.onSpecialSet(t, special);
+        return true;
     }
 
     /** Preis der nächsten Stufe oder -1, wenn die Kategorie voll ausgebaut ist. */
@@ -247,7 +302,7 @@ public final class World {
     }
 
     public double sellValue(Tower t) {
-        return Math.floor(t.invested * SELL_RATIO);
+        return Math.floor(t.invested * (SELL_RATIO + perks.sell));
     }
 
     /** Schreibt Geld gut, ohne dass die Summe das Limit überschreitet. */
@@ -340,6 +395,7 @@ public final class World {
             System.arraycopy(t.level, 0, d.level, 0, 3);
             d.invested = t.invested;
             d.mode = t.mode.ordinal();
+            d.special = t.special == null ? 0 : t.special.ordinal() + 1;
             s.towers.add(d);
         }
         for (int i = 0; i < enemies.size(); i++) {
@@ -356,6 +412,7 @@ public final class World {
             d.reward = e.reward;
             d.slowFactor = e.slowFactor;
             d.slowTimer = e.slowTimer;
+            d.shield = e.shield;
             s.enemies.add(d);
         }
         return s;
@@ -381,8 +438,11 @@ public final class World {
             if (d.type < 0 || d.type >= tt.length || checkPlacement(d.x, d.y) != PlaceCheck.OK) {
                 continue;
             }
-            Tower t = new Tower(nextId++, tt[d.type], d.x, d.y);
-            t.aim = -Mathx.PI / 2;
+            Tower t = newTower(tt[d.type], d.x, d.y);
+            Special[] specials = Special.values();
+            if (d.special > 0 && d.special <= specials.length && specials[d.special - 1].allowedFor(t.type)) {
+                t.special = specials[d.special - 1];
+            }
             for (int k = 0; k < 3; k++) {
                 t.level[k] = Mathx.clamp(d.level[k], 0, UpgradeTrack.values()[k].maxLevel(endless));
             }
@@ -414,6 +474,9 @@ public final class World {
             Enemy e = addEnemy(et[d.type], path, d.wave, d.hp, dist, Math.max(1, d.reward));
             e.slowFactor = Mathx.clamp(d.slowFactor, 0.2, 1);
             e.slowTimer = Math.max(0, d.slowTimer);
+            if (e.shieldMax > 0) {
+                e.shield = Mathx.clamp(d.shield, 0, e.shieldMax);
+            }
         }
         activeWaves = 0;
         clearedCount = 0;
@@ -444,6 +507,7 @@ public final class World {
         updateEmitters();
         moveEnemies();
         rebuildHash();
+        updateBuffs();
         updateTowers();
         updateProjectiles();
         processDeaths();
@@ -499,6 +563,12 @@ public final class World {
         e.prevX = e.x;
         e.prevY = e.y;
         e.heading = p.headingAt(dist);
+        if (type == EnemyType.SHIELD) {
+            e.shieldMax = Math.max(1, Mathx.roundToInt(hp * EnemyType.SHIELD_FRACTION));
+            e.shield = e.shieldMax;
+        } else if (type == EnemyType.HEALER) {
+            e.healTimer = EnemyType.HEAL_INTERVAL;
+        }
         enemies.add(e);
         aliveByWave[wave]++;
         listener.onEnemySpawned(e);
@@ -524,6 +594,7 @@ public final class World {
                     e.slowFactor = 1;
                 }
             }
+            updateStatus(e);
             Path p = paths[e.pathIndex];
             e.dist += e.speed() * STEP;
             if (e.dist >= p.length()) {
@@ -542,6 +613,64 @@ public final class World {
         }
     }
 
+    /** Betäubung, Brennen/Gift, Schild-Aufladung und Heilung eines Gegners für einen Schritt. */
+    private void updateStatus(Enemy e) {
+        if (e.stunTimer > 0) {
+            e.stunTimer = Math.max(0, e.stunTimer - STEP);
+        }
+        if (e.vulnTimer > 0) {
+            e.vulnTimer = Math.max(0, e.vulnTimer - STEP);
+        }
+        if (e.dotTimer > 0) {
+            e.dotTimer -= STEP;
+            e.dotAcc += e.dotDps * STEP;
+            if (e.dotAcc >= 1) {
+                int d = (int) e.dotAcc;
+                e.dotAcc -= d;
+                hurt(e, d);
+            }
+            if (e.dotTimer <= 0) {
+                e.dotTimer = 0;
+                e.dotDps = 0;
+                e.dotAcc = 0;
+                e.poisonStacks = 0;
+            }
+        }
+        if (e.shieldMax > 0 && e.hp > 0) {
+            if (e.shieldDelay > 0) {
+                e.shieldDelay -= STEP;
+            } else if (e.shield < e.shieldMax) {
+                e.shieldAcc += e.shieldMax * EnemyType.SHIELD_REGEN * STEP;
+                if (e.shieldAcc >= 1) {
+                    int add = (int) e.shieldAcc;
+                    e.shieldAcc -= add;
+                    e.shield = Math.min(e.shieldMax, e.shield + add);
+                }
+            }
+        }
+        if (e.type == EnemyType.HEALER && e.hp > 0) {
+            e.healTimer -= STEP;
+            if (e.healTimer <= 0) {
+                e.healTimer += EnemyType.HEAL_INTERVAL;
+                healAround(e);
+            }
+        }
+    }
+
+    private void healAround(Enemy healer) {
+        double r2 = EnemyType.HEAL_RADIUS * EnemyType.HEAL_RADIUS;
+        for (int i = 0, n = enemies.size(); i < n; i++) {
+            Enemy o = enemies.get(i);
+            if (o == healer || !o.alive || o.hp <= 0 || o.hp >= o.maxHp) {
+                continue;
+            }
+            if (Mathx.distSq(healer.x, healer.y, o.x, o.y) <= r2) {
+                double f = o.type == EnemyType.BOSS ? EnemyType.HEAL_FRACTION * 0.3 : EnemyType.HEAL_FRACTION;
+                o.hp = Math.min(o.maxHp, o.hp + Math.max(1, Mathx.roundToInt(o.maxHp * f)));
+            }
+        }
+    }
+
     private void rebuildHash() {
         hash.clear();
         for (int i = 0, n = enemies.size(); i < n; i++) {
@@ -554,6 +683,57 @@ public final class World {
 
     // ------------------------------------------------------------------------------------------ Türme
 
+    /**
+     * Felder der Kommando-Türme und Kommandanten (Spezial): verstärken Schaden und Tempo der Türme in der Nähe.
+     * Mehrere Felder stapeln sich nicht – es gilt das stärkste.
+     */
+    private void updateBuffs() {
+        int n = towers.size();
+        boolean any = false;
+        for (int i = 0; i < n; i++) {
+            Tower t = towers.get(i);
+            t.buffDamage = 0;
+            t.buffSpeed = 0;
+            if (t.type == TowerType.BEACON || t.special == Special.AURA) {
+                any = true;
+            }
+        }
+        if (!any) {
+            return;
+        }
+        for (int i = 0; i < n; i++) {
+            Tower s = towers.get(i);
+            boolean beacon = s.type == TowerType.BEACON;
+            if (!beacon && s.special != Special.AURA) {
+                continue;
+            }
+            double dmgB = 0;
+            double spdB = 0;
+            double radius = 0;
+            if (beacon) {
+                dmgB = Math.min(TowerType.BEACON_CAP, TowerType.BEACON_DAMAGE
+                        + TowerType.BEACON_DAMAGE_PER_LEVEL * s.level(UpgradeTrack.DAMAGE));
+                spdB = Math.min(TowerType.BEACON_CAP, TowerType.BEACON_SPEED
+                        + TowerType.BEACON_SPEED_PER_LEVEL * s.level(UpgradeTrack.SPEED));
+                radius = s.range;
+            }
+            for (int k = 0; k < n; k++) {
+                Tower o = towers.get(k);
+                if (o == s) {
+                    continue;
+                }
+                double d2 = Mathx.distSq(s.x, s.y, o.x, o.y);
+                if (beacon && d2 <= radius * radius) {
+                    o.buffDamage = Math.max(o.buffDamage, dmgB);
+                    o.buffSpeed = Math.max(o.buffSpeed, spdB);
+                }
+                if (s.special == Special.AURA && d2 <= Special.AURA_RADIUS * Special.AURA_RADIUS) {
+                    o.buffDamage = Math.max(o.buffDamage, Special.AURA_BONUS);
+                }
+            }
+        }
+    }
+
     private void updateTowers() {
         for (int i = 0, n = towers.size(); i < n; i++) {
             Tower t = towers.get(i);
@@ -562,9 +742,15 @@ public final class World {
                 t.recoil = Math.max(0, t.recoil - STEP * 6);
             }
             t.cooldown -= STEP;
+            if (t.type.passive) {
+                updatePassive(t);
+                continue;
+            }
             Enemy target = pickTarget(t);
             t.hasTarget = target != null;
             if (target == null) {
+                t.ramp = 1;
+                t.rampTarget = 0;
                 if (t.cooldown < 0) {
                     t.cooldown = 0; // ungenutzte Bereitschaft verfällt: kein Feuerstoß nach langer Pause
                 }
@@ -575,11 +761,32 @@ public final class World {
             t.aim += Mathx.clamp(Mathx.angleDiff(t.aim, desired), -maxTurn, maxTurn);
             if (t.cooldown <= 0) {
                 fire(t, target);
-                t.cooldown += t.interval;
+                t.cooldown += t.effectiveInterval();
                 if (t.cooldown < 0) {
                     t.cooldown = 0;
                 }
             }
+        }
+    }
+
+    /** Münze: Im Takt Geld erzeugen (wächst mit den Belohnungen der Wellen). Kommando: wirkt in {@link #updateBuffs}. */
+    private void updatePassive(Tower t) {
+        t.hasTarget = false;
+        if (t.type != TowerType.MINT) {
+            if (t.cooldown < 0) {
+                t.cooldown = 0;
+            }
+            return;
+        }
+        if (t.cooldown <= 0) {
+            double income = Math.max(1, Mathx.roundToInt(t.power() * WaveFactory.rewardScale(Math.max(1, waveIndex))));
+            addMoney(income);
+            t.recoil = 1;
+            t.cooldown += t.effectiveInterval();
+            if (t.cooldown < 0) {
+                t.cooldown = 0;
+            }
+            listener.onTowerIncome(t, income);
         }
     }
 
@@ -628,7 +835,7 @@ public final class World {
                 firePulse(t, target);
                 break;
             case SNIPER:
-                damage(target, t.damage);
+                damage(target, t.power(), t);
                 listener.onBeam(t.x + Math.cos(angle) * MUZZLE, t.y + Math.sin(angle) * MUZZLE,
                         target.x, target.y, t.type.color);
                 break;
@@ -647,6 +854,25 @@ public final class World {
                 break;
             case RAILGUN:
                 fireRail(t, angle);
+                break;
+            case INFERNO:
+                fireInferno(t);
+                break;
+            case VENOM:
+                fireVenom(t, target, angle);
+                break;
+            case SHREDDER:
+                fireShredder(t, target);
+                break;
+            case GRAVITON:
+                fireGraviton(t);
+                break;
+            case PRISMA:
+                firePrisma(t, target, angle);
+                break;
+            case ORBITAL:
+                fireShell(t, target, TowerType.ORBITAL_SHELL_SPEED, 0.9, TowerType.ORBITAL_SPLASH,
+                        TowerType.ORBITAL_EDGE_FALLOFF);
                 break;
             default:
                 break;
@@ -683,15 +909,121 @@ public final class World {
         p.vx = Math.cos(angle) * TowerType.PULSE_BULLET_SPEED;
         p.vy = Math.sin(angle) * TowerType.PULSE_BULLET_SPEED;
         p.radius = BULLET_RADIUS;
-        p.damage = t.damage;
-        p.pierce = t.type == TowerType.SALVE ? TowerType.SALVE_PIERCE : 1;
+        p.damage = t.power();
+        p.tower = t;
+        p.pierce = (t.type == TowerType.SALVE ? TowerType.SALVE_PIERCE : 1)
+                + (t.special == Special.PIERCE ? Special.PIERCE_BONUS : 0);
         p.life = t.range * 1.6 / TowerType.PULSE_BULLET_SPEED;
         projectiles.add(p);
         listener.onProjectileSpawned(p);
     }
 
+    /** Shredder: eine Salve aus Schrotkugeln im Fächer, jede mit vollem Turmschaden, auf kurze Distanz. */
+    private void fireShredder(Tower t, Enemy target) {
+        double speed = TowerType.SHREDDER_SPEED;
+        leadTime(t, target, speed, 0, tmp);
+        double angle = Math.atan2(tmp.y - t.y, tmp.x - t.x);
+        int n = TowerType.SHREDDER_PELLETS;
+        int pierce = 1 + (t.special == Special.PIERCE ? Special.PIERCE_BONUS : 0);
+        for (int i = 0; i < n; i++) {
+            double a = angle + TowerType.SHREDDER_SPREAD * ((i - (n - 1) / 2.0) / ((n - 1) / 2.0))
+                    + rng.range(-0.04, 0.04);
+            Projectile p = new Projectile(nextId++, Projectile.Kind.BULLET, t.type);
+            p.x = t.x + Math.cos(a) * MUZZLE;
+            p.y = t.y + Math.sin(a) * MUZZLE;
+            p.prevX = p.x;
+            p.prevY = p.y;
+            p.vx = Math.cos(a) * speed * rng.range(0.9, 1.05);
+            p.vy = Math.sin(a) * speed * rng.range(0.9, 1.05);
+            p.radius = 3;
+            p.damage = t.power();
+            p.tower = t;
+            p.pierce = pierce;
+            p.life = (t.range + 40) / speed;
+            projectiles.add(p);
+            listener.onProjectileSpawned(p);
+        }
+    }
+
+    /** Inferno: Alle Gegner im Ring bekommen Treffer und brennen weiter (stärkstes Feuer gewinnt, Dauer wird erneuert). */
+    private void fireInferno(Tower t) {
+        int cnt = hash.query(t.x, t.y, t.range + MAX_ENEMY_RADIUS, query);
+        int power = t.power();
+        for (int k = 0; k < cnt; k++) {
+            Enemy e = enemies.get(query[k]);
+            if (!e.targetable()) {
+                continue;
+            }
+            double reach = t.range + e.radius;
+            if (Mathx.distSq(t.x, t.y, e.x, e.y) > reach * reach) {
+                continue;
+            }
+            damage(e, Math.max(1, power / 2), t);
+            ignite(e, power * TowerType.INFERNO_DPS, TowerType.INFERNO_BURN_TIME);
+        }
+        listener.onNova(t, t.range);
+    }
+
+    private static void ignite(Enemy e, double dps, double seconds) {
+        e.dotDps = Math.max(e.dotDps, dps);
+        e.dotTimer = Math.max(e.dotTimer, seconds);
+    }
+
+    /** Gift: Jeder Treffer legt einen Stapel nach (bis 5); jeder Stapel brennt mit festem Anteil des Turmschadens. */
+    private void fireVenom(Tower t, Enemy target, double angle) {
+        int power = t.power();
+        damage(target, power, t);
+        target.poisonStacks = Math.min(TowerType.VENOM_MAX_STACKS, target.poisonStacks + 1);
+        double dps = power * TowerType.VENOM_DPS * target.poisonStacks;
+        target.dotDps = Math.max(target.dotDps, dps);
+        target.dotTimer = Math.max(target.dotTimer, TowerType.VENOM_TIME);
+        listener.onBeam(t.x + Math.cos(angle) * MUZZLE, t.y + Math.sin(angle) * MUZZLE, target.x, target.y,
+                t.type.color);
+    }
+
+    /** Graviton: zieht alle Gegner im Feld ein Stück zurück (Titanen kaum) und bremst sie. */
+    private void fireGraviton(Tower t) {
+        int cnt = hash.query(t.x, t.y, t.range + MAX_ENEMY_RADIUS, query);
+        int power = t.power();
+        double pull = TowerType.GRAVITON_PULL * (1 + 0.12 * Math.min(20, t.level(UpgradeTrack.DAMAGE)));
+        for (int k = 0; k < cnt; k++) {
+            Enemy e = enemies.get(query[k]);
+            if (!e.targetable()) {
+                continue;
+            }
+            double reach = t.range + e.radius;
+            if (Mathx.distSq(t.x, t.y, e.x, e.y) > reach * reach) {
+                continue;
+            }
+            damage(e, power, t);
+            e.dist = Math.max(0, e.dist - pull * (e.type == EnemyType.BOSS ? TowerType.GRAVITON_BOSS_FACTOR : 1));
+            e.slowFactor = e.slowTimer > 0 ? Math.min(e.slowFactor, TowerType.GRAVITON_SLOW) : TowerType.GRAVITON_SLOW;
+            e.slowTimer = Math.max(e.slowTimer, TowerType.GRAVITON_SLOW_TIME);
+        }
+        listener.onNova(t, t.range);
+    }
+
+    /** Prisma: schneller Dauerstrahl; solange das Ziel dasselbe bleibt, wächst die Stärke bis auf das Vierfache. */
+    private void firePrisma(Tower t, Enemy target, double angle) {
+        if (t.rampTarget != target.id) {
+            t.rampTarget = target.id;
+            t.ramp = 1;
+        }
+        double d = t.power() * t.ramp;
+        damage(target, d >= Tower.MAX_DAMAGE ? Tower.MAX_DAMAGE : Math.max(1, Mathx.roundToInt(d)), t);
+        t.ramp = Math.min(TowerType.PRISMA_MAX, t.ramp + TowerType.PRISMA_RAMP);
+        listener.onBeam(t.x + Math.cos(angle) * MUZZLE, t.y + Math.sin(angle) * MUZZLE, target.x, target.y,
+                t.type.color);
+    }
+
     private void fireMortar(Tower t, Enemy target) {
-        double flight = leadTime(t, target, TowerType.MORTAR_SHELL_SPEED, 0.45, tmp);
+        fireShell(t, target, TowerType.MORTAR_SHELL_SPEED, 0.45, TowerType.MORTAR_SPLASH,
+                TowerType.MORTAR_EDGE_FALLOFF);
+    }
+
+    /** Granate mit festem Ziel (Mörser, Orbital): fliegt im Bogen und explodiert am vorausberechneten Punkt. */
+    private void fireShell(Tower t, Enemy target, double speed, double minFlight, double splash, double falloff) {
+        double flight = leadTime(t, target, speed, minFlight, tmp);
         Projectile p = new Projectile(nextId++, Projectile.Kind.SHELL, t.type);
         p.x = t.x;
         p.y = t.y;
@@ -702,8 +1034,10 @@ public final class World {
         p.targetX = tmp.x;
         p.targetY = tmp.y;
         p.flightTime = flight;
-        p.splash = TowerType.MORTAR_SPLASH;
-        p.damage = t.damage;
+        p.splash = splash;
+        p.edgeFalloff = falloff;
+        p.tower = t;
+        p.damage = t.power();
         p.radius = 6;
         projectiles.add(p);
         listener.onProjectileSpawned(p);
@@ -720,7 +1054,7 @@ public final class World {
             if (Mathx.distSq(t.x, t.y, e.x, e.y) > reach * reach) {
                 continue;
             }
-            damage(e, t.damage);
+            damage(e, t.power(), t);
             // Der stärkste laufende Effekt gewinnt; die Dauer wird immer aufgefrischt.
             e.slowFactor = e.slowTimer > 0 ? Math.min(e.slowFactor, t.slow) : t.slow;
             e.slowTimer = Math.max(e.slowTimer, TowerType.FROST_SLOW_TIME);
@@ -732,10 +1066,11 @@ public final class World {
         chainPts[0] = t.x;
         chainPts[1] = t.y;
         boolean tesla = t.type == TowerType.TESLA;
-        int chains = tesla ? TowerType.TESLA_CHAINS : TowerType.ARC_CHAINS;
+        int chains = (tesla ? TowerType.TESLA_CHAINS : TowerType.ARC_CHAINS)
+                + (t.special == Special.PIERCE ? Special.PIERCE_BONUS : 0);
         double radius = tesla ? TowerType.TESLA_CHAIN_RADIUS : TowerType.ARC_CHAIN_RADIUS;
         double falloff = tesla ? TowerType.TESLA_FALLOFF : TowerType.ARC_FALLOFF;
-        double dmg = t.damage;
+        double dmg = t.power();
         int hits = 0;
         Enemy cur = first;
         while (cur != null && hits < chains) {
@@ -743,7 +1078,7 @@ public final class World {
             hits++;
             chainPts[hits * 2] = cur.x;
             chainPts[hits * 2 + 1] = cur.y;
-            damage(cur, dmg >= Tower.MAX_DAMAGE ? Tower.MAX_DAMAGE : Math.max(1, Mathx.roundToInt(dmg)));
+            damage(cur, dmg >= Tower.MAX_DAMAGE ? Tower.MAX_DAMAGE : Math.max(1, Mathx.roundToInt(dmg)), t);
             dmg *= falloff;
             cur = hits < chains ? nearestChainTarget(cur, hits, radius) : null;
         }
@@ -766,7 +1101,7 @@ public final class World {
             }
             double reach = e.radius + TowerType.RAIL_HALF_WIDTH;
             if (Collision.pointSegmentDistSq(e.x, e.y, sx, sy, ex, ey) <= reach * reach) {
-                damage(e, t.damage);
+                damage(e, t.power(), t);
             }
         }
         listener.onBeam(sx, sy, ex, ey, t.type.color);
@@ -838,7 +1173,7 @@ public final class World {
         p.y = Mathx.lerp(p.startY, p.targetY, u);
         if (u >= 1) {
             p.alive = false;
-            explode(p.targetX, p.targetY, p.splash, p.damage, TowerType.MORTAR_EDGE_FALLOFF, p.color);
+            explode(p.targetX, p.targetY, p.splash, p.damage, p.edgeFalloff, p.color, p.tower);
         }
     }
 
@@ -865,7 +1200,7 @@ public final class World {
             p.x += dx * bestT;
             p.y += dy * bestT;
             p.markHit(best.id);
-            damage(best, p.damage);
+            damage(best, p.damage, p.tower);
             if (--p.pierce <= 0) {
                 p.alive = false;
                 return;
@@ -880,7 +1215,7 @@ public final class World {
         }
     }
 
-    private void explode(double x, double y, double radius, int dmg, double edgeFalloff, int color) {
+    private void explode(double x, double y, double radius, int dmg, double edgeFalloff, int color, Tower src) {
         int cnt = hash.query(x, y, radius + MAX_ENEMY_RADIUS, query);
         for (int k = 0; k < cnt; k++) {
             Enemy e = enemies.get(query[k]);
@@ -892,20 +1227,117 @@ public final class World {
                 continue;
             }
             double f = 1 - edgeFalloff * Mathx.clamp01(d / radius);
-            damage(e, Math.max(1, Mathx.roundToInt(dmg * f)));
+            damage(e, Math.max(1, Mathx.roundToInt(dmg * f)), src);
         }
         listener.onExplosion(x, y, radius, color);
     }
 
     // ----------------------------------------------------------------------------------- Schaden und Tod
 
-    private void damage(Enemy e, int amount) {
+    /** Titanen, Kolosse und Panzer: die "dicken" Ziele für den Titanjäger. */
+    private static boolean isHeavy(EnemyType t) {
+        return t == EnemyType.BOSS || t == EnemyType.TANK || t == EnemyType.ARMORED;
+    }
+
+    /**
+     * Ein Treffer von {@code src} (oder {@code null} bei Umgebungsschaden wie Splitter und Nachbeben, der keine
+     * Spezial-Upgrades auslöst). Reihenfolge: Spezial-Multiplikatoren, Rüstungsbruch, Panzerung, dann Schild und Leben,
+     * zuletzt die Treffer-Effekte des Spezials.
+     */
+    void damage(Enemy e, int amount, Tower src) {
         if (!e.targetable()) {
             return;
         }
-        e.hp -= amount;
+        double a = amount;
+        Special sp = src == null ? null : src.special;
+        if (sp != null) {
+            switch (sp) {
+                case CRIT:
+                    if (rng.chance(Special.CRIT_CHANCE)) {
+                        a *= Special.CRIT_MULT;
+                    }
+                    break;
+                case EXECUTE:
+                    if (e.hp < e.maxHp * Special.EXECUTE_BELOW) {
+                        a *= Special.EXECUTE_MULT;
+                    }
+                    break;
+                case BOSSBANE:
+                    if (isHeavy(e.type)) {
+                        a *= Special.BOSSBANE_MULT;
+                    }
+                    break;
+                default:
+                    break;
+            }
+        }
+        if (e.vulnTimer > 0) {
+            a *= 1 + Special.VULN_BONUS;
+        }
+        if (e.type == EnemyType.ARMORED && amount < e.maxHp * EnemyType.ARMOR_THRESHOLD) {
+            a *= EnemyType.ARMOR_FACTOR;
+        }
+        int dealt = a >= Tower.MAX_DAMAGE ? Tower.MAX_DAMAGE : Math.max(1, Mathx.roundToInt(a));
+        hurt(e, dealt);
         e.hitFlash = 0.12;
-        listener.onEnemyDamaged(e, amount);
+        if (src != null) {
+            e.lastHitBy = src;
+        }
+        listener.onEnemyDamaged(e, dealt);
+        if (sp != null && e.hp > 0) {
+            onHitSpecial(e, src, sp, dealt);
+        }
+    }
+
+    /** Zieht Schaden erst vom Schild, dann von den Lebenspunkten ab (und hält das Schild vom Aufladen ab). */
+    private void hurt(Enemy e, int dealt) {
+        if (e.shield > 0) {
+            int s = Math.min(e.shield, dealt);
+            e.shield -= s;
+            dealt -= s;
+        }
+        if (e.shieldMax > 0) {
+            e.shieldDelay = EnemyType.SHIELD_DELAY;
+        }
+        e.hp -= dealt;
+    }
+
+    private void onHitSpecial(Enemy e, Tower src, Special sp, int dealt) {
+        boolean boss = e.type == EnemyType.BOSS;
+        switch (sp) {
+            case SPLASH: {
+                int each = Math.max(1, Mathx.roundToInt(dealt * Special.SPLASH_FRACTION));
+                int cnt = hash.query(e.x, e.y, Special.SPLASH_RADIUS + MAX_ENEMY_RADIUS, query);
+                for (int k = 0; k < cnt; k++) {
+                    Enemy o = enemies.get(query[k]);
+                    if (o != e && o.targetable()
+                            && Mathx.distSq(e.x, e.y, o.x, o.y) <= Special.SPLASH_RADIUS * Special.SPLASH_RADIUS) {
+                        damage(o, each, null);
+                    }
+                }
+                break;
+            }
+            case BURN:
+                ignite(e, src.damage * Special.BURN_DPS, Special.BURN_TIME);
+                break;
+            case CHILL:
+                e.slowFactor = e.slowTimer > 0 ? Math.min(e.slowFactor, Special.CHILL_FACTOR) : Special.CHILL_FACTOR;
+                e.slowTimer = Math.max(e.slowTimer, Special.CHILL_TIME);
+                break;
+            case VULN:
+                e.vulnTimer = Special.VULN_TIME;
+                break;
+            case STUN:
+                if (rng.chance(Special.STUN_CHANCE)) {
+                    e.stunTimer = Math.max(e.stunTimer, boss ? Special.STUN_TIME * 0.35 : Special.STUN_TIME);
+                }
+                break;
+            case KNOCKBACK:
+                e.dist = Math.max(0, e.dist - (boss ? Special.KNOCKBACK_DIST * 0.3 : Special.KNOCKBACK_DIST));
+                break;
+            default:
+                break;
+        }
     }
 
     private void processDeaths() {
@@ -916,9 +1348,20 @@ public final class World {
             }
             e.alive = false;
             kills++;
-            addMoney(e.reward);
+            Tower killer = e.lastHitBy;
+            double reward = e.reward * perks.bounty;
+            if (killer != null && killer.special == Special.BOUNTY) {
+                reward *= 1 + Special.BOUNTY_BONUS;
+            }
+            int paid = Math.max(1, Mathx.roundToInt(reward));
+            addMoney(paid);
             aliveByWave[e.wave]--;
-            listener.onEnemyKilled(e, e.reward);
+            listener.onEnemyKilled(e, paid);
+            if (killer != null && killer.special == Special.AFTERSHOCK) {
+                explode(e.x, e.y, Special.AFTERSHOCK_RADIUS,
+                        Math.max(1, Mathx.roundToInt(killer.damage * Special.AFTERSHOCK_FRACTION)), 0.5,
+                        killer.type.color, null);
+            }
             if (e.type.splitCount > 0) {
                 spawnChildren(e);
             }
@@ -955,8 +1398,15 @@ public final class World {
                 cleared[w] = true;
                 clearedCount++;
                 activeWaves--;
-                int bonus = waves.get(w).bonus;
+                int bonus = perks.waveBonus == 1 ? waves.get(w).bonus
+                        : Mathx.roundToInt(waves.get(w).bonus * perks.waveBonus);
                 addMoney(bonus);
+                for (int i = 0; i < towers.size(); i++) {
+                    Tower t = towers.get(i);
+                    if (t.special == Special.INTEREST) {
+                        addMoney(Math.floor(t.invested * Special.INTEREST_RATE));
+                    }
+                }
                 if (endless && (w + 1) % LIFE_EVERY == 0 && lives > 0 && lives < level.startLives) {
                     lives++;
                 }

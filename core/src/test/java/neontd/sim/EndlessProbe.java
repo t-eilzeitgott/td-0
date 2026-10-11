@@ -36,7 +36,7 @@ public final class EndlessProbe {
                     maxD = Math.max(maxD, t.level(UpgradeTrack.DAMAGE));
                     maxS = Math.max(maxS, t.level(UpgradeTrack.SPEED));
                 }
-                System.out.printf("Welle %4d  Spielzeit %7.0fs (%.1fs/Welle)  Leben %2d  Geld %,d  Türme %2d  maxStufe S%d T%d  Gegner %d  [%.1fs real]%n",
+                System.out.printf("Welle %4d  Spielzeit %7.0fs (%.1fs/Welle)  Leben %2d  Geld %,.0f  Türme %2d  maxStufe S%d T%d  Gegner %d  [%.1fs real]%n",
                         w.waveIndex, w.time, avg, w.lives, w.money, w.towers.size(), maxD, maxS, w.enemies.size(),
                         (System.nanoTime() - t0) / 1e9);
                 lastTime = w.time;

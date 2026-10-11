@@ -17,6 +17,8 @@ public final class WorldSnapshot {
         public final int[] level = new int[3];
         public double invested;
         public int mode;
+        /** 0 = kein Spezial, sonst Ordinalzahl in {@link Special} + 1. */
+        public int special;
     }
 
     /** Ein Gegner im Anflug. */
@@ -29,6 +31,7 @@ public final class WorldSnapshot {
         public int reward;
         public double slowFactor = 1;
         public double slowTimer;
+        public int shield;
     }
 
     public double money;

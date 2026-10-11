@@ -30,8 +30,11 @@ public final class Projectile {
     public double flightTime;
     public double elapsed;
     public double splash;
+    public double edgeFalloff = 0.5;
+    /** Der abfeuernde Turm (für dessen Spezial-Upgrade); kann inzwischen verkauft sein. */
+    public Tower tower;
 
-    private final int[] hit = new int[4];
+    private final int[] hit = new int[8];
     private int hitCount;
 
     public Projectile(int id, Kind kind, TowerType source) {

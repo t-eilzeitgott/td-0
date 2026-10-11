@@ -89,8 +89,35 @@ public final class WaveFactory {
         // Im Endlosmodus wird dichter gespawnt, damit eine Welle nicht ewig dauert.
         double pace = wave >= ENDLESS_FROM ? 0.8 : 1.0;
         WaveDef w = new WaveDef().bonus(bonus(wave));
-        w.add(EnemyType.BLOCK, Math.min(36, 6 + 2 * wave), Math.max(0.35, 1.1 - 0.03 * wave) * pace, 0,
+        // Elite-Gegner (Schild, Panzerung, Heilung, Phasen) ersetzen einen Teil der Blöcke, damit die Gesamtlast einer
+        // Welle gleich bleibt: Jeder Elite-Gegner zählt so viel wie seine Lebenspunkte in Blöcken.
+        int blocks = Math.min(36, 6 + 2 * wave);
+        int shields = wave >= 7 && wave % 3 == 1 ? Math.min(14, 2 + (wave - 7) / 2) : 0;
+        int healers = wave >= 10 && wave % 5 == 0 && wave % 10 != 0 ? Math.min(4, 1 + wave / 25) : 0;
+        int armored = wave >= 12 && wave % 3 == 0 ? Math.min(10, 1 + (wave - 12) / 3) : 0;
+        int ghosts = wave >= 15 && wave % 4 == 3 ? Math.min(16, 4 + (wave - 15) / 2) : 0;
+        double load = shields * (EnemyType.SHIELD.hpMul + EnemyType.SHIELD_FRACTION)
+                + healers * EnemyType.HEALER.hpMul + armored * EnemyType.ARMORED.hpMul * 1.3
+                + ghosts * EnemyType.GHOST.hpMul;
+        blocks = Math.max(4, blocks - (int) Math.ceil(load));
+        w.add(EnemyType.BLOCK, blocks, Math.max(0.35, 1.1 - 0.03 * wave) * pace, 0,
                 hp(EnemyType.BLOCK, wave), scaled(EnemyType.BLOCK.reward, rs));
+        if (shields > 0) {
+            w.add(EnemyType.SHIELD, shields, 1.0 * pace, 2.5, hp(EnemyType.SHIELD, wave),
+                    scaled(EnemyType.SHIELD.reward, rs));
+        }
+        if (healers > 0) {
+            w.add(EnemyType.HEALER, healers, 2.2 * pace, 1.5, hp(EnemyType.HEALER, wave),
+                    scaled(EnemyType.HEALER.reward, rs));
+        }
+        if (armored > 0) {
+            w.add(EnemyType.ARMORED, armored, 2.0 * pace, 3.5, hp(EnemyType.ARMORED, wave),
+                    scaled(EnemyType.ARMORED.reward, rs));
+        }
+        if (ghosts > 0) {
+            w.add(EnemyType.GHOST, ghosts, 0.6 * pace, 5.0, hp(EnemyType.GHOST, wave),
+                    scaled(EnemyType.GHOST.reward, rs));
+        }
         if (wave >= 3) {
             w.add(EnemyType.DART, Math.min(30, 3 + wave), 0.55 * pace, 2.0, hp(EnemyType.DART, wave),
                     scaled(EnemyType.DART.reward, rs));

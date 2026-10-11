@@ -48,6 +48,14 @@ public final class Calibrate {
     }
 
     public static void main(String[] args) {
+        if (args.length > 0 && args[0].equals("lives")) {
+            // Bot-Lauf mit dem eingestellten Faktor: "lives <Regex für die Level-Kennung>"
+            String re = args.length > 1 ? args[1] : ".*";
+            Levels.builtins().parallelStream().filter(l -> l.id.matches(re)).forEach(
+                    l -> System.out.printf(Locale.ROOT, "%-14s hp x%.2f  Leben nach Welle 20: %d%n", l.name, l.hpMul,
+                            lives(l, l.hpMul)));
+            return;
+        }
         List<LevelDef> todo = new ArrayList<>();
         for (LevelDef l : Levels.builtins()) {
             if (l.number > 1) {

@@ -25,6 +25,11 @@ public interface SimListener {
 
     default void onTowerSold(Tower t, double refund) { }
 
+    default void onSpecialSet(Tower t, Special special) { }
+
+    /** Eine Münze hat Geld erzeugt. */
+    default void onTowerIncome(Tower t, double amount) { }
+
     default void onTowerFired(Tower t, double angle) { }
 
     default void onProjectileSpawned(Projectile p) { }
