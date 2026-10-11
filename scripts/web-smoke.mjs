@@ -6,6 +6,7 @@
 //   3. iPhone hoch:  gedrehte Karte – ein Turm landet genau dort, wo er losgelassen wird.
 //   4. Cloud:        Profil, Token-Eingabe, Abgleich mit einem nachgebauten GitHub (api.github.com wird abgefangen),
 //                    zweites Gerät übernimmt den Stand, Export-/Import-Code, Trennen.
+//   5. Shop:         Shop, Missionen, Errungenschaften, Einstellungen öffnen, Kauf und Speichern, Turm-Seiten im Spiel.
 //
 // Die Seite wird mit ?debug geladen: Dann bietet sie window.__ntd.call(...) für Bildschirmpositionen und Zustände.
 //
@@ -370,6 +371,45 @@ console.log('4. Cloud: Profil, Token, Abgleich zwischen zwei Geräten, Code …'
   check((await profile(A.page)).name === 'Tester', 'Spielstand bleibt nach dem Trennen auf dem Gerät');
   check(errors.length === 0, 'keine Konsolenfehler' + (errors.length ? ': ' + errors.join(' | ') : ''));
   await A.ctx.close(); await B.ctx.close(); await D.ctx.close();
+}
+
+// --------------------------------------------------------------------- 5. Shop, Missionen, Einstellungen
+
+console.log('5. Shop, Missionen, Errungenschaften, Einstellungen, Elite-Türme …');
+{
+  const errors = [];
+  const W = 393, H = 852;
+  const ctx = await browser.newContext({ viewport: { width: W, height: H }, deviceScaleFactor: 2, hasTouch: true, isMobile: true });
+  const page = await open(ctx, errors);
+  const t = touch(page, await ctx.newCDPSession(page));
+  await call(page, 'level 20');
+  await call(page, 'crystals 1500');
+  for (const [scene, name] of [['shop', 'ShopScene'], ['missions', 'MissionsScene'], ['achievements', 'AchievementsScene'], ['settings', 'SettingsScene']]) {
+    await call(page, 'go ' + scene);
+    await page.waitForTimeout(1500);
+    check((await state(page)).scene === name, name + ' öffnet');
+    await page.screenshot({ path: path.join(out, '5-' + scene + '.png') });
+  }
+  check((await call(page, 'buy inferno')) === 'OK', 'INFERNO im Shop gekauft (Level 20, genug Kristalle)');
+  check((await call(page, 'buy inferno')) === 'OWNED', 'doppelt kaufen geht nicht');
+  check((await call(page, 'buy orbital')) === 'LEVEL', 'ORBITAL braucht Spielerlevel 55');
+  check((await call(page, 'buy special:crit')) === 'OK', 'Spezial VOLLTREFFER gekauft');
+  const prof = await profile(page);
+  check(prof.towers.includes('INFERNO') && Number(prof.crystals) > 0, 'Kauf im Profil: ' + prof.towers + ' / ' + prof.crystals + ' Kristalle');
+  check((await store(page, 'neontd.profile')).includes('INFERNO'), 'Kauf wurde gespeichert');
+  // im Spiel: zweite Seite mit dem Elite-Turm
+  await call(page, 'go game');
+  await page.waitForTimeout(1500);
+  const pager = await call(page, 'anchor pager');
+  check(pager !== 'null', 'Turm-Shop hat einen Seitenumschalter');
+  if (pager !== 'null') {
+    const [px, py] = xy(pager);
+    await t.tap(px, py);
+    await page.waitForTimeout(500);
+    await page.screenshot({ path: path.join(out, '5-spiel-seite2.png') });
+  }
+  check(errors.length === 0, 'keine Konsolenfehler' + (errors.length ? ': ' + errors.join(' | ') : ''));
+  await ctx.close();
 }
 
 await browser.close();

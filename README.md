@@ -13,8 +13,15 @@ BBTAN, mit dem Ablauf von Bloons TD. Die gesamte Spiellogik ist in **Java** gesc
 
 ## Was drin ist
 
-- **8 Turmklassen** (5 Klassiker und 3 große, teurere und stärkere), jede mit eigener Rolle und eigenem Neon-Symbol (siehe unten).
-- **3 Upgrade-Kategorien pro Turm** – *Reichweite*, *Schaden* und *Tempo* – mit je 5 Stufen.
+- **16 Turmklassen**: 8 Grundtürme (5 Klassiker und 3 große) und **8 Elite-Türme** mit eigenen Mechaniken (Brand, Gift, Schrot, Gravitation, Münze, Kommando, Prisma, Orbital) – siehe [Die Türme](#die-türme).
+- **Viele Upgrade-Möglichkeiten**: 3 Kategorien pro Turm (*Reichweite*, *Schaden*, *Tempo*, je 5 Stufen, im Endlosmodus mehr),
+  dazu ein **Spezial-Platz** pro Turm mit 16 **Spezial-Upgrades** (Volltreffer, Brandsatz, Henker, Kommandant …) und
+  dauerhafte **Forschung** im Shop – siehe [Spezial-Upgrades](#spezial-upgrades) und [Shop und Kristalle](#shop-und-kristalle).
+- **Elite-Gegner** (Panzer, Schildträger, Sanitäter, Phantom), die jeweils eine andere Antwort verlangen – siehe [Die Gegner](#die-gegner).
+- **Meta-Spiel über Monate**: Kristalle als Währung, **Shop** für Türme, Spezials und Forschung, **tägliche Aufgaben**,
+  **Season-Pass** mit Monatsaufgaben und 30 Stufen, **76 Errungenschaften-Stufen** – so, dass man bei etwa 10 Minuten
+  Spielzeit am Tag rund **vier Monate** braucht, um alles freizuschalten (siehe [Wie lange dauert alles?](#wie-lange-dauert-alles)).
+- **Einstellungen** mit **Spielerlevel zurücksetzen** und **Alles zurücksetzen** (gilt auch im Cloud-Abgleich).
 - **Wellen wie bei Bloons TD**: Welle manuell starten (auch früher!), Tempo 1×/2×/3×, automatischer Wellenstart, Pause.
 - **Gegner tragen ihre Lebenspunkte als Zahl auf sich**. Die Farbe folgt den aktuellen HP (gelb → orange → rot → pink
   → violett → indigo), die Form zeigt die Art.
@@ -122,11 +129,11 @@ Das ZIP enthält `bin/neon-td` (bzw. `neon-td.bat` unter Windows); eine Java-Lau
 | **Wellen** | `START` / `Leertaste`; `1×/2×/3×` (im Endlosmodus bis `5×`) = `F`; Schleife = Auto-Start; Pause = `P` / `Esc` | Schaltflächen in der Leiste (quer rechts, hoch unten) |
 | **Leiste ein-/ausklappen** | – (am Laptop immer sichtbar) | Pfeil-Knopf in der Leiste |
 
-Weitere Tasten: `1`–`8` Turm wählen · `Q` `W` `E` Upgrade Reichweite/Schaden/Tempo · `Tab` Zielwahl · `X`/`Entf`
+Weitere Tasten: `1`–`8` Turm der aktuellen Shop-Seite wählen · `G` Shop-Seite wechseln · `Q` `W` `E` Upgrade Reichweite/Schaden/Tempo · `R` Spezial-Auswahl · `Tab` Zielwahl · `X`/`Entf`
 verkaufen · Rechtsklick bricht ab. Gesperrte Türme (Schloss mit „LV n“) lassen sich erst ab dem genannten Spielerlevel
 bauen.
 
-## Die acht Türme
+## Die Türme
 
 | Turm | Preis | Reichweite | Schaden | Tempo | Rolle |
 |---|---:|---:|---:|---:|---|
@@ -142,6 +149,52 @@ bauen.
 Jede der drei Kategorien hat 5 Stufen: *Reichweite* bis ×1,6 · *Schaden* bis ×7 · *Tempo* bis ×3,1. Die drei farbigen
 Bögen um den Turm zeigen den Ausbau (blau = Reichweite, rot = Schaden, gelb = Tempo).
 
+### Die acht Elite-Türme
+
+Sie kommen aus dem **Shop** (Kristalle, ab einem Spielerlevel) und erscheinen im Turm-Shop des Spiels auf **Seite 2**
+(der Umschalter *SEITE 1/2* erscheint, sobald mehr als acht Türme zur Verfügung stehen).
+
+| Turm | Shop-Preis | ab Level | Bau | Rolle |
+|---|---:|---:|---:|---|
+| **INFERNO** (orange) | 600 | 12 | 480 | Flammenring: trifft alle in Reichweite und setzt sie in Brand (Schaden über Zeit) |
+| **GIFT** (grün) | 800 | 18 | 520 | Jeder Treffer legt einen Giftstapel nach (bis 5); jeder Stapel brennt weiter |
+| **SHREDDER** (pfirsich) | 1000 | 24 | 650 | Schrotsalve aus 7 Kugeln im Fächer – verheerend auf kurze Distanz |
+| **GRAVITON** (indigo) | 1300 | 30 | 700 | Zieht alle Gegner im Feld ein Stück zurück (Titanen kaum) und bremst sie |
+| **MÜNZE** (gold) | 1600 | 36 | 600 | Schießt nicht, erzeugt im Takt Geld – wächst mit den Belohnungen der Wellen (Upgrades: Ertrag, Takt) |
+| **PRISMA** (rosa) | 2000 | 42 | 950 | Dauerstrahl: Solange das Ziel dasselbe bleibt, wächst die Stärke bis auf das Vierfache |
+| **KOMMANDO** (weiß) | 2400 | 48 | 800 | Schießt nicht, verstärkt Schaden und Tempo aller Türme im Umkreis (stapelt sich nicht) |
+| **ORBITAL** (karmin) | 3000 | 55 | 1400 | Schlag auf den *stärksten* Gegner – überall auf der Karte, mit großem Flächenschaden |
+
+### Spezial-Upgrades
+
+Jeder Turm hat einen **Spezial-Platz** (Schaltfläche *SPEZIAL* im Upgrade-Panel, Taste `R`). Welche Spezials dort zur
+Wahl stehen, bestimmst du im Shop: gekaufte Spezials lassen sich im Spiel gegen Geld (das 1,3-Fache des Turmpreises,
+mindestens 150) einbauen und jederzeit tauschen. Die Hilfstürme (Münze, Kommando) tragen nur *Zinsen*.
+
+| Spezial | Wirkung | Shop-Preis | ab Level |
+|---|---|---:|---:|
+| **FERNGLAS** | +30 % Reichweite | 450 | 6 |
+| **VOLLTREFFER** | 18 % Chance auf 2,5-fachen Schaden | 500 | 5 |
+| **ÜBERTAKTUNG** | +25 % Feuerrate | 600 | 8 |
+| **KÄLTEKERN** | Treffer verlangsamen den Gegner | 700 | 10 |
+| **BRANDSATZ** | Treffer setzen Gegner 3 s lang in Brand | 750 | 10 |
+| **DURCHSCHLAG** | Geschosse und Blitze treffen 2 Ziele mehr (nur Kugel- und Blitztürme) | 800 | 12 |
+| **KOPFGELD** | +50 % Prämie für Abschüsse dieses Turms | 850 | 16 |
+| **SPLITTERHÜLLE** | Treffer streuen 30 % Schaden in der Umgebung | 900 | 14 |
+| **HENKER** | Doppelter Schaden gegen Gegner unter 30 % Leben | 1000 | 18 |
+| **RÜSTUNGSBRUCH** | Ziele nehmen 3 s lang 25 % mehr Schaden (von allen Türmen) | 1100 | 22 |
+| **TITANJÄGER** | 1,75-facher Schaden gegen Titanen, Kolosse und Panzer | 1100 | 26 |
+| **SCHOCKFELD** | 12 % Chance, den Gegner 0,7 s zu betäuben | 1300 | 30 |
+| **ZINSEN** | Jede besiegte Welle bringt 4 % des investierten Geldes | 1400 | 34 |
+| **NACHBEBEN** | Abschüsse lösen eine Explosion aus | 1500 | 38 |
+| **RÜCKSTOSS** | Treffer werfen Gegner ein Stück zurück | 1800 | 42 |
+| **KOMMANDANT** | +15 % Schaden für alle Türme im Umkreis | 2200 | 48 |
+
+<p align="center">
+  <img src="docs/screenshots/elite-towers.png" alt="Elite-Türme im Gefecht" width="420">
+  <img src="docs/screenshots/special-choice.png" alt="Auswahl der Spezial-Upgrades" width="420">
+</p>
+
 ## Die Gegner
 
 | Gegner | Form | Besonderheit |
@@ -152,6 +205,14 @@ Bögen um den Turm zeigen den Ausbau (blau = Reichweite, rot = Schaden, gelb = T
 | Mini | Kreis | klein und flink |
 | Koloss | Sechseck | langsam, sehr zäh, kostet 3 Leben |
 | Titan | Achteck | Boss, kostet 10 Leben |
+| **Panzer** | Fünfeck | Treffer unter 3 % seiner Lebenspunkte richten nur 65 % Schaden an – braucht Schwergewichte (Sniper, Mörser, Railgun) |
+| **Schildträger** | Kreis mit Ring | trägt ein Schild (+40 % der HP), das sich auflädt, wenn er 2 s in Ruhe bleibt – Dauerfeuer lohnt sich |
+| **Sanitäter** | Kreuz | heilt alle Gegner in 110 Einheiten alle 1,5 s um 2,5 % – zuerst ausschalten |
+| **Phantom** | Stern | schnell; in den letzten 1,2 s jedes 4,2-s-Zyklus durchsichtig und unverwundbar |
+
+Die Elite-Gegner erscheinen ab Welle 7 (Schild), 10 (Sanitäter, nie in Titan-Wellen), 12 (Panzer) und 15 (Phantom) und
+*ersetzen* einen Teil der Blöcke, damit die Gesamtlast einer Welle gleich bleibt. Brennen, Gift, Betäubung,
+Rüstungsbruch und Schild sind am Gegner sichtbar.
 
 Du startest mit 500 ◆ und 20 Leben (plus Startbonus aus dem Spielerlevel). Abschüsse und besiegte Wellen bringen
 Geld; ein Gegner, der das Ziel erreicht, kostet Leben.
@@ -212,6 +273,71 @@ Dazu gibt es dauerhafte Belohnungen: **+10 Startgeld je Level** (bis +300) und *
 Titel wie *Funke*, *Wächter*, *Architekt* oder *Titanbezwinger* zeigen den Rang. Als Maßstab: Der erste vollständige
 Durchgang von Level 1 bringt Level 4 (772 XP), 1000 Endlos-Wellen etwa Level 63. Die Testspiele aus dem Level-Editor
 zählen nicht für das Profil.
+
+## Shop und Kristalle
+
+**Kristalle** sind die Währung des Meta-Spiels (Symbol ◆ in Violett, oben rechts im Menü und auf allen Shop-Seiten).
+Du bekommst sie
+
+- für **besiegte Wellen** (1 + Welle/25, höchstens +5; Titan-Wellen +3) und **Siege** (+10 beim ersten, danach +3),
+- für **Medaillen** (einmalig je Level: Bronze 6 · Silber 14 · Gold 30 · Platin 70) und **Level-Aufstiege** (+5),
+- aus **Tagesaufgaben**, **Monatsaufgaben**, dem **Season-Pass** und **Errungenschaften**.
+
+Der **Shop** (Hauptmenü → SHOP) hat drei Reiter: **TÜRME** (die acht Elite-Türme), **SPEZIAL** (16 Spezial-Upgrades) und
+**FORSCHUNG** (zehn dauerhafte Boni in Stufen: Startgeld, Zusatzleben, Baurabatt, Restwert, Prämien, Wellenbonus,
+Feuerkraft, Zieloptik, Kristallsuche, Erfahrung – zusammen +10 % Schaden, +8 % Reichweite, −15 % Baukosten, +20 %
+Prämien, +30 % Wellenbonus, +9 % Verkaufswert, +400 Startgeld, +5 Leben, +30 % Kristalle, +30 % XP). Ein Tipp auf eine
+Karte öffnet einen Bestätigungsdialog; Käufe gelten sofort und für immer. Alte Spielstände bekommen einmalig Kristalle
+für das bisher Erreichte (Level, Medaillen, erste Siege).
+
+<p align="center">
+  <img src="docs/screenshots/shop-towers.png" width="290"> <img src="docs/screenshots/shop-specials.png" width="290"> <img src="docs/screenshots/shop-research.png" width="290">
+</p>
+
+## Missionen, Season und Errungenschaften
+
+**Tagesaufgaben:** Jeden Tag (um Mitternacht der Ortszeit) gibt es drei neue Aufgaben – leicht, mittel, schwer – aus
+Abschüssen, Wellen, Titanen, Elite-Gegnern, Türmen, Upgrades, Spezials, Siegen und gestarteten Leveln. Jede bringt
+Kristalle (25 / 40 / 65), XP und Season-XP; alle drei zusammen noch einen **Tagesbonus** (+30 Kristalle). Welche
+Aufgaben es gibt, ergibt sich nur aus dem Datum – jedes Gerät sieht dieselben.
+
+**Season-Pass:** Jeden Monat beginnt eine neue Season. Season-XP kommen aus Tages- und Monatsaufgaben und aus besiegten
+Wellen (1 je 2 Wellen); **30 Stufen** à 150 XP, jede mit Kristallen (30 + 4·Stufe, Stufe 10/20/30 zusätzlich +150/+250/+500
+und ein Titel). Dazu **sechs große Monatsaufgaben** (z. B. 6000 Gegner, 300 Endlos-Wellen, 50 Titanen). Alles ist
+kostenlos; Belohnungen werden mit einem Tipp abgeholt (rote Markierung im Menü, solange etwas wartet).
+
+**Errungenschaften:** 19 Familien mit zusammen **76 Stufen** (Abschüsse, Wellen, Titanen, Elite-Gegner, Türme, Upgrades,
+Spezials, Siege, Medaillen, Platin, Kapitel, Endlos-Wellen, Spielerlevel, Shop-Käufe, Forschung, Aufgaben, Season,
+Kristalle). Jede erreichte Stufe schreibt sofort Kristalle gut und erscheint als Banner im Spiel.
+
+<p align="center">
+  <img src="docs/screenshots/missions.png" width="290"> <img src="docs/screenshots/season.png" width="290"> <img src="docs/screenshots/achievements.png" width="290">
+</p>
+
+## Wie lange dauert alles?
+
+Das Ziel: Wer **etwa 10 Minuten am Tag** spielt (≈ 40 Wellen bei 2–3-fachem Tempo) und die Tagesaufgaben abholt, braucht
+**rund vier Monate**, bis alle Türme, Spezials und Forschungsstufen gekauft sind. Die Summe aller Preise ist **44 660
+Kristalle** (Türme 12 700 · Spezials 16 950 · Forschung 15 010); die Einnahmen liegen bei etwa 350 Kristallen am Tag
+(Wellen ≈ 100, Tagesaufgaben 160, Season ≈ 90, Rest Errungenschaften und Level-Aufstiege). Dazu bremsen die Spielerlevel
+(Elite-Türme ab Level 12 bis 55). Das Modell dafür ist `neontd.progress.EconomyModel` (`java -cp … EconomyModel 40`),
+und `ProgressionTest` prüft die Zahlen:
+
+| Wellen pro Tag | alles freigeschaltet nach |
+|---:|---|
+| 25 (ca. 6 Min) | ≈ 5,5 Monate |
+| 40 (ca. 10 Min) | ≈ 4 Monate |
+| 60 (ca. 15 Min) | ≈ 3 Monate |
+
+## Einstellungen und Zurücksetzen
+
+**Hauptmenü → EINSTELLUNGEN** (Zahnrad): *Profil* (Name, Cloud, Statistik), **SPIELERLEVEL ZURÜCKSETZEN** (Level und XP
+zurück auf 0, Medaillen, Shop, Kristalle und Aufgaben bleiben) und **ALLES ZURÜCKSETZEN** (das ganze Profil bis auf den
+Namen; laufende Spiele werden beendet, eigene Level bleiben). Beides fragt vorher mit einem Dialog nach. Ein
+Zurücksetzen merkt sich seinen Zeitpunkt: Beim Cloud-Abgleich gewinnt immer der Stand mit dem jüngeren Zurücksetzen, es
+kommt also nichts Altes von einem anderen Gerät zurück.
+
+<p align="center"><img src="docs/screenshots/settings.png" width="420"> <img src="docs/screenshots/menu-phone.png" width="170"></p>
 
 ## Endlosmodus
 
@@ -296,7 +422,7 @@ web/       TeaVM-Brücke: Java → JavaScript, Canvas2D, Zeiger-Ereignisse, PWA 
 ```
 
 ```bash
-./gradlew test                  # 105 Tests: Physik, Simulation, Endlos, Fortschritt, Speichern/Cloud-Abgleich, Layouts, Szenen
+./gradlew test                  # 160+ Tests: Physik, Simulation, Elite-Gegner/-Türme/Spezials, Endlos, Fortschritt, Shop, Aufgaben, Speichern/Cloud-Abgleich, Layouts, Szenen
 ./gradlew build                 # alles bauen: Tests, Web (build/dist), Desktop-Paket
 ./gradlew :web:assembleWeb -PdebugJs      # Web-Version unminifiziert, zum Debuggen
 ./scripts/screenshots.sh        # Screenshots der Doku neu erzeugen (läuft ohne Fenster)

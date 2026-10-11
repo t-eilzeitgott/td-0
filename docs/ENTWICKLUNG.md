@@ -226,6 +226,9 @@ echter Zeilenumbruch im JavaScript und die Seite startet nicht – der Browser-T
 | `BalanceTest` | Bot gewinnt Level 1, faule Strategie verliert, Wellenkurve wächst stetig |
 | `EndlessTest` | Sieg → Endlos weiter, Wellen bis 1200 im Zahlenrahmen, Meisterstufen und Preise, Geld-/Schaden-Überlauf, früher Wellenstart, Bot in Welle 150 |
 | `ProgressTest` | XP-Kurve, Freischaltungen, Startbonus, Titel, Rekorde, Überlauf |
+| `EliteTest` | Elite-Gegner (Schild, Panzer, Heiler, Phantom), alle acht Elite-Türme, alle Spezial-Upgrades, Perks, Speichern/Wiederherstellen von Spezial und Schild |
+| `ProgressionTest` | Kristalle, Shop-Käufe, Forschung, Tages- und Monatsaufgaben, Season, Errungenschaften, Zurücksetzen und Cloud-Merge, Kalender, **Tempo der Freischaltungen** |
+| `MetaFlowTest` | Shop kaufen, Missionen abholen, Einstellungen/Zurücksetzen, Elite-Seite im Turm-Shop, Spezial-Auswahl im Spiel – jeweils per Tippen wie ein Spieler; alle Meta-Szenen in sechs Fenstergrößen |
 | `SaveTest` | JSON, Base64, Profil-Speicher und -Merge, Lauf speichern/wiederherstellen (auch beschädigt), Level-Zeitstempel |
 | `SyncTest` | Cloud-Abgleich zweier Geräte gegen einen nachgebauten Gist-Server, Fehlerfälle, Trennen, Export-Code |
 | `GameLayoutTest` | Kartengröße auf iPhone-Maßen, keine Überlappungen, Koordinaten-Umrechnung inkl. Drehung |
@@ -234,6 +237,8 @@ echter Zeilenumbruch im JavaScript und die Seite startet nicht – der Browser-T
 | `SceneSmokeTest` | Alle Szenen in sechs Fenstergrößen mit Tippen, Ziehen und Tasten; prüft u. a. ausgeglichenes `save/restore` und keine `NaN`-Werte |
 | `desktop/ScreenshotTool` | Startet das Spiel ohne Fenster, führt ein Skript aus (Klicks, Ziehen, Tasten) und speichert PNGs – siehe `scripts/screenshots.sh` |
 | `desktop/IconGenerator` | Erzeugt die App-Icons (`web/src/main/webapp/icons`) |
+| `sim/Calibrate` | Messwerkzeug: Lebenspunkte-Faktor je generiertem Level (`LIMIT`) per Bot kalibrieren; `lives <Regex>` zeigt das Ergebnis mit dem eingestellten Faktor |
+| `progress/EconomyModel` | Messwerkzeug: spielt Tag für Tag mit der echten `Progress`-Logik und nennt den Tag, an dem alles gekauft ist (`… EconomyModel 40` = 40 Wellen/Tag) |
 | `sim/EndlessProbe` | Messwerkzeug: Bot spielt den Endlosmodus und gibt Kennzahlen je 100 Wellen aus |
 | `scripts/web-smoke.mjs` | Browser-Test der echten Web-Version in Chromium (siehe unten) |
 
@@ -252,3 +257,28 @@ Die Simulation selbst ist billig (≈0,01 ms pro Schritt); teuer sind Effekte un
 ## Kapitel und Level-Generator
 
 `Levels.builtins()` liefert einmalig (gecacht) 150 Level: `chapter(c)` die 15 eines Kapitels, `prerequisite(level)` das Level, dessen Bronze nötig ist. Level 1 jedes Kapitels sind die handgebauten (IDs unverändert, alte Spielstände bleiben gültig), Level 2–15 entstehen in `generate`/`gen*` aus Formparametern und ganzzahlig gerundeten Punkten (überall identisch, auch in TeaVM). Der Lebenspunkte-Faktor kommt aus der Tabelle `LIMIT` (größter Faktor, den der Bot noch mit ≥ 10 Leben besteht) × Rampe 40 %→80 % (+1,5 % je Kapitel). Nach Änderungen an Pfaden, Wirtschaft oder `AutoPlayer` die Tabelle neu erzeugen: `java -cp core/build/classes/java/main:core/build/classes/java/test neontd.sim.Calibrate` (≈ 2 Minuten, parallel) und die Zahlen in `LIMIT` ersetzen; `LevelsTest` prüft alle 150 Level (gültig, Bauplätze, Bot gewinnt mit ≥ 5 Leben).
+
+## Elite-Gegner, Elite-Türme und Spezial-Upgrades (Simulation)
+
+- **Gegner** (`EnemyType`: `ARMORED`, `SHIELD`, `HEALER`, `GHOST` am Ende des Enums, damit gespeicherte Ordnungszahlen gültig bleiben): Zustände stehen in `Enemy` (Schild, Brennen/Gift als `dotDps`/`dotTimer`, Betäubung, Rüstungsbruch, `lastHitBy`). `World.updateStatus` läuft je Gegner und Schritt (Betäubung, DOT, Schild-Aufladung, Heilung); `Enemy.phased()` macht Phantome unverwundbar (`targetable()` ist falsch). `WaveFactory.wave` fügt sie ab Welle 7/10/12/15 ein und **zieht dafür Blöcke ab**, damit die Last gleich bleibt (der Bot erreicht danach weiter Welle 300+; die `LIMIT`-Tabelle wurde neu kalibriert).
+- **Schadensweg** (`World.damage(Enemy, int, Tower)`): Spezial-Multiplikatoren (Volltreffer, Henker, Titanjäger) → Rüstungsbruch → Panzerung → Schild → Leben → Treffer-Effekte des Spezials (`onHitSpecial`). `src == null` (Streuschaden, Nachbeben) löst keine Spezials aus – das verhindert Kettenreaktionen. Zufall kommt aus einem `Rng` mit festem Seed (überall dieselbe Folge).
+- **Türme**: `TowerType` hat `tier` (1/2), `crystals` (Shop-Preis) und `passive` (Münze, Kommando). Neue Türme hängen an das Enum an; `World.fire` verteilt auf `fireInferno/fireVenom/fireShredder/fireGraviton/firePrisma/fireShell` (Orbital teilt sich den Mörser-Flug), `updatePassive` (Münze) und `updateBuffs` (Kommando, Kommandant; stärkstes Feld gewinnt) laufen je Schritt. `Tower.power()`/`effectiveInterval()` enthalten die Felder.
+- **Spezial** (`Special`): `allowedFor(TowerType)`, Einbau über `World.setSpecial` (Geld, `invested`, Tausch erlaubt); in Snapshots als Ordinalzahl + 1.
+- **Perks** (`neontd.sim.Perks`): Forschungsboni (Schaden, Reichweite, Baurabatt, Restwert, Prämien, Wellenbonus) werden mit `World.setPerks` gesetzt; Standard `Perks.NONE` lässt Tests und Bot-Läufe unverändert.
+
+## Meta-Spiel: Kristalle, Shop, Aufgaben, Season, Errungenschaften
+
+Alles liegt im `Progress`-Profil und damit im selben JSON/Cloud-Weg (`ProfileJson`):
+
+- **Guthaben** = `crystalsEarned` (nur wachsend) − `spentCrystals()` (aus dem Besitz berechnet: gekaufte Türme, Spezials, Forschungsstufen). So genügt beim Zusammenführen: Verdient = Maximum, Besitz = Vereinigung/Maximum; danach wird `crystalsEarned ≥ spent` erzwungen (nie negativ).
+- **Ereignisse**: `onWaveCleared(wave, boss, endless)`, `onWon`, `onPlayStarted`, `onMedals`, `addMetric(Metric, n)` (Abschüsse, Titanen, Elite-Gegner, Türme, Upgrades, Spezials) füttern Zähler, Tages-/Monatsaufgaben und Season-XP. Die Spielszene ruft sie über ihren `Listener` auf; Editor-Testspiele zählen nicht.
+- **Aufgaben** (`Quests`): rein aus Tageszahl bzw. Monats-Kennung abgeleitet (Hash), nichts davon wird gespeichert außer dem Fortschritt. `Progress.refreshPeriods(day)` setzt Tag/Monat um; `App.checkPeriods` ruft es beim Start und alle 5 s auf. Tageswechsel = Mitternacht der Ortszeit (`Platform.localOffsetMillis`); rückwärts springende Uhren werden ignoriert.
+- **Season** (`Season`): 30 Stufen à 150 XP, Kristalle je Stufe, Titel bei 10/20/30 (`seasonBadge`).
+- **Errungenschaften** (`Achievements`): 19 Familien, `Progress.checkAchievements()` schreibt Stufen mit Kristallen gut (auch Folgestufen, die dadurch erreicht werden).
+- **Zurücksetzen**: `resetPlayerLevel`/`resetAll` setzen `resetEpoch` (ms). `ProfileJson.merge` nimmt bei verschiedenen Epochen den Stand mit der größeren komplett – ein Reset kann nicht vom anderen Gerät rückgängig gemacht werden. `App.resetEverything` beendet zusätzlich gespeicherte Läufe.
+- **Alte Spielstände**: `grantLegacyCrystals()` schreibt einmalig Kristalle für Level, Medaillen und erste Siege gut (Marker `stats["legacy"]`).
+- **Wirtschaft**: `EconomyModel` ist das Modell hinter „Wie lange dauert alles?“ (README). Wer Preise, Einnahmen oder Level-Grenzen ändert, startet es und passt die Zahlen an; `ProgressionTest.fullUnlockTakesMonthsAtAboutTenMinutesAPlayDay` hält den Rahmen (75–200 Tage bei 40 Wellen/Tag).
+
+## Bildschirme des Meta-Spiels (`PanelScene`)
+
+`PanelScene` ist die gemeinsame Grundlage von `ShopScene`, `MissionsScene`, `AchievementsScene` und `SettingsScene`: Zurück-Taste, Titel, Kristall-Anzeige, Reiter, scrollbarer Inhalt (Ziehen mit Schwung, Mausrad), Hinweisleiste und Bestätigungsdialog (`confirm`/`inform`). Unterklassen zeichnen in `drawContent` und melden antippbare Flächen mit `hit(x, y, w, h, tag)`; der Tipp kommt als `onTap(tag)`. Im Spiel zeigt `GameScene` den Turm-Shop in **Seiten à 8** (`GameLayout.TOWERS`, Umschalter `pager`; Kacheln werden aus `shopList` belegt) und öffnet die Spezial-Auswahl als eigenes Overlay (`Overlay.SPECIAL`, pausiert das Spiel, seitenweise Liste).

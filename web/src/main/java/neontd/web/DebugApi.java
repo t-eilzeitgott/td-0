@@ -52,6 +52,18 @@ final class DebugApi {
                     case "profile":
                         app.goTo(new ProfileScene(app));
                         break;
+                    case "shop":
+                        app.goTo(new neontd.scene.ShopScene(app));
+                        break;
+                    case "missions":
+                        app.goTo(new neontd.scene.MissionsScene(app));
+                        break;
+                    case "achievements":
+                        app.goTo(new neontd.scene.AchievementsScene(app));
+                        break;
+                    case "settings":
+                        app.goTo(new neontd.scene.SettingsScene(app));
+                        break;
                     case "editor":
                         app.goTo(new EditorScene(app, null));
                         break;
@@ -99,6 +111,22 @@ final class DebugApi {
                 java.util.List<neontd.sim.Tower> ts = ((GameScene) s).testWorld().towers;
                 return ts.isEmpty() ? "none" : ts.get(ts.size() - 1).x + "," + ts.get(ts.size() - 1).y;
             }
+            case "crystals":
+                app.progress.addCrystals(Double.parseDouble(arg));
+                app.commitProgress();
+                return "ok";
+            case "buy": {
+                // buy TURM | buy special:KEY – wie ein Kauf im Shop (Level und Kristalle werden geprüft)
+                neontd.progress.Progress.Buy r;
+                if (arg.startsWith("special:")) {
+                    neontd.sim.Special sp = neontd.sim.Special.byKey(arg.substring(8));
+                    r = sp == null ? neontd.progress.Progress.Buy.INVALID : app.progress.buySpecial(sp);
+                } else {
+                    r = app.progress.buyTower(neontd.sim.TowerType.valueOf(arg.toUpperCase()));
+                }
+                app.commitProgress();
+                return r.name();
+            }
             case "money":
                 if (s instanceof GameScene) {
                     ((GameScene) s).testWorld().money = Double.parseDouble(arg);
@@ -110,12 +138,13 @@ final class DebugApi {
                 }
                 return "scene=" + (s instanceof ProfileScene ? "ProfileScene" : s instanceof LevelSelectScene
                         ? "LevelSelectScene" : s instanceof EditorScene ? "EditorScene" : s instanceof MenuScene
-                        ? "MenuScene" : "other");
+                        ? "MenuScene" : s.getClass().getSimpleName());
             case "profile":
                 return "level=" + app.progress.level() + " xp=" + app.progress.xp + " name=" + app.progress.name
                         + " kills=" + app.progress.kills + " waves=" + app.progress.wavesCleared + " won="
                         + app.progress.won.size() + " cloud=" + app.cloud.connected() + " sync=" + app.cloud.status
-                        + " msg=" + app.cloud.message;
+                        + " msg=" + app.cloud.message + " crystals=" + app.progress.crystals() + " towers="
+                        + app.progress.ownedTowers + " day=" + app.progress.dailyDay;
             default:
                 return "unknown command";
         }

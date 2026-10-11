@@ -616,6 +616,9 @@ public final class Progress {
         }
         seasonClaimed[tier] = true;
         addStat("seasontiers", 1);
+        if (Season.milestone(tier) != null) {
+            stats.put("badge" + tier / 10, 1.0);
+        }
         return addCrystals(Season.crystals(tier));
     }
 
@@ -632,6 +635,16 @@ public final class Progress {
             n += seasonClaimed[t] ? 0 : 1;
         }
         return n;
+    }
+
+    /** Der höchste Season-Titel, den man je erreicht hat (Stufe 10/20/30), oder {@code null}. */
+    public String seasonBadge() {
+        for (int k = 3; k >= 1; k--) {
+            if (stat("badge" + k) > 0) {
+                return Season.milestone(k * 10);
+            }
+        }
+        return null;
     }
 
     // ---- Errungenschaften

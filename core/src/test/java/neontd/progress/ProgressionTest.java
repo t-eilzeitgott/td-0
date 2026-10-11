@@ -232,6 +232,11 @@ class ProgressionTest {
         p.addSeasonXp(Season.MAX_XP * 2);
         assertEquals(Season.TIERS, p.seasonTier());
         assertEquals(Season.TIERS - 3, p.claimable());
+        assertEquals(null, p.seasonBadge());
+        for (int t = 4; t <= 10; t++) {
+            p.claimSeason(t);
+        }
+        assertEquals("SEASON-STARTER", p.seasonBadge(), "Stufe 10 bringt den Titel");
         assertEquals("SEASON-STARTER", Season.milestone(10));
         assertEquals("SEASON-MEISTER", Season.milestone(30));
         assertTrue(Season.totalCrystals() > 2500 && Season.totalCrystals() < 4500, "Season: " + Season.totalCrystals());

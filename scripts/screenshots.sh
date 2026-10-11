@@ -38,3 +38,18 @@ shot "size 393 852 touch; insets 0 59 0 34; level 16; open gamerich; wait 3; $PL
 
 # Endlosmodus (Meisterstufen, Tempo 5x)
 shot "size 1280 720; level 16; open endless; wait 3.5; $PLACE; tap start; wait 4; tap speed; tap speed; tap speed; tap auto; wait 30; shot endless"
+
+# Shop, Missionen, Errungenschaften, Einstellungen, Elite-Türme und Spezial-Auswahl im Spiel
+shot "size 1280 720; level 24; crystals 1500; open shop; wait 2.5; shot shop-towers"
+shot "size 1280 720; level 24; crystals 1500; open shop2; wait 2.5; shot shop-specials"
+shot "size 1280 720; level 24; crystals 1500; open shop3; wait 2.5; shot shop-research"
+shot "size 1280 720; metric kills 300; metric waves 11; open missions; wait 2.5; shot missions"
+shot "size 1280 720; metric kills 300; open season; wait 2.5; shot season"
+shot "size 1280 720; best serpentine 120; metric kills 600; open achievements; wait 2.5; shot achievements"
+shot "size 1280 720; open settings; wait 2.5; shot settings"
+shot "size 393 852 touch; insets 0 59 0 34; level 30; crystals 800; metric kills 300; open shop; wait 2.5; shot shop-phone"
+shot "size 393 852 touch; insets 0 59 0 34; level 30; crystals 800; wait 3.5; shot menu-phone"
+ELITE="tap pager; wait 0.5; dragto tile0 300 250 0.3; dragto tile1 520 250 0.3; dragto tile2 760 250 0.3; dragto tile3 420 460 0.3; dragto tile4 900 300 0.3; dragto tile6 960 160 0.3; wait 0.3; tap pager; wait 0.3; dragto tile0 640 520 0.3"
+shot "size 1280 720; level 60; ownall; open gamerich; wait 3; $ELITE; wait 0.5; tap start; wait 6; shot elite-towers"
+shot "size 1280 720; level 60; ownall; open gamerich; wait 3; $ELITE; wait 0.5; wclick 300 250; wait 0.5; tap special; wait 1; shot special-choice"
+

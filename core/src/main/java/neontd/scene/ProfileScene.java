@@ -351,6 +351,12 @@ public final class ProfileScene extends Scene {
         g.text(p.displayName(), nx, yCard + 30 * u, fs, Theme.TEXT, Gfx.ALIGN_LEFT, true);
         Icons.draw(g, Icon.PENCIL, cx + cw - 28 * u, yCard + 30 * u, 9 * u, Theme.TEXT_DIM, 0);
         g.text(p.title(), nx, yCard + 58 * u, Math.max(11, 14 * u), Theme.MAGENTA, Gfx.ALIGN_LEFT, true);
+        String badge = p.seasonBadge();
+        if (badge != null) {
+            double tw = g.textWidth(p.title(), Math.max(11, 14 * u), true);
+            Icons.draw(g, Icon.TROPHY, nx + tw + 18 * u, yCard + 58 * u, 8 * u, Theme.YELLOW, 3);
+            g.text(badge, nx + tw + 32 * u, yCard + 58 * u, Math.max(9, 12 * u), Theme.YELLOW, Gfx.ALIGN_LEFT, true);
+        }
         // XP-Balken
         double bw = cw - 96 * u - 20 * u;
         double barY = yCard + 92 * u;
@@ -415,7 +421,7 @@ public final class ProfileScene extends Scene {
             if (open) {
                 Icons.draw(g, Icon.CHECK, cx + cw - 30 * u, y + rowH / 2 - 2 * u, 9 * u, Theme.GREEN, 3);
             } else {
-                String need = "LEVEL " + t.unlockLevel;
+                String need = t.tier == 2 && p.level() >= t.unlockLevel ? "IM SHOP" : "LEVEL " + t.unlockLevel;
                 double ns = Math.max(10, 12 * u);
                 g.text(need, cx + cw - 16 * u, y + rowH / 2 - 2 * u, ns, Theme.TEXT_DIM, Gfx.ALIGN_RIGHT, true);
                 Icons.draw(g, Icon.LOCK, cx + cw - 16 * u - g.textWidth(need, ns, true) - 14 * u, y + rowH / 2 - 2 * u,
@@ -425,7 +431,7 @@ public final class ProfileScene extends Scene {
         double y = y0 + order.length * rowH + 8 * u;
         g.text("Startgeld  +" + p.startMoneyBonus() + "   ·   Start-Leben  +" + p.startLivesBonus(), cx + 16 * u,
                 y + 8 * u, Math.max(10, 13 * u), Theme.YELLOW, Gfx.ALIGN_LEFT, true);
-        g.text("+10 Startgeld je Level (bis +300), +1 Leben je 5 Level (bis +5)", cx + 16 * u, y + 28 * u,
+        g.text("+10 Startgeld je Level (bis +300), +1 Leben je 5 Level (bis +5), mehr durch Forschung im Shop", cx + 16 * u, y + 28 * u,
                 Math.max(8, 10 * u), Theme.TEXT_DIM, Gfx.ALIGN_LEFT, false);
     }
 
