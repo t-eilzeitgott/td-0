@@ -2348,6 +2348,9 @@ public final class GameScene extends Scene {
                     break;
             }
         }
+        if (b == pagerBtn && !pagerBtn.visible) {
+            return null;
+        }
         return b == null ? null : new double[] {b.cx(), b.cy()};
     }
 

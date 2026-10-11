@@ -227,6 +227,19 @@ abstract class PanelScene extends Scene {
         return modalOpen;
     }
 
+    /** Mitte der {@code i}. Schaltfläche des offenen Dialogs (für Tests) oder {@code null}. */
+    double[] modalAnchor(int i) {
+        if (!modalOpen || i >= modalUi.buttons.size()) {
+            return null;
+        }
+        Button b = modalUi.buttons.get(i);
+        return new double[] {b.cx(), b.cy()};
+    }
+
+    boolean modalVisible() {
+        return modalOpen;
+    }
+
     // ------------------------------------------------------------------------------------- Zeichnen
 
     /**
