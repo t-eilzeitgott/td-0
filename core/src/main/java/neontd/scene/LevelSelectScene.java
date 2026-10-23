@@ -381,7 +381,8 @@ public final class LevelSelectScene extends Scene {
             int tier = app.progress.medal(c.level.id);
             String info;
             if (c.level.builtin) {
-                info = "Nr. " + c.level.number + "/" + Levels.PER_CHAPTER + (overall > 0 ? "  ·  Rekord " + overall : "")
+                info = (c.level.style != null ? c.level.style.label + "  ·  " : "") + c.level.startLives + " Leben"
+                        + (overall > 0 ? "  ·  Rekord " + overall : "")
                         + (tier < 4 ? "  ·  " + Medals.NAMES[tier] + " ab " + Medals.WAVES[tier] : "");
             } else {
                 info = c.level.waveCount + " Wellen  ·  eigenes Level" + (best > 0 ? "  ·  Rekord " + best : "")

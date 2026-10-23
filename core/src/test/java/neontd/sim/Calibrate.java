@@ -9,7 +9,7 @@ import neontd.level.Levels;
 
 /**
  * Entwicklungswerkzeug: bestimmt für jedes generierte Level den größten Lebenspunkte-Faktor, den der Test-Bot mit
- * mindestens {@link #MIN_LIVES} Leben besteht, und druckt die Tabelle {@code LIMIT} für {@code Levels}.
+ * mindestens der Hälfte seiner Start-Leben (mindestens 5) besteht, und druckt die Tabelle {@code LIMIT} für {@code Levels}.
  */
 public final class Calibrate {
     static final int MIN_LIVES = 10;
@@ -38,7 +38,7 @@ public final class Calibrate {
         double hi = 4.0;
         for (int i = 0; i < 9; i++) {
             double mid = (lo + hi) / 2;
-            if (lives(def, mid) >= MIN_LIVES) {
+            if (lives(def, mid) >= Math.max(5, def.startLives / 2)) {
                 lo = mid;
             } else {
                 hi = mid;

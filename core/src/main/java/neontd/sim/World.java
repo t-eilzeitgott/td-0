@@ -176,7 +176,7 @@ public final class World {
     /** Die Welle mit dem 0-basierten Index {@code i}; im Endlosmodus wird sie bei Bedarf erzeugt. */
     public WaveDef waveAt(int i) {
         while (endless && waves.size() <= i) {
-            waves.add(WaveFactory.wave(waves.size() + 1, level.hpMul));
+            waves.add(level.buildWave(waves.size() + 1));
         }
         return waves.get(i);
     }

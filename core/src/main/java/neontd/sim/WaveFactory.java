@@ -57,6 +57,16 @@ public final class WaveFactory {
         return clampHp(baseHp(wave) * type.hpMul);
     }
 
+    /** Lebenspunkte auf den gültigen Bereich bringen (1 bis {@link #MAX_HP}). */
+    public static int clamped(double v) {
+        return clampHp(v);
+    }
+
+    /** Belohnung für einen Abschuss in Welle {@code wave} (wächst im Endlosmodus mit den Lebenspunkten). */
+    public static int reward(EnemyType type, int wave) {
+        return scaled(type.reward, rewardScale(wave));
+    }
+
     private static int clampHp(double v) {
         return v >= MAX_HP ? MAX_HP : Math.max(1, Mathx.roundToInt(v));
     }

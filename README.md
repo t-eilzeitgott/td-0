@@ -27,7 +27,7 @@ BBTAN, mit dem Ablauf von Bloons TD. Die gesamte Spiellogik ist in **Java** gesc
   → violett → indigo), die Form zeigt die Art.
 - **Feuerwerk**, wenn ein Gegner zerstört wird – mit Funken-Schweifen, Ringen und knisternden Nachzündern.
 - **Hauptmenü** mit lebendigem Hintergrund (ein Bot verteidigt dort im Dauerlauf Level 1) und **Levelauswahl**.
-- **150 eingebaute Level in 10 Kapiteln** (je 15, von einfach bis komplex) mit je 20 handgebauten Wellen, Titan-Bossen in Welle 10 und 20 und **Medaillen** (Bronze 20 · Silber 50 · Gold 100 · Platin 250 Wellen) – siehe [Level und Medaillen](#level-und-medaillen).
+- **150 eingebaute Level in 10 Kapiteln** (je 15, von einfach bis komplex) mit je 20 Wellen im jeweiligen **Wellenstil** (Schwarm, Bollwerk, Lazarett, Phantome, Titanen …), Bossen und steigender Gegnervielfalt und **Medaillen** (Bronze 20 · Silber 50 · Gold 100 · Platin 250 Wellen) – siehe [Level und Medaillen](#level-und-medaillen).
 - **Level-Editor**: eigene Pfade per Punkten *oder freihändig* zeichnen, Pfade glätten sich zu Kurven, Rückgängig,
   Probespielen, Speichern. Eigene Level erscheinen in der Levelauswahl.
 - **Spielerprofil mit Fortschritt**: Du startest auf Level 1 mit nur *einem* Turm (PULS). Jede besiegte Welle bringt XP,
@@ -238,6 +238,15 @@ deterministisch aus Formparametern erzeugt (mehr Gänge, Windungen, zusätzliche
 schwerer (Lebenspunkte-Faktor). Der Faktor ist mit dem Test-Bot kalibriert (`Calibrate`): Jedes Level ist schaffbar,
 die späten Level eines Kapitels liegen knapp unter dem, was der Bot gerade noch besteht. Die schwereren Kapitel haben
 mehrere Pfade und mehr Startgeld.
+
+**Jedes Level spielt sich anders:** Neben der Bahn hat jedes Level einen **Wellenstil** (`WaveStyle`), der bestimmt, aus
+welchen Gegnern die Wellen bestehen – die Gesamtlast bleibt vergleichbar, ihre Zusammensetzung nicht: *Klassik*,
+*Schwarm* (viele Minis), *Ansturm* (schnelle Darts und Phantome), *Schwergewichte*, *Splitter*, *Bollwerk* (Schilde),
+*Panzerkolonne*, *Lazarett* (Heiler), *Phantome*, *Chaos* (jede Welle betont eine andere Art) und *Titanen*. Jedes Kapitel
+hat drei Stile; innerhalb eines Kapitels wechselt der Rhythmus im Fünferzyklus (Stil A · A+B im Wechsel · B · C ·
+**Titanen-Boss-Level** mit Boss alle fünf Wellen). Neue Gegnerarten kommen erst nach und nach: Schilde ab Kapitel 2,
+Gepanzerte und Splitter ab 3, Heiler ab 5, Phantome ab 6 … Dazu sinken die Startleben von Kapitel zu Kapitel (20 → 12),
+und der Stil des Levels bestimmt auch den Endlosmodus. Stil und Leben stehen auf der Levelkarte und im Start-Banner.
 
 In der **Levelauswahl** siehst du zuerst die **Kapitelübersicht** (Fortschrittsbalken, Bronze/Silber/Gold je Kapitel,
 dazu „Eigene Level“) und tippst ein Kapitel an, um seine 15 Karten zu sehen. Ein Level wird frei, sobald im Level davor

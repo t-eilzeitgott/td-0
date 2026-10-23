@@ -37,6 +37,10 @@ public final class LevelDef {
     /** Kapitel (1–10) und Nummer im Kapitel (1–15) bei eingebauten Leveln, sonst 0. */
     public int chapter;
     public int number;
+    /** Wellen-Stil eingebauter Level (siehe {@link WaveStyle}); {@code null} = Standardkurve (eigene Level). */
+    public WaveStyle style;
+    /** Zweiter Stil für die geraden Wellen ("Wellenbrecher"-Level) oder {@code null}. */
+    public WaveStyle altStyle;
 
     public LevelDef() {
     }
@@ -61,6 +65,8 @@ public final class LevelDef {
         c.difficulty = difficulty;
         c.chapter = chapter;
         c.number = number;
+        c.style = style;
+        c.altStyle = altStyle;
         return c;
     }
 
@@ -78,6 +84,11 @@ public final class LevelDef {
             return Levels.campaignWaves(this);
         }
         return WaveFactory.generate(waveCount, hpMul);
+    }
+
+    /** Eine einzelne Welle (1-basiert) – im Endlosmodus auch über die festen Wellen hinaus, im Stil des Levels. */
+    public WaveDef buildWave(int wave) {
+        return builtin && style != null ? CampaignWaves.wave(this, wave) : WaveFactory.wave(wave, hpMul);
     }
 
     /** Prüft, ob das Level spielbar ist. Liefert {@code null} wenn ja, sonst eine verständliche Fehlermeldung. */

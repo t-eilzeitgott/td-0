@@ -284,7 +284,9 @@ public final class GameScene extends Scene {
             showBanner("ENDLOS", "Wie weit kommst du?", Theme.MAGENTA, 3.2);
             introBanner = true;
         } else {
-            showBanner(level.name.toUpperCase(), "Platziere Türme und starte die erste Welle", Theme.CYAN, 3.2);
+            showBanner(level.name.toUpperCase(), level.style != null
+                    ? level.style.label + " – " + level.style.blurb : "Platziere Türme und starte die erste Welle",
+                    Theme.CYAN, 3.2);
             introBanner = true;
         }
     }
@@ -1102,7 +1104,12 @@ public final class GameScene extends Scene {
         g.scale(sc, sc);
         NeonText.draw(g, bannerTitle, 0, 0, h, bannerColor, 10, 0.5, time);
         if (bannerSub != null && !bannerSub.isEmpty()) {
-            g.text(bannerSub, 0, h * 0.95, Math.max(12, h * 0.34), Theme.TEXT, Gfx.ALIGN_CENTER, true);
+            double sf = Math.max(12, h * 0.34);
+            double sw = g.textWidth(bannerSub, sf, true);
+            if (sw > mw * 0.94) {
+                sf = Math.max(8, sf * mw * 0.94 / sw);
+            }
+            g.text(bannerSub, 0, h * 0.95, sf, Theme.TEXT, Gfx.ALIGN_CENTER, true);
         }
         g.restore();
     }

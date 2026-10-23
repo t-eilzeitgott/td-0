@@ -57,7 +57,13 @@ class LevelsTest {
         assertEquals(1, all.get(0).paths.size());
         for (int c = 1; c <= 10; c++) {
             List<LevelDef> ch = Levels.chapter(c);
-            assertTrue(ch.get(14).hpMul > ch.get(1).hpMul, "Schwierigkeit steigt im Kapitel " + c);
+            java.util.Set<neontd.level.WaveStyle> styles = new java.util.HashSet<>();
+            for (LevelDef l : ch) {
+                styles.add(l.style);
+                assertTrue(l.style != null);
+                assertEquals(l.number % 5 == 0, l.style == neontd.level.WaveStyle.TITANEN, l.name);
+            }
+            assertTrue(styles.size() >= 4, "Kapitel " + c + " spielt sich abwechslungsreich: " + styles);
         }
     }
 

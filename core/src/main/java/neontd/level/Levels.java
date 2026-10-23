@@ -27,6 +27,22 @@ public final class Levels {
     private static final String[] CHAPTER_IDS = {SERPENTINE, "zickzack", "spirale", "zwillinge", "kreuzung",
         "labyrinth", "dreiwege", "zangen", "festung", "chaos"};
 
+    /** Je Kapitel drei Stile: Signatur, zweiter und dritter (die Stile eines Kapitels bauen auf den neuen Gegnern auf). */
+    private static final WaveStyle[][] CHAPTER_STYLES = {
+        {WaveStyle.KLASSIK, WaveStyle.ANSTURM, WaveStyle.SCHWARM},
+        {WaveStyle.SCHWARM, WaveStyle.KLASSIK, WaveStyle.ANSTURM},
+        {WaveStyle.SCHWERGEWICHT, WaveStyle.SPLITTER, WaveStyle.SCHWARM},
+        {WaveStyle.BOLLWERK, WaveStyle.SCHWARM, WaveStyle.SPLITTER},
+        {WaveStyle.PANZER, WaveStyle.BOLLWERK, WaveStyle.SCHWERGEWICHT},
+        {WaveStyle.LAZARETT, WaveStyle.PANZER, WaveStyle.BOLLWERK},
+        {WaveStyle.PHANTOME, WaveStyle.LAZARETT, WaveStyle.ANSTURM},
+        {WaveStyle.ANSTURM, WaveStyle.PHANTOME, WaveStyle.SCHWARM},
+        {WaveStyle.BOLLWERK, WaveStyle.LAZARETT, WaveStyle.PANZER},
+        {WaveStyle.CHAOS, WaveStyle.PHANTOME, WaveStyle.SCHWERGEWICHT},
+    };
+    /** Start-Leben je Kapitel: Es wird knapper. */
+    private static final int[] CHAPTER_LIVES = {20, 20, 18, 18, 16, 16, 14, 14, 12, 12};
+
     private static List<LevelDef> cache;
 
     private Levels() {
@@ -85,16 +101,12 @@ public final class Levels {
         return l.chapter > 1 ? chapter(l.chapter - 1).get(OPEN_NEXT_AT - 1) : null;
     }
 
-    /** Die handgebauten Wellen eines eingebauten Levels: die Standardkurve mit dem Faktor des Levels, Finale mit zwei Titanen. */
+    /** Die 20 Wellen eines eingebauten Levels im Stil des Levels; Welle 20 bringt zwei Titanen. */
     public static List<WaveDef> campaignWaves(LevelDef level) {
-        List<WaveDef> waves = WaveFactory.generate(CAMPAIGN_WAVES, level.hpMul);
-        WaveDef last = new WaveDef().bonus(WaveFactory.bonus(CAMPAIGN_WAVES));
-        for (WaveDef.Group g : waves.get(CAMPAIGN_WAVES - 1).groups) {
-            int count = g.type == EnemyType.BOSS ? 2 : g.count;
-            last.groups.add(new WaveDef.Group(g.type, count, g.interval, g.delay, g.hp, g.path, g.reward));
+        if (level.style == null) {
+            level.style = WaveStyle.KLASSIK;
         }
-        waves.set(CAMPAIGN_WAVES - 1, last);
-        return waves;
+        return CampaignWaves.build(level, CAMPAIGN_WAVES);
     }
 
     // ---------------------------------------------------------------------------------------- Hilfen
@@ -288,27 +300,58 @@ public final class Levels {
         l.chapter = c;
         l.number = n;
         l.difficulty = c;
+        assignStyle(l);
         l.name = CHAPTER_NAMES[c - 1] + " " + n;
         return l;
     }
 
     /**
      * Pro generiertem Level (Kapitel für Kapitel, Nummer 2–15) der größte Lebenspunkte-Faktor, den der Test-Bot
-     * gerade noch mit mindestens 10 Leben besteht (erzeugt mit {@code Calibrate}). Der echte Faktor liegt darunter
+     * gerade noch mit mindestens der Hälfte seiner Start-Leben besteht (erzeugt mit {@code Calibrate}). Der echte Faktor liegt darunter
      * und steigt im Kapitel um 40 Prozentpunkte (Kapitel 1: 40–80 %, Kapitel 10: 54–94 %).
      */
     private static final double[] LIMIT = {
-        0.82, 0.82, 0.99, 0.73, 0.90, 0.91, 1.10, 1.01, 1.17, 1.04, 1.05, 1.13, 1.08, 1.16,
-        1.08, 1.11, 1.01, 1.33, 1.37, 1.33, 1.20, 1.24, 1.38, 1.33, 1.41, 1.60, 1.51, 1.37,
-        1.44, 1.47, 1.49, 1.67, 1.62, 1.56, 1.80, 1.80, 1.72, 1.59, 1.59, 1.69, 1.67, 1.77,
-        0.71, 0.68, 0.73, 0.67, 0.98, 1.06, 0.91, 0.99, 0.96, 1.01, 0.97, 0.98, 1.06, 0.91,
-        0.86, 0.62, 0.76, 0.86, 0.81, 0.86, 0.89, 0.99, 1.06, 1.09, 1.26, 1.25, 1.15, 1.25,
-        0.87, 0.75, 0.91, 0.89, 0.74, 0.86, 1.02, 1.16, 1.20, 1.39, 1.37, 1.04, 1.25, 1.21,
-        0.72, 0.83, 0.75, 0.90, 0.84, 0.81, 0.92, 0.89, 0.86, 0.73, 0.75, 0.81, 0.54, 0.78,
-        1.22, 0.94, 1.09, 1.08, 1.22, 1.07, 1.04, 1.13, 0.99, 1.16, 1.28, 0.96, 1.11, 1.03,
-        0.94, 0.83, 0.90, 0.89, 1.07, 0.89, 0.92, 0.87, 0.94, 0.81, 0.85, 0.73, 0.72, 0.83,
-        1.04, 1.18, 1.04, 0.83, 1.02, 0.99, 1.12, 1.12, 0.85, 1.02, 1.09, 0.95, 0.89, 1.08
+        1.33, 1.11, 1.40, 0.84, 1.20, 1.54, 1.27, 1.43, 1.07, 1.69, 1.38, 1.36, 1.46, 1.15,
+        1.62, 1.43, 1.37, 1.20, 2.06, 1.89, 1.85, 1.71, 1.23, 2.03, 1.88, 2.11, 2.12, 1.46,
+        1.17, 1.22, 1.24, 1.41, 1.10, 1.22, 1.30, 1.55, 1.36, 1.36, 1.49, 1.32, 1.63, 1.49,
+        0.94, 0.86, 0.69, 0.76, 1.02, 1.31, 1.06, 0.91, 0.93, 1.09, 1.18, 1.17, 1.04, 1.12,
+        0.94, 0.69, 0.60, 0.86, 0.81, 0.86, 1.03, 0.77, 1.06, 0.99, 1.24, 1.19, 0.91, 1.08,
+        0.79, 0.66, 0.92, 0.84, 0.92, 0.87, 0.94, 1.08, 1.05, 1.29, 1.21, 0.96, 1.37, 1.08,
+        0.91, 1.01, 0.86, 0.91, 1.28, 1.13, 1.17, 0.73, 0.69, 1.15, 0.87, 0.89, 0.47, 0.66,
+        1.41, 1.33, 1.25, 1.25, 1.38, 1.39, 1.39, 1.31, 1.00, 1.25, 1.16, 1.12, 1.17, 0.99,
+        0.99, 0.83, 0.91, 0.98, 1.04, 1.03, 1.07, 0.89, 0.99, 0.87, 0.94, 0.91, 0.68, 0.83,
+        1.36, 1.56, 0.83, 1.17, 1.36, 1.30, 1.72, 0.98, 0.57, 1.12, 1.49, 1.70, 1.02, 0.79
     };
+
+    /**
+     * Fünferrhythmus je Kapitel: 1 Signatur-Stil, 2 Wechsel aus Signatur und zweitem Stil, 3 zweiter Stil, 4 dritter Stil
+     * (knapperes Startgeld), 5 Titanen-Level (alle fünf Wellen ein Boss, mehr Startgeld). Drei Runden pro Kapitel.
+     */
+    private static void assignStyle(LevelDef l) {
+        WaveStyle[] st = CHAPTER_STYLES[l.chapter - 1];
+        int phase = (l.number - 1) % 5;
+        switch (phase) {
+            case 0:
+                l.style = st[0];
+                break;
+            case 1:
+                l.style = st[0];
+                l.altStyle = st[1];
+                break;
+            case 2:
+                l.style = st[1];
+                break;
+            case 3:
+                l.style = st[2];
+                l.startMoney = (int) Math.round(l.startMoney * 0.85 / 10) * 10;
+                break;
+            default:
+                l.style = WaveStyle.TITANEN;
+                l.startMoney = (int) Math.round(l.startMoney * 1.3 / 10) * 10;
+                break;
+        }
+        l.startLives = CHAPTER_LIVES[l.chapter - 1];
+    }
 
     /** Rundet alle Punkte auf ganze Zahlen – damit sind die Pfade auf jeder Plattform identisch. */
     private static void snap(LevelDef l) {
