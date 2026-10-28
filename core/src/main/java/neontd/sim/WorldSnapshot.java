@@ -19,6 +19,9 @@ public final class WorldSnapshot {
         public int mode;
         /** 0 = kein Spezial, sonst Ordinalzahl in {@link Special} + 1. */
         public int special;
+        /** Ausbaupfad (0 = keiner, 1 = A, 2 = B) und Rang (0–2). */
+        public int branch;
+        public int rank;
     }
 
     /** Ein Gegner im Anflug. */

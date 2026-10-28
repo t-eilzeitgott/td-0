@@ -42,8 +42,9 @@ public final class Enemy {
     public double dotAcc;
     public int poisonStacks;
     public double stunTimer;
-    /** Rüstungsbruch: erhöhter Schaden, solange der Timer läuft. */
+    /** Rüstungsbruch: erhöhter Schaden, solange der Timer läuft (Bonus mindestens der des Spezials). */
     public double vulnTimer;
+    public double vulnBonus;
     /** Turm, der den letzten Treffer gesetzt hat (für Kopfgeld und Nachbeben). */
     public Tower lastHitBy;
     public double shieldAcc;

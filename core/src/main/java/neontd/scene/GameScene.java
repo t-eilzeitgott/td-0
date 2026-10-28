@@ -85,6 +85,8 @@ public final class GameScene extends Scene {
     private Button specialBtn;
     /** Auswahl der Spezial-Upgrades (Overlay) mit Seitenzahl. */
     private final List<Special> specialOptions = new ArrayList<>();
+    /** Die beiden Ausbaupfade des gewählten Turms (leer bei Elite-Türmen). */
+    private final List<neontd.sim.Branch> branchOptions = new ArrayList<>();
     private int specialPage;
     private double crystalsAtStart;
     private int crystalsWave;
@@ -266,7 +268,7 @@ public final class GameScene extends Scene {
             b.painter = (g, btn) -> paintTrackRow(g, btn, track);
             trackBtns[i] = b;
         }
-        specialBtn = new Button("SPEZIAL", Icon.STAR, Theme.CRYSTAL, this::openSpecials);
+        specialBtn = new Button("AUSBAU", Icon.STAR, Theme.CRYSTAL, this::openSpecials);
         specialBtn.painter = this::paintSpecial;
         sellBtn = new Button("VERKAUFEN", Icon.GEM, Theme.MONEY, this::sellSelected);
         sellBtn.painter = this::paintSell;
@@ -1685,6 +1687,10 @@ public final class GameScene extends Scene {
             return;
         }
         specialOptions.clear();
+        branchOptions.clear();
+        for (neontd.sim.Branch b : neontd.sim.Branch.of(selected.type)) {
+            branchOptions.add(b);
+        }
         for (Special sp : Special.values()) {
             if (sp.allowedFor(selected.type) && (!progressOn || progress.owns(sp))) {
                 specialOptions.add(sp);
@@ -1697,7 +1703,8 @@ public final class GameScene extends Scene {
     /** Wie viele Spezial-Zeilen auf eine Seite passen. */
     private int specialPerPage() {
         double u = app.vp.u;
-        double avail = app.vp.safeH() - 24 * u - 54 * u /* Titel */ - 58 * u /* Fußzeile */;
+        double avail = app.vp.safeH() - 24 * u - 54 * u /* Titel */ - 58 * u /* Fußzeile */
+                - branchOptions.size() * 56 * u;
         return Math.max(2, Math.min(6, (int) Math.floor(avail / (50 * u))));
     }
 
@@ -1712,10 +1719,20 @@ public final class GameScene extends Scene {
         double rh = 44 * u;
         double gap = 6 * u;
         int rows = Math.min(per, Math.max(0, specialOptions.size() - specialPage * per));
-        int shown = Math.max(rows, specialOptions.isEmpty() ? 2 : 0);
-        double total = 54 * u + shown * (rh + gap) + 52 * u;
+        int shown = Math.max(rows, specialOptions.isEmpty() && branchOptions.isEmpty() ? 2 : 0);
+        double brh = 50 * u;
+        double branchH = branchOptions.size() * (brh + gap);
+        double total = 54 * u + branchH + shown * (rh + gap) + 52 * u;
         double top = Math.max(vp.insetT + 8 * u, vp.h / 2 - total / 2);
         double y = top + 54 * u;
+        for (int i = 0; i < branchOptions.size(); i++) {
+            final neontd.sim.Branch br = branchOptions.get(i);
+            Button b = new Button(br.label, null, br.color, () -> buyBranch(br));
+            b.painter = (g, btn) -> paintBranchRow(g, btn, br);
+            b.bounds(vp.w / 2 - bw / 2, y, bw, brh);
+            overlayUi.add(b).appearAfter(0.04 * i);
+            y += brh + gap;
+        }
         for (int i = 0; i < rows; i++) {
             final Special sp = specialOptions.get(specialPage * per + i);
             Button b = new Button(sp.label, null, sp.color, () -> chooseSpecial(sp));
@@ -1724,7 +1741,7 @@ public final class GameScene extends Scene {
             overlayUi.add(b).appearAfter(0.04 * i);
             y += rh + gap;
         }
-        y = top + 54 * u + shown * (rh + gap);
+        y = top + 54 * u + branchH + shown * (rh + gap);
         double fh = 44 * u;
         boolean multi = pages > 1;
         double cw = multi ? (bw - gap) / 2 : bw;
@@ -1739,6 +1756,73 @@ public final class GameScene extends Scene {
         Button cancel = new Button("Schließen", null, Theme.TEXT, () -> setOverlay(Overlay.NONE));
         cancel.bounds(multi ? vp.w / 2 + gap / 2 : vp.w / 2 - bw / 2, y, cw, fh);
         overlayUi.add(cancel);
+    }
+
+    private void buyBranch(neontd.sim.Branch br) {
+        if (selected == null) {
+            setOverlay(Overlay.NONE);
+            return;
+        }
+        int cost = world.branchCost(selected, br);
+        if (cost < 0) {
+            deny(selected.rank >= 2 ? "Pfad voll ausgebaut" : "Dieser Turm folgt schon dem anderen Pfad");
+            return;
+        }
+        int missing = world.branchLevelsMissing(selected, br);
+        if (missing > 0) {
+            deny("Erst " + missing + " Upgrade-Stufe" + (missing > 1 ? "n" : "") + " kaufen");
+            return;
+        }
+        if (world.buyBranch(selected, br)) {
+            showToast(br.label + " Rang " + selected.rank + ": " + br.desc(selected.rank), br.color);
+            buildSpecialButtons();
+        } else {
+            deny("Zu wenig Geld (" + Fmt.compact(cost) + ")");
+        }
+    }
+
+    private void paintBranchRow(Gfx g, Button b, neontd.sim.Branch br) {
+        if (selected == null) {
+            return;
+        }
+        double w = b.w;
+        double h = b.h;
+        Tower t = selected;
+        boolean mine = t.branch == br.side();
+        boolean other = t.branch != 0 && !mine;
+        int cost = world.branchCost(t, br);
+        int missing = world.branchLevelsMissing(t, br);
+        boolean maxed = mine && t.rank >= 2;
+        boolean can = cost > 0 && missing == 0 && world.money >= cost;
+        double hv = b.hover.value;
+        double r = h * 0.26;
+        g.fillRoundRect(-w / 2, -h / 2, w, h, r, mine ? Colors.withAlpha(br.color, 0.16)
+                : Colors.lerp(Theme.SURFACE2, Theme.SURFACE3, hv * 0.7 + b.press.value));
+        g.save();
+        g.alpha(other ? 0.4 : 1);
+        Draw.iconBadge(g, -w / 2 + h * 0.55, 0, h * 0.3, Icon.BRANCH, br.color);
+        double tx = -w / 2 + h * 1.05;
+        double right = w / 2 - h * 0.25;
+        double priceW = h * 1.6;
+        double tw = right - priceW - tx;
+        String head = br.label + (mine ? "  ·  Rang " + t.rank + "/2" : "");
+        Draw.fit(g, head, tx, -h * 0.17, Math.max(9, h * 0.28), tw, Theme.TEXT, Gfx.ALIGN_LEFT, true);
+        int showRank = maxed ? 2 : (mine ? t.rank + 1 : 1);
+        Draw.fit(g, (maxed ? "" : "Rang " + showRank + ": ") + br.desc(showRank), tx, h * 0.24, Math.max(8, h * 0.21), tw,
+                Theme.MUTED, Gfx.ALIGN_LEFT, false);
+        g.restore();
+        if (maxed) {
+            Icons.draw(g, Icon.CHECK, right - h * 0.2, 0, h * 0.18, Theme.GREEN, 0);
+        } else if (other) {
+            g.text("gesperrt", right, 0, Math.max(8, h * 0.22), Theme.MUTED, Gfx.ALIGN_RIGHT, false);
+        } else if (missing > 0) {
+            Draw.fit(g, "ab " + neontd.sim.Branch.needLevels(mine ? t.rank + 1 : 1) + " Stufen", right, 0, Math.max(8, h * 0.22),
+                    priceW, Theme.MUTED, Gfx.ALIGN_RIGHT, false);
+        } else {
+            Icons.draw(g, Icon.GEM, right - priceW + h * 0.1, 0, h * 0.13, can ? Theme.MONEY : Colors.withAlpha(Theme.MONEY, 0.5), 0);
+            g.text(Fmt.compact(cost), right - priceW + h * 0.32, 0, Math.max(8, h * 0.3),
+                    can ? Theme.TEXT : Colors.withAlpha(Theme.RED, 0.9), Gfx.ALIGN_LEFT, true);
+        }
     }
 
     private void chooseSpecial(Special sp) {
@@ -1773,8 +1857,11 @@ public final class GameScene extends Scene {
         g.fillRoundRect(sx, top - 12 * u, sw, bottom - top + 28 * u, 22 * u, Theme.SURFACE);
         g.strokeRoundRect(sx, top - 12 * u, sw, bottom - top + 28 * u, 22 * u, 1, Theme.LINE);
         String name = selected == null ? "" : selected.type.label;
-        g.text("Spezial · " + name, sx + 20 * u, top + 10 * u, 18 * u, Theme.TEXT, Gfx.ALIGN_LEFT, true);
-        if (specialOptions.isEmpty()) {
+        g.text("Ausbau · " + name, sx + 20 * u, top + 10 * u, 18 * u, Theme.TEXT, Gfx.ALIGN_LEFT, true);
+        if (specialOptions.isEmpty() && !branchOptions.isEmpty()) {
+            Draw.fit(g, "Pfade schließen sich aus  ·  Spezials gibt es im Shop", sx + 20 * u, top + 34 * u,
+                    Math.max(10, 12 * u), sw - 40 * u, Theme.MUTED, Gfx.ALIGN_LEFT, false);
+        } else if (specialOptions.isEmpty()) {
             double y = top + 40 * u;
             String[] lines = selected != null && selected.type.passive
                     ? new String[] {"Hilfstürme tragen nur das Spezial ZINSEN.", "Kaufe es im Shop (Startseite)."}
@@ -1784,7 +1871,8 @@ public final class GameScene extends Scene {
                 y += 20 * u;
             }
         } else if (selected != null) {
-            g.text("Einbau " + Fmt.compact(world.specialCost(selected)) + " Geld  ·  Tauschen geht jederzeit",
+            g.text((branchOptions.isEmpty() ? "" : "Pfade schließen sich aus  ·  ") + "Spezial: Einbau "
+                    + Fmt.compact(world.specialCost(selected)) + " Geld, tauschbar",
                     sx + 20 * u, top + 34 * u, Math.max(10, 12 * u), Theme.MUTED, Gfx.ALIGN_LEFT, false);
         }
         overlayUi.render(g);
@@ -1829,16 +1917,18 @@ public final class GameScene extends Scene {
         double w = b.w;
         double h = b.h;
         Special sp = selected.special;
-        int c = sp != null ? sp.color : Theme.CRYSTAL;
+        neontd.sim.Branch br = neontd.sim.Branch.chosen(selected);
+        int c = br != null ? br.color : (sp != null ? sp.color : Theme.CRYSTAL);
+        boolean set = sp != null || br != null;
         double hv = b.hover.value;
         double r = h * 0.28;
-        g.fillRoundRect(-w / 2, -h / 2, w, h, r, sp != null ? Colors.withAlpha(c, 0.16 + 0.06 * hv)
+        g.fillRoundRect(-w / 2, -h / 2, w, h, r, set ? Colors.withAlpha(c, 0.16 + 0.06 * hv)
                 : Colors.lerp(Theme.SURFACE2, Theme.SURFACE3, hv * 0.7 + b.press.value));
         double ir = Math.min(h * 0.26, w * 0.12);
-        Icons.draw(g, Icon.STAR, -w / 2 + h * 0.55, 0, ir, c, 0);
+        Icons.draw(g, br != null ? Icon.BRANCH : Icon.STAR, -w / 2 + h * 0.55, 0, ir, c, 0);
         double tx = -w / 2 + h * 1.0;
         double avail = w / 2 - h * 0.2 - tx;
-        String label = sp != null ? sp.label : "Spezial";
+        String label = br != null ? br.label + " " + selected.rank : (sp != null ? sp.label : "Ausbau");
         double fs = Math.max(8, Math.min(h * 0.34, avail / Math.max(1, label.length() * 0.62)));
         if (w < 110) {
             g.text(label, w / 2 - h * 0.2, 0, Math.max(7, Math.min(h * 0.3, (w - h * 1.1) / Math.max(1, label.length() * 0.62))),

@@ -307,6 +307,35 @@ public final class World {
         return true;
     }
 
+    /** Preis des nächsten Rangs eines Ausbaupfads oder -1, wenn nichts mehr zu kaufen ist. */
+    public int branchCost(Tower t, Branch b) {
+        if (b.tower != t.type || (t.branch != 0 && t.branch != b.side()) || t.rank >= 2) {
+            return -1;
+        }
+        return Branch.cost(t.type, t.rank + 1);
+    }
+
+    /** Fehlende Upgrade-Stufen für den nächsten Rang eines Pfads (0 = bereit). */
+    public int branchLevelsMissing(Tower t, Branch b) {
+        int rank = (t.branch == b.side() ? t.rank : 0) + 1;
+        return Math.max(0, Branch.needLevels(rank) - t.totalLevels());
+    }
+
+    /** Kauft den nächsten Rang eines Ausbaupfads. @return ob es geklappt hat */
+    public boolean buyBranch(Tower t, Branch b) {
+        int cost = branchCost(t, b);
+        if (state != State.RUNNING || cost < 0 || money < cost || branchLevelsMissing(t, b) > 0) {
+            return false;
+        }
+        money -= cost;
+        t.invested = Math.min(MAX_MONEY, t.invested + cost);
+        t.branch = b.side();
+        t.rank++;
+        t.recompute();
+        listener.onBranchBought(t, b, t.rank);
+        return true;
+    }
+
     /** Preis der nächsten Stufe oder -1, wenn die Kategorie voll ausgebaut ist. */
     public int upgradeCost(Tower t, UpgradeTrack track) {
         int lvl = t.level(track);
@@ -426,6 +455,8 @@ public final class World {
             d.invested = t.invested;
             d.mode = t.mode.ordinal();
             d.special = t.special == null ? 0 : t.special.ordinal() + 1;
+            d.branch = t.branch;
+            d.rank = t.rank;
             s.towers.add(d);
         }
         for (int i = 0; i < enemies.size(); i++) {
@@ -478,6 +509,10 @@ public final class World {
             }
             t.invested = Mathx.clamp(d.invested, t.type.cost, MAX_MONEY);
             t.mode = modes[Mathx.clamp(d.mode, 0, modes.length - 1)];
+            if (Branch.of(t.type).length > 0) {
+                t.branch = Mathx.clamp(d.branch, 0, 2);
+                t.rank = t.branch == 0 ? 0 : Mathx.clamp(d.rank, 1, 2);
+            }
             t.recompute();
             towers.add(t);
         }
@@ -653,6 +688,9 @@ public final class World {
         }
         if (e.vulnTimer > 0) {
             e.vulnTimer = Math.max(0, e.vulnTimer - STEP);
+            if (e.vulnTimer == 0) {
+                e.vulnBonus = 0;
+            }
         }
         if (e.dotTimer > 0) {
             e.dotTimer -= STEP;
@@ -868,9 +906,7 @@ public final class World {
                 firePulse(t, target);
                 break;
             case SNIPER:
-                damage(target, t.power(), t);
-                listener.onBeam(t.x + Math.cos(angle) * MUZZLE, t.y + Math.sin(angle) * MUZZLE,
-                        target.x, target.y, t.type.color);
+                fireSniper(t, target, angle);
                 break;
             case MORTAR:
                 fireMortar(t, target);
@@ -934,21 +970,87 @@ public final class World {
     private void firePulse(Tower t, Enemy target) {
         leadTime(t, target, TowerType.PULSE_BULLET_SPEED, 0, tmp);
         double angle = Math.atan2(tmp.y - t.y, tmp.x - t.x);
-        Projectile p = new Projectile(nextId++, Projectile.Kind.BULLET, t.type);
-        p.x = t.x + Math.cos(angle) * MUZZLE;
-        p.y = t.y + Math.sin(angle) * MUZZLE;
-        p.prevX = p.x;
-        p.prevY = p.y;
-        p.vx = Math.cos(angle) * TowerType.PULSE_BULLET_SPEED;
-        p.vy = Math.sin(angle) * TowerType.PULSE_BULLET_SPEED;
-        p.radius = BULLET_RADIUS;
-        p.damage = t.power();
-        p.tower = t;
-        p.pierce = (t.type == TowerType.SALVE ? TowerType.SALVE_PIERCE : 1)
-                + (t.special == Special.PIERCE ? Special.PIERCE_BONUS : 0);
-        p.life = t.range * 1.6 / TowerType.PULSE_BULLET_SPEED;
-        projectiles.add(p);
-        listener.onProjectileSpawned(p);
+        int n = t.has(Branch.PULSE_A, 2) ? 3 : (t.has(Branch.PULSE_A, 1) ? 2 : 1);
+        int pierce = (t.type == TowerType.SALVE ? TowerType.SALVE_PIERCE : 1)
+                + (t.special == Special.PIERCE ? Special.PIERCE_BONUS : 0)
+                + (t.has(Branch.PULSE_B, 1) ? 1 : 0) + (t.has(Branch.SALVE_B, 2) ? 2 : 0);
+        for (int i = 0; i < n; i++) {
+            double a = angle + (n == 1 ? 0 : (i - (n - 1) / 2.0) * 0.11);
+            Projectile p = new Projectile(nextId++, Projectile.Kind.BULLET, t.type);
+            p.x = t.x + Math.cos(a) * MUZZLE;
+            p.y = t.y + Math.sin(a) * MUZZLE;
+            p.prevX = p.x;
+            p.prevY = p.y;
+            p.vx = Math.cos(a) * TowerType.PULSE_BULLET_SPEED;
+            p.vy = Math.sin(a) * TowerType.PULSE_BULLET_SPEED;
+            p.radius = BULLET_RADIUS;
+            p.damage = t.power();
+            p.tower = t;
+            p.pierce = pierce;
+            p.life = t.range * 1.6 / TowerType.PULSE_BULLET_SPEED;
+            projectiles.add(p);
+            listener.onProjectileSpawned(p);
+        }
+    }
+
+    /** Sniper: sofortiger Strahl; mit DURCHSCHUSS trifft er auch, was dahinter steht. */
+    private void fireSniper(Tower t, Enemy target, double angle) {
+        damage(target, t.power(), t);
+        double sx = t.x + Math.cos(angle) * MUZZLE;
+        double sy = t.y + Math.sin(angle) * MUZZLE;
+        double ex = target.x;
+        double ey = target.y;
+        if (t.has(Branch.SNIPER_A, 2)) {
+            // alle Gegner auf der Linie bis ans Ende der Reichweite
+            ex = t.x + Math.cos(angle) * t.range;
+            ey = t.y + Math.sin(angle) * t.range;
+            int cnt = hash.query((sx + ex) / 2, (sy + ey) / 2, t.range / 2 + MAX_ENEMY_RADIUS, query);
+            for (int k = 0; k < cnt; k++) {
+                Enemy e = enemies.get(query[k]);
+                if (e == target || !e.targetable()) {
+                    continue;
+                }
+                double reach = e.radius + TowerType.RAIL_HALF_WIDTH;
+                if (Collision.pointSegmentDistSq(e.x, e.y, sx, sy, ex, ey) <= reach * reach) {
+                    damage(e, t.power(), t);
+                }
+            }
+        } else if (t.has(Branch.SNIPER_A, 1)) {
+            Enemy next = nearestBehind(target, angle, 130);
+            if (next != null) {
+                damage(next, t.power(), t);
+                ex = next.x;
+                ey = next.y;
+            }
+        }
+        listener.onBeam(sx, sy, ex, ey, t.type.color);
+    }
+
+    /** Der nächste Gegner hinter {@code from} in Schussrichtung (innerhalb von {@code radius}). */
+    private Enemy nearestBehind(Enemy from, double angle, double radius) {
+        int cnt = hash.query(from.x, from.y, radius + MAX_ENEMY_RADIUS, query);
+        Enemy best = null;
+        double bestD = Double.MAX_VALUE;
+        double cx = Math.cos(angle);
+        double cy = Math.sin(angle);
+        for (int k = 0; k < cnt; k++) {
+            Enemy e = enemies.get(query[k]);
+            if (e == from || !e.targetable()) {
+                continue;
+            }
+            double dx = e.x - from.x;
+            double dy = e.y - from.y;
+            double along = dx * cx + dy * cy;
+            double d2 = dx * dx + dy * dy;
+            if (along <= 0 || d2 > radius * radius) {
+                continue;
+            }
+            if (d2 < bestD || (d2 == bestD && e.id < best.id)) {
+                best = e;
+                bestD = d2;
+            }
+        }
+        return best;
     }
 
     /** Shredder: eine Salve aus Schrotkugeln im Fächer, jede mit vollem Turmschaden, auf kurze Distanz. */
@@ -1050,8 +1152,8 @@ public final class World {
     }
 
     private void fireMortar(Tower t, Enemy target) {
-        fireShell(t, target, TowerType.MORTAR_SHELL_SPEED, 0.45, TowerType.MORTAR_SPLASH,
-                TowerType.MORTAR_EDGE_FALLOFF);
+        double splash = TowerType.MORTAR_SPLASH * (t.has(Branch.MORTAR_A, 1) ? 1.45 : 1);
+        fireShell(t, target, TowerType.MORTAR_SHELL_SPEED, 0.45, splash, TowerType.MORTAR_EDGE_FALLOFF);
     }
 
     /** Granate mit festem Ziel (Mörser, Orbital): fliegt im Bogen und explodiert am vorausberechneten Punkt. */
@@ -1091,6 +1193,13 @@ public final class World {
             // Der stärkste laufende Effekt gewinnt; die Dauer wird immer aufgefrischt.
             e.slowFactor = e.slowTimer > 0 ? Math.min(e.slowFactor, t.slow) : t.slow;
             e.slowTimer = Math.max(e.slowTimer, TowerType.FROST_SLOW_TIME);
+            if (t.has(Branch.FROST_A, 2) && rng.chance(0.25)) {
+                e.stunTimer = Math.max(e.stunTimer, e.type == EnemyType.BOSS ? 0.2 : 0.6);
+            }
+            if (t.has(Branch.FROST_B, 2)) {
+                e.vulnTimer = Math.max(e.vulnTimer, 0.9);
+                e.vulnBonus = Math.max(e.vulnBonus, 0.20);
+            }
         }
         listener.onNova(t, t.range);
     }
@@ -1100,10 +1209,27 @@ public final class World {
         chainPts[1] = t.y;
         boolean tesla = t.type == TowerType.TESLA;
         int chains = (tesla ? TowerType.TESLA_CHAINS : TowerType.ARC_CHAINS)
-                + (t.special == Special.PIERCE ? Special.PIERCE_BONUS : 0);
-        double radius = tesla ? TowerType.TESLA_CHAIN_RADIUS : TowerType.ARC_CHAIN_RADIUS;
+                + (t.special == Special.PIERCE ? Special.PIERCE_BONUS : 0)
+                + (t.has(Branch.ARC_A, 2) ? 4 : (t.has(Branch.ARC_A, 1) ? 2 : 0));
+        chains = Math.min(chains, TowerType.MAX_CHAINS);
+        double radius = (tesla ? TowerType.TESLA_CHAIN_RADIUS : TowerType.ARC_CHAIN_RADIUS)
+                + (t.has(Branch.TESLA_A, 1) ? 60 : 0);
         double falloff = tesla ? TowerType.TESLA_FALLOFF : TowerType.ARC_FALLOFF;
+        if (t.has(Branch.ARC_A, 2)) {
+            falloff = 0.9;
+        }
+        if (t.has(Branch.ARC_B, 2)) {
+            falloff = 1.1;
+        }
         double dmg = t.power();
+        if (tesla) {
+            t.shotCount++;
+            if (t.has(Branch.TESLA_B, 2) && t.shotCount % 3 == 0) {
+                dmg *= 3;
+            } else if (t.has(Branch.TESLA_B, 1) && t.shotCount % 4 == 0) {
+                dmg *= 2.5;
+            }
+        }
         int hits = 0;
         Enemy cur = first;
         while (cur != null && hits < chains) {
@@ -1112,7 +1238,15 @@ public final class World {
             chainPts[hits * 2] = cur.x;
             chainPts[hits * 2 + 1] = cur.y;
             damage(cur, dmg >= Tower.MAX_DAMAGE ? Tower.MAX_DAMAGE : Math.max(1, Mathx.roundToInt(dmg)), t);
-            dmg *= falloff;
+            if (cur.hp > 0) {
+                if (t.has(Branch.ARC_B, 1) && rng.chance(0.15)) {
+                    cur.stunTimer = Math.max(cur.stunTimer, cur.type == EnemyType.BOSS ? 0.15 : 0.5);
+                }
+                if (t.has(Branch.TESLA_A, 2)) {
+                    ignite(cur, t.damage * 0.3, 2.0);
+                }
+            }
+            dmg = Math.min(dmg * falloff, Tower.MAX_DAMAGE);
             cur = hits < chains ? nearestChainTarget(cur, hits, radius) : null;
         }
         listener.onLightning(chainPts, hits + 1, t.type.color);
@@ -1126,15 +1260,19 @@ public final class World {
         double sy = t.y + sin * MUZZLE;
         double ex = t.x + cos * t.range;
         double ey = t.y + sin * t.range;
+        double half = TowerType.RAIL_HALF_WIDTH * (t.has(Branch.RAIL_A, 2) ? 2 : 1);
         int cnt = hash.query((sx + ex) / 2, (sy + ey) / 2, t.range / 2 + MAX_ENEMY_RADIUS, query);
         for (int k = 0; k < cnt; k++) {
             Enemy e = enemies.get(query[k]);
             if (!e.targetable()) {
                 continue;
             }
-            double reach = e.radius + TowerType.RAIL_HALF_WIDTH;
+            double reach = e.radius + half;
             if (Collision.pointSegmentDistSq(e.x, e.y, sx, sy, ex, ey) <= reach * reach) {
                 damage(e, t.power(), t);
+                if (t.has(Branch.RAIL_A, 1) && e.hp > 0) {
+                    e.dist = Math.max(0, e.dist - (e.type == EnemyType.BOSS ? 8 : 24));
+                }
             }
         }
         listener.onBeam(sx, sy, ex, ey, t.type.color);
@@ -1207,6 +1345,15 @@ public final class World {
         if (u >= 1) {
             p.alive = false;
             explode(p.targetX, p.targetY, p.splash, p.damage, p.edgeFalloff, p.color, p.tower);
+            Tower src = p.tower;
+            if (src != null && src.type == TowerType.MORTAR && src.has(Branch.MORTAR_A, 2)) {
+                for (int i = 0; i < 3; i++) {
+                    double a = Math.PI * 2 * i / 3 + rng.range(0, 1);
+                    double d = p.splash * 0.9;
+                    explode(p.targetX + Math.cos(a) * d, p.targetY + Math.sin(a) * d, p.splash * 0.6,
+                            Math.max(1, p.damage / 2), p.edgeFalloff, p.color, src);
+                }
+            }
         }
     }
 
@@ -1261,6 +1408,9 @@ public final class World {
             }
             double f = 1 - edgeFalloff * Mathx.clamp01(d / radius);
             damage(e, Math.max(1, Mathx.roundToInt(dmg * f)), src);
+            if (src != null && src.type == TowerType.MORTAR && src.has(Branch.MORTAR_B, 1)) {
+                ignite(e, src.damage * (src.has(Branch.MORTAR_B, 2) ? 0.8 : 0.4), 2.5);
+            }
         }
         listener.onExplosion(x, y, radius, color);
     }
@@ -1304,14 +1454,34 @@ public final class World {
                     break;
             }
         }
-        if (e.vulnTimer > 0) {
-            a *= 1 + Special.VULN_BONUS;
+        boolean pierceArmor = false;
+        if (src != null && src.branch > 0) {
+            if (src.has(Branch.PULSE_B, 2) && rng.chance(0.20)) {
+                a *= 2;
+            }
+            if (src.has(Branch.SNIPER_B, 1) && e.hp > e.maxHp * 0.6) {
+                a *= 1.6;
+            }
+            if (src.has(Branch.SNIPER_B, 2) && e.hp < e.maxHp * 0.25) {
+                a *= 2;
+            }
+            pierceArmor = src.has(Branch.RAIL_B, 1);
         }
-        if (e.type == EnemyType.ARMORED && amount < e.maxHp * EnemyType.ARMOR_THRESHOLD) {
+        if (e.vulnTimer > 0) {
+            a *= 1 + Math.max(Special.VULN_BONUS, e.vulnBonus);
+        }
+        if (e.type == EnemyType.ARMORED && amount < e.maxHp * EnemyType.ARMOR_THRESHOLD && !pierceArmor) {
             a *= EnemyType.ARMOR_FACTOR;
         }
         int dealt = a >= Tower.MAX_DAMAGE ? Tower.MAX_DAMAGE : Math.max(1, Mathx.roundToInt(a));
-        hurt(e, dealt);
+        if (pierceArmor && e.shield > 0) {
+            e.hp -= dealt;
+            if (e.shieldMax > 0) {
+                e.shieldDelay = EnemyType.SHIELD_DELAY;
+            }
+        } else {
+            hurt(e, dealt);
+        }
         e.hitFlash = 0.12;
         if (src != null) {
             e.lastHitBy = src;
@@ -1319,6 +1489,27 @@ public final class World {
         listener.onEnemyDamaged(e, dealt);
         if (sp != null && e.hp > 0) {
             onHitSpecial(e, src, sp, dealt);
+        }
+        if (src != null && src.branch > 0 && e.hp > 0) {
+            onHitBranch(e, src, dealt);
+        }
+    }
+
+    /** Treffer-Wirkungen der Ausbaupfade. */
+    private void onHitBranch(Enemy e, Tower src, int dealt) {
+        if (src.has(Branch.RAIL_B, 2)) {
+            e.vulnTimer = Math.max(e.vulnTimer, Special.VULN_TIME);
+            e.vulnBonus = Math.max(e.vulnBonus, Special.VULN_BONUS);
+        }
+        if (src.has(Branch.SALVE_B, 1)) {
+            int each = Math.max(1, Mathx.roundToInt(dealt * 0.30));
+            int cnt = hash.query(e.x, e.y, 50 + MAX_ENEMY_RADIUS, query);
+            for (int k = 0; k < cnt; k++) {
+                Enemy o = enemies.get(query[k]);
+                if (o != e && o.targetable() && Mathx.distSq(e.x, e.y, o.x, o.y) <= 50 * 50) {
+                    damage(o, each, null);
+                }
+            }
         }
     }
 

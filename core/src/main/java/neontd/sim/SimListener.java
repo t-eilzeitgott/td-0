@@ -27,6 +27,8 @@ public interface SimListener {
 
     default void onSpecialSet(Tower t, Special special) { }
 
+    default void onBranchBought(Tower t, Branch branch, int rank) { }
+
     /** Eine Münze hat Geld erzeugt. */
     default void onTowerIncome(Tower t, double amount) { }
 

@@ -278,15 +278,17 @@ class MetaFlowTest {
         h.tap(gs.anchor("special"));
         h.run(0.5);
         assertEquals(money, w.money, "das Fenster pausiert das Spiel nur");
-        // erste Zeile = VOLLTREFFER (Reihenfolge der Spezials: crit, burn, interest …)
+        // Zeilen 0/1 = Ausbaupfade (noch gesperrt: erst 3 Stufen), danach VOLLTREFFER (crit, burn, interest …)
         h.tap(gs.anchor("ov0"));
+        assertEquals(0, t.branch, "ohne Upgrade-Stufen bleibt der Pfad zu");
+        h.tap(gs.anchor("ov2"));
         assertEquals(Special.CRIT, t.special);
         assertEquals(money - w.specialCost(t), w.money, 1e-9);
         assertEquals(1, h.app.progress.stat("specials"), 1e-9);
         // Taste R öffnet die Auswahl wieder; Tauschen auf BRANDSATZ
         h.app.key("KeyR", false);
         h.run(0.4);
-        h.tap(gs.anchor("ov1"));
+        h.tap(gs.anchor("ov3"));
         assertEquals(Special.BURN, t.special);
         // Abbrechen: Escape schließt die Auswahl
         h.app.key("KeyR", false);

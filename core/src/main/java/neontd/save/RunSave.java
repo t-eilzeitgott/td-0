@@ -67,6 +67,8 @@ public final class RunSave {
             a.add(d.invested);
             a.add(d.mode);
             a.add(d.special);
+            a.add(d.branch);
+            a.add(d.rank);
             towers.add(a);
         }
         m.put("towers", towers);
@@ -129,6 +131,8 @@ public final class RunSave {
             d.invested = Json.at(a, 6);
             d.mode = (int) Json.at(a, 7);
             d.special = a.size() > 8 ? (int) Json.at(a, 8) : 0;
+            d.branch = a.size() > 10 ? (int) Json.at(a, 9) : 0;
+            d.rank = a.size() > 10 ? (int) Json.at(a, 10) : 0;
             s.towers.add(d);
         }
         for (Object o : enemies) {

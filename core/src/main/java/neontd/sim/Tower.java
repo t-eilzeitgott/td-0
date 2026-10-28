@@ -21,6 +21,11 @@ public final class Tower {
     public double perkRange = 1;
     /** Bonus-Pad, auf dem der Turm steht, oder {@code null}. */
     public neontd.level.Zone.Kind pad;
+    /** Gewählter Ausbaupfad (0 = keiner, 1 = A, 2 = B) und sein Rang (0–2). */
+    public int branch;
+    public int rank;
+    /** Schüsse seit dem letzten Kondensator-Schlag (Tesla B). */
+    public int shotCount;
 
     // abgeleitete Werte (siehe recompute)
     public double range;
@@ -61,10 +66,16 @@ public final class Tower {
         if (pad == neontd.level.Zone.Kind.PAD_RANGE) {
             r *= 1 + neontd.level.Zone.PAD_RANGE_BONUS;
         }
+        if (has(Branch.FROST_B, 1)) {
+            r *= 1.25;
+        }
         range = r;
         double dmg = type.damage * UpgradeTrack.DAMAGE.multAt(level[UpgradeTrack.DAMAGE.ordinal()]) * perkDamage;
         if (pad == neontd.level.Zone.Kind.PAD_DAMAGE) {
             dmg *= 1 + neontd.level.Zone.PAD_DAMAGE_BONUS;
+        }
+        if (has(Branch.PULSE_B, 1)) {
+            dmg *= 1.25;
         }
         damage = dmg >= MAX_DAMAGE ? MAX_DAMAGE : Math.max(1, neontd.math.Mathx.roundToInt(dmg));
         double speed = UpgradeTrack.SPEED.multAt(level[UpgradeTrack.SPEED.ordinal()]);
@@ -74,8 +85,24 @@ public final class Tower {
         if (pad == neontd.level.Zone.Kind.PAD_SPEED) {
             speed *= 1 + neontd.level.Zone.PAD_SPEED_BONUS;
         }
+        if (has(Branch.SALVE_A, 2)) {
+            speed *= 1.5;
+        } else if (has(Branch.SALVE_A, 1)) {
+            speed *= 1.25;
+        }
         interval = type.interval / speed;
-        slow = Math.max(0.25, TowerType.FROST_SLOW - TowerType.FROST_SLOW_PER_LEVEL * level[UpgradeTrack.DAMAGE.ordinal()]);
+        slow = Math.max(0.25, TowerType.FROST_SLOW - TowerType.FROST_SLOW_PER_LEVEL * level[UpgradeTrack.DAMAGE.ordinal()]
+                - (has(Branch.FROST_A, 1) ? 0.12 : 0));
+    }
+
+    /** Hat der Turm den Pfad {@code b} mindestens in Rang {@code rank}? */
+    public boolean has(Branch b, int rank) {
+        return b.tower == type && branch == b.side() && this.rank >= rank;
+    }
+
+    /** Der Rang, der als Nächstes gekauft werden kann (1 oder 2), oder 0, wenn voll ausgebaut. */
+    public int nextRank() {
+        return rank >= 2 ? 0 : rank + 1;
     }
 
     public int level(UpgradeTrack t) {
