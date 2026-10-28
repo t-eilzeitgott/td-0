@@ -186,7 +186,7 @@ public final class MenuScene extends PanelScene {
         double bw = Math.min(w * 0.42, 190 * u);
         double bx = x + w - pad - bw;
         Draw.fit(g, sub, tx, ty + bh / 2 - 9 * u, 13 * u, bx - tx - 10 * u, Theme.MUTED, Gfx.ALIGN_LEFT, false);
-        Draw.fit(g, next.blurb, tx, ty + bh / 2 + 10 * u, 11 * u, bx - tx - 10 * u, Theme.MUTED, Gfx.ALIGN_LEFT, false);
+        Draw.cut(g, next.blurb, tx, ty + bh / 2 + 10 * u, 11 * u, bx - tx - 10 * u, Theme.MUTED, Gfx.ALIGN_LEFT, false);
         g.fillRoundRect(bx, ty, bw, bh, 16 * u, Colors.lerp(accent, 0xFFFFFF, 0.15 * lift));
         Icons.draw(g, Icon.PLAY, bx + 22 * u, ty + bh / 2, 8 * u, 0x000000, 0);
         g.text(resume ? "Fortsetzen" : "Spielen", bx + 36 * u, ty + bh / 2, 17 * u, 0x000000, Gfx.ALIGN_LEFT, true);

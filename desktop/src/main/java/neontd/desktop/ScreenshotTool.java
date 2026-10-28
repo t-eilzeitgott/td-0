@@ -134,6 +134,12 @@ public final class ScreenshotTool {
             case "editor":
                 app.goTo(new neontd.scene.EditorScene(app, null));
                 break;
+            case "daily":
+                app.goTo(new neontd.scene.DailyScene(app));
+                break;
+            case "board":
+                app.goTo(new neontd.scene.LeaderboardScene(app));
+                break;
             case "menu":
                 app.goTo(new neontd.scene.MenuScene(app));
                 break;
@@ -267,6 +273,18 @@ public final class ScreenshotTool {
                     // best LEVEL WELLE  – Rekord setzen (schaltet Medaillen und Folgelevel frei)
                     app.progress.onRecord(p[1], Integer.parseInt(p[2]), true);
                     break;
+                case "stars":
+                    // stars LEVEL N  – Sterne eines Levels setzen (schaltet Folgelevel und Welten frei)
+                    app.progress.onStars(p[1], Integer.parseInt(p[2]));
+                    break;
+                case "starworld": {
+                    // starworld WELT N  – alle Level einer Welt mit N Sternen
+                    int w = Integer.parseInt(p[1]);
+                    for (int i = 1; i <= neontd.level.Worlds.LEVELS; i++) {
+                        app.progress.onStars(neontd.level.Worlds.IDS[w - 1] + "-" + i, Integer.parseInt(p[2]));
+                    }
+                    break;
+                }
                 case "anchor": {
                     // anchor click|hold|up NAME  – Bedienelement der Spielszene ansteuern
                     double[] a = ((neontd.scene.GameScene) app.scene()).anchor(p[2]);

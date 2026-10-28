@@ -1,66 +1,60 @@
 # NEON TD
 
-Ein Tower-Defense-Spiel im Neon-Look: tiefschwarzer Hintergrund, leuchtende Farben, klare Symbole – inspiriert von
-BBTAN, mit dem Ablauf von Bloons TD. Die gesamte Spiellogik ist in **Java** geschrieben und läuft
+Ein Tower-Defense-Spiel im Neon-Look: tiefschwarzer Hintergrund, leuchtende Bahnen und Türme, dazu eine ruhige,
+cleane Oberfläche. Die gesamte Spiellogik ist in **Java** geschrieben und läuft
 
-- **im Browser am PC**,
-- **auf dem iPhone** (als App auf dem Home-Bildschirm, auch offline) und
+- **auf dem iPhone** (als App auf dem Home-Bildschirm, auch offline – Hochformat ist die Hauptausrichtung),
+- **im Browser am PC** und
 - als **Desktop-Anwendung** (Windows, macOS, Linux).
 
 <p align="center">
-  <img src="docs/screenshots/game.png" alt="Gefecht: acht Turmklassen, Gegner mit HP-Zahl, Feuerwerk" width="860">
+  <img src="docs/screenshots/intro.png" width="170"> <img src="docs/screenshots/menu-phone.png" width="170"> <img src="docs/screenshots/worlds-phone.png" width="170"> <img src="docs/screenshots/levels-phone.png" width="170"> <img src="docs/screenshots/game-phone.png" width="170">
 </p>
 
 ## Was drin ist
 
-- **16 Turmklassen**: 8 Grundtürme (5 Klassiker und 3 große) und **8 Elite-Türme** mit eigenen Mechaniken (Brand, Gift, Schrot, Gravitation, Münze, Kommando, Prisma, Orbital) – siehe [Die Türme](#die-türme).
-- **Viele Upgrade-Möglichkeiten**: 3 Kategorien pro Turm (*Reichweite*, *Schaden*, *Tempo*, je 5 Stufen, im Endlosmodus mehr),
-  dazu ein **Spezial-Platz** pro Turm mit 16 **Spezial-Upgrades** (Volltreffer, Brandsatz, Henker, Kommandant …) und
-  dauerhafte **Forschung** im Shop – siehe [Spezial-Upgrades](#spezial-upgrades) und [Shop und Kristalle](#shop-und-kristalle).
-- **Elite-Gegner** (Panzer, Schildträger, Sanitäter, Phantom), die jeweils eine andere Antwort verlangen – siehe [Die Gegner](#die-gegner).
-- **Meta-Spiel über Monate**: Kristalle als Währung, **Shop** für Türme, Spezials und Forschung, **tägliche Aufgaben**,
-  **Season-Pass** mit Monatsaufgaben und 30 Stufen, **76 Errungenschaften-Stufen** – so, dass man bei etwa 10 Minuten
-  Spielzeit am Tag rund **vier Monate** braucht, um alles freizuschalten (siehe [Wie lange dauert alles?](#wie-lange-dauert-alles)).
-- **Einstellungen** mit **Spielerlevel zurücksetzen** und **Alles zurücksetzen** (gilt auch im Cloud-Abgleich).
-- **Wellen wie bei Bloons TD**: Welle manuell starten (auch früher!), Tempo 1×/2×/3×, automatischer Wellenstart, Pause.
-- **Gegner tragen ihre Lebenspunkte als Zahl auf sich**. Die Farbe folgt den aktuellen HP (gelb → orange → rot → pink
-  → violett → indigo), die Form zeigt die Art.
-- **Feuerwerk**, wenn ein Gegner zerstört wird – mit Funken-Schweifen, Ringen und knisternden Nachzündern.
-- **Hauptmenü** mit lebendigem Hintergrund (ein Bot verteidigt dort im Dauerlauf Level 1) und **Levelauswahl**.
-- **150 eingebaute Level in 10 Kapiteln** (je 15, von einfach bis komplex) mit je 20 Wellen im jeweiligen **Wellenstil** (Schwarm, Bollwerk, Lazarett, Phantome, Titanen …), Bossen und steigender Gegnervielfalt und **Medaillen** (Bronze 20 · Silber 50 · Gold 100 · Platin 250 Wellen) – siehe [Level und Medaillen](#level-und-medaillen).
-- **Level-Editor**: eigene Pfade per Punkten *oder freihändig* zeichnen, Pfade glätten sich zu Kurven, Rückgängig,
-  Probespielen, Speichern. Eigene Level erscheinen in der Levelauswahl.
-- **Spielerprofil mit Fortschritt**: Du startest auf Level 1 mit nur *einem* Turm (PULS). Jede besiegte Welle bringt XP,
-  mit den Spielerleveln schaltest du FROST, MÖRSER, BLITZ und SNIPER frei und bekommst dauerhaft mehr Startgeld und
-  Start-Leben – siehe [Fortschritt](#fortschritt).
-- **Direkt ins nächste Level**: Nach einem Sieg steht oben **NÄCHSTES LEVEL** (sobald es freigeschaltet ist, auch ein dort gespeicherter Lauf wird fortgesetzt), darunter ENDLOS WEITER, NOCHMAL und Hauptmenü.
-- **Endlosmodus bis Welle 1000**: Nach dem Sieg über die 20 Wellen geht es mit **ENDLOS WEITER** weiter – mit
-  Meisterstufen für alle Upgrades, Tempo 5× und Wellen, die bis über 1000 hinaus tragen
-  (siehe [Endlosmodus](#endlosmodus)).
-- **Speichern und Fortsetzen**: Das Spiel sichert den laufenden Lauf automatisch; nach dem Schließen der App geht es
-  mit **FORTSETZEN** an derselben Stelle weiter.
-- **Cloud-Speicher über GitHub**: Profil, eigene Level und laufende Spiele lassen sich in einem *privaten GitHub-Gist*
-  sichern und auf jedem Gerät laden – siehe [Speichern, Fortsetzen und Cloud](#speichern-fortsetzen-und-cloud).
-- **Handy-Oberfläche mit viel Platz**: Auf dem iPhone ist die Leiste **ein- und ausklappbar**; im Hochformat liegt die
-  Karte um 90° gedreht und füllt die ganze Höhe (Kartengröße gegenüber vorher: +20 % quer, +60 % hoch).
-- **Physik-Fundament** für die Weiterentwicklung: fester Zeitschritt, Pfade nach Bogenlänge, Broad-Phase,
-  kontinuierliche Kollision, Zielvorhersage, deterministische Simulation (siehe [docs/ENTWICKLUNG.md](docs/ENTWICKLUNG.md)).
+- **8 Welten mit 48 handgebauten Strecken**: Neonstadt, Tiefsee, Magmakern, Gewächshaus, Raumhafen, Kathedrale,
+  Datenstrom, Ereignishorizont – jede Welt mit eigener Farbe, eigenem Gegner-Rhythmus und eigener Idee (Schleifen,
+  Spiralen, Doppelhelix, Loopings, Kreuzungen, drei Bahnen auf eine Basis …). Siehe [Welten und Sterne](#welten-und-sterne).
+- **Felder auf der Karte**: **Pads** (Schaden +25 %, Reichweite +25 %, Tempo +20 % für den Turm, der darauf steht) und
+  **Sperrzonen** – wer baut, muss sich für die besten Plätze entscheiden.
+- **Sterne statt bloßem Sieg**: 3 Sterne ohne verlorenes Leben, 2 mit mindestens der Hälfte, 1 für den Sieg.
+  Sterne öffnen Welten (11 · 25 · 41 · 59 · 79 · 100 · 118) und bringen Kristalle und XP – 144 Sterne insgesamt.
+- **16 Turmklassen** (8 Grundtürme, 8 Elite-Türme) mit je 3 Upgrade-Kategorien, **16 Ausbaupfade** (zwei
+  Spezialisierungen je Grundturm mit je zwei Rängen, die sich ausschließen), ein **Spezial-Platz** je Turm mit 16
+  Spezial-Upgrades und dauerhafte **Forschung** – siehe [Die Türme](#die-türme).
+- **Tages-Challenge**: Jeden Tag ein anderes Level mit einem Modifikator (Tempo, Sparsam, Glas, Titanen, Schwarm,
+  Panzer, Phantome, Zäh) im Endlosmodus – wer Welle 15 erreicht, bekommt 40 Kristalle; eine **Serie** zählt die Tage in Folge.
+- **Globale Bestenliste** für die Tages-Challenge, den Endlosmodus und die Sterne (je Gerät der beste Eintrag) –
+  siehe [Tages-Challenge, Serie und Bestenliste](#tages-challenge-serie-und-bestenliste).
+- **Meta-Spiel über Monate**: Kristalle, Shop (Türme, Spezials, Forschung), Tagesaufgaben, Season-Pass,
+  Errungenschaften – bei etwa 10 Minuten am Tag rund **vier Monate** bis alles frei ist.
+- **Cleane Oberfläche**: Intro mit aufleuchtendem Schriftzug, dunkle Flächen, ruhige Typografie, Bottom-Sheets und
+  Überblendungen zwischen den Seiten. Das Neon bleibt dort, wo es hingehört: auf dem Schlachtfeld.
+- **Spielgefühl**: Gegner zerspringen beim Abschuss in Bruchstücke, Treffer stauchen sie, Upgrades plustern den Turm
+  auf, das Wellen-Ende feiert an der Basis. Fester Simulationsschritt mit interpolierter Darstellung, allokationsfreie
+  Partikel – auf 120-Hz-Displays läuft jedes Bild mit.
+- **Wellen wie bei Bloons TD**: Welle manuell (auch früher) starten, Tempo 1×/2×/3× (Endlos 5×), Auto-Start, Pause.
+- **Endlosmodus bis Welle 1000** mit Meisterstufen für alle Upgrades – siehe [Endlosmodus](#endlosmodus).
+- **Level-Editor** für eigene Strecken, **Speichern und Fortsetzen**, **Cloud-Speicher** über ein privates GitHub-Gist.
+- **Physik-Fundament**: Pfade nach Bogenlänge, Broad-Phase, kontinuierliche Kollision, Zielvorhersage, deterministische
+  Simulation (siehe [docs/ENTWICKLUNG.md](docs/ENTWICKLUNG.md)).
 
-| Hauptmenü | Levelauswahl | Level-Editor |
-|:--:|:--:|:--:|
-| <img src="docs/screenshots/menu.png" width="290"> | <img src="docs/screenshots/levels.png" width="290"> | <img src="docs/screenshots/editor.png" width="290"> |
+| Gefecht | Turm gewählt | Ausbaupfade | Sieg mit Sternen |
+|:--:|:--:|:--:|:--:|
+| <img src="docs/screenshots/phone-portrait.png" width="170"> | <img src="docs/screenshots/phone-portrait-panel.png" width="170"> | <img src="docs/screenshots/ausbau-phone.png" width="170"> | <img src="docs/screenshots/win-phone.png" width="170"> |
 
-| iPhone quer | iPhone quer, Leiste eingeklappt | iPhone quer, Turm gewählt |
-|:--:|:--:|:--:|
-| <img src="docs/screenshots/phone-landscape.png" width="290"> | <img src="docs/screenshots/phone-landscape-collapsed.png" width="290"> | <img src="docs/screenshots/phone-landscape-panel.png" width="290"> |
+| Tages-Challenge | Bestenliste | Profil | Shop |
+|:--:|:--:|:--:|:--:|
+| <img src="docs/screenshots/daily-phone.png" width="170"> | <img src="docs/screenshots/board-phone.png" width="170"> | <img src="docs/screenshots/profile.png" width="170"> | <img src="docs/screenshots/shop-phone.png" width="170"> |
 
-| iPhone hoch (Karte gedreht) | iPhone hoch, Turm gewählt | Profil |
+| Hauptmenü (PC) | Welten | Level-Editor |
 |:--:|:--:|:--:|
-| <img src="docs/screenshots/phone-portrait.png" width="170"> | <img src="docs/screenshots/phone-portrait-panel.png" width="170"> | <img src="docs/screenshots/profile.png" width="170"> |
+| <img src="docs/screenshots/menu.png" width="290"> | <img src="docs/screenshots/worlds.png" width="290"> | <img src="docs/screenshots/editor.png" width="290"> |
 
 <p align="center">
-  <img src="docs/screenshots/endless.png" alt="Endlosmodus mit Tempo 5×" width="640"><br>
-  <sub>Endlosmodus: „WELLE 8 ∞“, Tempo bis 5×, Meisterstufen für alle Upgrades</sub>
+  <img src="docs/screenshots/game.png" alt="Gefecht am PC" width="640"><br>
+  <sub>Gefecht am PC; der Endlosmodus läuft mit Tempo bis 5× und Meisterstufen für alle Upgrades</sub>
 </p>
 
 ## Spielen
@@ -150,6 +144,23 @@ bauen.
 Jede der drei Kategorien hat 5 Stufen: *Reichweite* bis ×1,6 · *Schaden* bis ×7 · *Tempo* bis ×3,1. Die drei farbigen
 Bögen um den Turm zeigen den Ausbau (blau = Reichweite, rot = Schaden, gelb = Tempo).
 
+### Ausbaupfade
+
+Jeder Grundturm hat **zwei Spezialisierungen** (Schaltfläche *Ausbau* im Panel). Rang 1 steht offen, sobald der Turm
+**drei** Upgrade-Stufen hat (Preis: das 1,5-Fache des Turmpreises), Rang 2 ab **sieben** Stufen (2,5-Fach). Wer einen
+Pfad wählt, schließt den anderen für diesen Turm aus – der Pfad steht als Name über dem Turm und im Panel.
+
+| Turm | Pfad A | Pfad B |
+|---|---|---|
+| **PULS** | **ZWILLING** – zwei, dann drei Kugeln je Schuss | **HOHLSPITZ** – +25 % Schaden und ein Ziel mehr, dann 20 % Chance auf doppelten Schaden |
+| **SNIPER** | **DURCHSCHUSS** – der Strahl trifft auch den Gegner dahinter, dann alle auf der Linie | **KOPFSCHUSS** – +60 % gegen Gegner über 60 % Leben, dann doppelt gegen Gegner unter 25 % |
+| **MÖRSER** | **STREUBOMBE** – +45 % Radius, dann drei Splitterbomben um den Einschlag | **BRANDGRANATE** – Einschläge setzen in Brand, dann doppelt so stark |
+| **FROST** | **FROSTKERN** – deutlich stärkere Verlangsamung, dann 25 % Chance einzufrieren | **KRISTALL** – +25 % Reichweite, dann nehmen Verlangsamte 20 % mehr Schaden |
+| **BLITZ** | **KETTE** – zwei, dann vier Sprünge mehr mit kaum Verlust | **ÜBERSPANNUNG** – 15 % Chance zu betäuben, dann +10 % Schaden je Sprung |
+| **SALVE** | **TROMMELFEUER** – +25 %, dann +50 % Feuerrate | **SPLITTER** – Treffer streuen 30 % Schaden, dann zwei Gegner mehr Durchschlag |
+| **TESLA** | **LICHTBOGEN** – weitere Sprünge, dann brennen Getroffene 2 s | **KONDENSATOR** – jeder vierte Schlag 2,5-fach, dann jeder dritte 3-fach |
+| **RAILGUN** | **HYPERSTRAHL** – Treffer werfen zurück, dann doppelt so breiter Strahl | **DURCHDRINGUNG** – ignoriert Panzerung und Schilde, dann 25 % mehr Schaden von allen Türmen (3 s) |
+
 ### Die acht Elite-Türme
 
 Sie kommen aus dem **Shop** (Kristalle, ab einem Spielerlevel) und erscheinen im Turm-Shop des Spiels auf **Seite 2**
@@ -168,7 +179,7 @@ Sie kommen aus dem **Shop** (Kristalle, ab einem Spielerlevel) und erscheinen im
 
 ### Spezial-Upgrades
 
-Jeder Turm hat einen **Spezial-Platz** (Schaltfläche *SPEZIAL* im Upgrade-Panel, Taste `R`). Welche Spezials dort zur
+Jeder Turm hat einen **Spezial-Platz** (Schaltfläche *Ausbau* im Upgrade-Panel, Taste `R` – dort stehen die Ausbaupfade über den Spezials). Welche Spezials dort zur
 Wahl stehen, bestimmst du im Shop: gekaufte Spezials lassen sich im Spiel gegen Geld (das 1,3-Fache des Turmpreises,
 mindestens 150) einbauen und jederzeit tauschen. Die Hilfstürme (Münze, Kommando) tragen nur *Zinsen*.
 
@@ -218,49 +229,43 @@ Rüstungsbruch und Schild sind am Gegner sichtbar.
 Du startest mit 500 ◆ und 20 Leben (plus Startbonus aus dem Spielerlevel). Abschüsse und besiegte Wellen bringen
 Geld; ein Gegner, der das Ziel erreicht, kostet Leben.
 
-## Level und Medaillen
+## Welten und Sterne
 
-| Kapitel | Thema | Aufbau (Level 1 von Hand, 2–15 wachsen in Windungen und Schwierigkeit) |
-|---:|---|---|
-| 1 | Serpentine | ein ruhig geschwungener Pfad – zum Einstieg |
-| 2 | Zickzack | vier lange Bahnen im Wechsel |
-| 3 | Spirale | lange Spirale nach innen (Pfad ≈ 8000 Einheiten) |
-| 4 | Zwillinge | zwei lange Schlangenbahnen, Gegner wechseln sich ab |
-| 5 | Kreuzung | zwei Wellenbahnen, die sich viermal kreuzen |
-| 6 | Labyrinth | acht senkrechte Gänge, sehr viele Wenden |
-| 7 | Drei Wege | drei Bahnen mit je zwei Gängen übereinander |
-| 8 | Zangen | zwei Bahnen von gegenüber, Treffpunkt in der Mitte |
-| 9 | Festung | drei Bahnen aus drei Richtungen auf eine Basis zu |
-| 10 | Chaos | drei lange, sich kreuzende Bahnen mit engen Kurven |
+| Welt | Idee | Leben | Welt öffnet ab |
+|---:|---|---:|---:|
+| 1 Neonstadt | erste Runden durch die leuchtende Stadt – Schleifen, Zickzack, S-Kurven | 20 | – |
+| 2 Tiefsee | Strömungen, Riffe und Schildträger – Doppelhelix, Grotte, zwei Bahnen | 20 | 11 ★ |
+| 3 Magmakern | enge Schluchten voller Panzer – Kessel-Spirale, Lavastrom, Looping | 18 | 25 ★ |
+| 4 Gewächshaus | Schwärme, Ranken und Splitter – Beete, Rankgitter, Rosette | 18 | 41 ★ |
+| 5 Raumhafen | Phantome zwischen den Docks – Andockbahnen, Kreuzungen, Orbit | 16 | 59 ★ |
+| 6 Kathedrale | Symmetrie, Heiler und Bollwerke – Schiff, Klosterhof, Rosenfenster | 16 | 79 ★ |
+| 7 Datenstrom | Spiralen, Schleifen und Chaos – Bus, Schleifen, Spiralspeicher | 14 | 100 ★ |
+| 8 Ereignishorizont | drei Wege, Titanen, kein Erbarmen – Singularität, Akkretion, Horizont | 12 | 118 ★ |
 
-Jedes Kapitel hat 15 Level (**Serpentine 1 … Chaos 15**): Level 1 ist von Hand gebaut, die Level 2–15 werden
-deterministisch aus Formparametern erzeugt (mehr Gänge, Windungen, zusätzliche Bahnen) und werden von Level zu Level
-schwerer (Lebenspunkte-Faktor). Der Faktor ist mit dem Test-Bot kalibriert (`Calibrate`): Jedes Level ist schaffbar,
-die späten Level eines Kapitels liegen knapp unter dem, was der Bot gerade noch besteht. Die schwereren Kapitel haben
-mehrere Pfade und mehr Startgeld.
+Jede Welt hat **sechs von Hand gebaute Strecken** mit je 20 Wellen; Level 6 ist immer das **Titanen-Boss-Level**.
+Die Vorschau in der Levelauswahl zeigt die Strecke, `docs/screenshots/welt-*.png` alle 48 auf einen Blick. Die
+Lebenspunkte der Gegner wachsen von Level zu Level und Welt zu Welt; der Faktor ist mit dem Test-Bot kalibriert
+(`Calibrate`), jede Strecke ist schaffbar.
 
-**Jedes Level spielt sich anders:** Neben der Bahn hat jedes Level einen **Wellenstil** (`WaveStyle`), der bestimmt, aus
-welchen Gegnern die Wellen bestehen – die Gesamtlast bleibt vergleichbar, ihre Zusammensetzung nicht: *Klassik*,
-*Schwarm* (viele Minis), *Ansturm* (schnelle Darts und Phantome), *Schwergewichte*, *Splitter*, *Bollwerk* (Schilde),
-*Panzerkolonne*, *Lazarett* (Heiler), *Phantome*, *Chaos* (jede Welle betont eine andere Art) und *Titanen*. Jedes Kapitel
-hat drei Stile; innerhalb eines Kapitels wechselt der Rhythmus im Fünferzyklus (Stil A · A+B im Wechsel · B · C ·
-**Titanen-Boss-Level** mit Boss alle fünf Wellen). Neue Gegnerarten kommen erst nach und nach: Schilde ab Kapitel 2,
-Gepanzerte und Splitter ab 3, Heiler ab 5, Phantome ab 6 … Dazu sinken die Startleben von Kapitel zu Kapitel (20 → 12),
-und der Stil des Levels bestimmt auch den Endlosmodus. Stil und Leben stehen auf der Levelkarte und im Start-Banner.
+**Pads und Sperrzonen:** Auf vielen Strecken liegen **Pads** – Kreise, die dem Turm darauf Schaden (+25 %), Reichweite
+(+25 %) oder Tempo (+20 %) geben – und **Sperrzonen** (Felsen, Riffe, Lava), auf denen nichts gebaut werden darf.
+Pads liegen bewusst nicht immer an der besten Stelle.
 
-In der **Levelauswahl** siehst du zuerst die **Kapitelübersicht** (Fortschrittsbalken, Bronze/Silber/Gold je Kapitel,
-dazu „Eigene Level“) und tippst ein Kapitel an, um seine 15 Karten zu sehen. Ein Level wird frei, sobald im Level davor
-mindestens **Bronze** erreicht ist; ein neues Kapitel öffnet mit Bronze im **10.** Level des vorigen (die letzten fünf
-sind Zugabe). Bereits gespielte Level bleiben offen.
+**Sterne:** **3 ★** ohne ein verlorenes Leben, **2 ★** mit mindestens der Hälfte der Leben, **1 ★** für den Sieg. Jeder
+neue Stern bringt 12 Kristalle und 120 XP. Ein Level wird frei, sobald das Level davor einen Stern hat (oder bereits
+gespielt wurde); eine neue Welt öffnet mit der Sternzahl aus der Tabelle (die Welten davor müssen also nicht perfekt
+sein – 144 Sterne gibt es insgesamt). Die Sternsumme steht auf der Bestenliste *Sterne*.
 
-**Medaillen** gibt es je Level nach der weitesten besiegten Welle (Normalspiel und Endlosmodus zusammen):
-**Bronze ab Welle 20** (das ist der Sieg über die handgebauten Wellen), **Silber ab 50**, **Gold ab 100** und
-**Platin ab 250**. Silber, Gold und Platin spielst du im Endlosmodus (**ENDLOS WEITER** nach dem Sieg). Jede Medaille
-bringt einmalig XP (150 · 400 · 1000 · 3000); auf der Levelkarte leuchten die erreichten Medaillen. Alle 150 Level
-fertig bedeuten 600 Medaillen.
+**Wellenstile:** Jedes Level hat einen Stil (`WaveStyle`), der bestimmt, aus welchen Gegnern die Wellen bestehen –
+*Klassik*, *Schwarm*, *Ansturm*, *Schwergewichte*, *Splitter*, *Bollwerk*, *Panzerkolonne*, *Lazarett*, *Phantome*,
+*Chaos* und *Titanen*. Jede Welt hat drei Stile, und innerhalb der Welt wechselt der Rhythmus (A · A+B · B · C · B+C ·
+Titanen). Neue Gegnerarten kommen Welt für Welt dazu. Stil und Leben stehen auf der Levelkarte und im Start-Banner.
+
+**Medaillen** gibt es weiter für die weiteste Welle im Endlosmodus eines Levels (Bronze 20 · Silber 50 · Gold 100 ·
+Platin 250), jede einmalig mit XP und Kristallen.
 
 <p align="center">
-  <img src="docs/screenshots/chapters.png" alt="Kapitelübersicht" width="420"> <img src="docs/screenshots/levels.png" alt="Level eines Kapitels mit Medaillen und gesperrten Leveln" width="420">
+  <img src="docs/screenshots/worlds.png" alt="Welten" width="420"> <img src="docs/screenshots/levels.png" alt="Level einer Welt mit Sternen" width="420">
 </p>
 
 ## Fortschritt
@@ -316,13 +321,30 @@ Wellen (1 je 2 Wellen); **30 Stufen** à 150 XP, jede mit Kristallen (30 + 4·St
 und ein Titel). Dazu **sechs große Monatsaufgaben** (z. B. 6000 Gegner, 300 Endlos-Wellen, 50 Titanen). Alles ist
 kostenlos; Belohnungen werden mit einem Tipp abgeholt (rote Markierung im Menü, solange etwas wartet).
 
-**Errungenschaften:** 19 Familien mit zusammen **76 Stufen** (Abschüsse, Wellen, Titanen, Elite-Gegner, Türme, Upgrades,
-Spezials, Siege, Medaillen, Platin, Kapitel, Endlos-Wellen, Spielerlevel, Shop-Käufe, Forschung, Aufgaben, Season,
+**Errungenschaften:** 21 Familien mit zusammen **85 Stufen** (Abschüsse, Wellen, Titanen, Elite-Gegner, Türme, Upgrades,
+Spezials, Siege, Medaillen, Platin, Welten, Sterne, Serie, Endlos-Wellen, Spielerlevel, Shop-Käufe, Forschung, Aufgaben, Season,
 Kristalle). Jede erreichte Stufe schreibt sofort Kristalle gut und erscheint als Banner im Spiel.
 
 <p align="center">
   <img src="docs/screenshots/missions.png" width="290"> <img src="docs/screenshots/season.png" width="290"> <img src="docs/screenshots/achievements.png" width="290">
 </p>
+
+## Tages-Challenge, Serie und Bestenliste
+
+**Tages-Challenge:** Jeden Tag (Ortszeit) wählt das Spiel aus dem Datum ein Level und einen **Modifikator** – alle
+Geräte sehen dieselbe Aufgabe: *Tempo* (Gegner 25 % schneller), *Sparsam* (weniger Startgeld), *Glas* (nur 5 Leben),
+*Titanen* (Boss alle fünf Wellen), *Schwarm*, *Panzer*, *Phantome* oder *Zäh* (mehr Lebenspunkte). Gespielt wird im
+Endlosmodus: Es zählt die weiteste Welle. Ab **Welle 15** gibt es einmalig **40 Kristalle**; der Lauf lässt sich wie
+jeder andere speichern und fortsetzen.
+
+**Serie:** Wer an aufeinanderfolgenden Tagen mindestens eine Welle besiegt, verlängert seine Serie (Flamme im Menü und im
+Profil). Ab zwei Tagen meldet das Spiel die Serie, die Errungenschaft *Dranbleiber* belohnt 3 · 7 · 30 · 100 Tage.
+
+**Bestenliste** (Hauptmenü → Bestenliste): drei Listen – **Heute** (Welle der Tages-Challenge), **Endlos** (beste
+Endlos-Welle auf einer eingebauten Strecke) und **Sterne** (Sternsumme). Jedes Gerät hat eine zufällige Kennung, gezählt
+wird je Liste der beste Eintrag; der eigene ist hervorgehoben. Als Name dient der Profilname (Profil → Stift). Die
+Einträge liegen in einer kleinen Supabase-Tabelle, die mit dem öffentlichen Schlüssel nur Einfügen und Lesen erlaubt;
+ohne Netz merkt sich das Spiel den Eintrag und schickt ihn später.
 
 ## Wie lange dauert alles?
 
@@ -432,7 +454,7 @@ web/       TeaVM-Brücke: Java → JavaScript, Canvas2D, Zeiger-Ereignisse, PWA 
 ```
 
 ```bash
-./gradlew test                  # 160+ Tests: Physik, Simulation, Elite-Gegner/-Türme/Spezials, Endlos, Fortschritt, Shop, Aufgaben, Speichern/Cloud-Abgleich, Layouts, Szenen
+./gradlew test                  # 180+ Tests: Physik, Simulation, Elite-Gegner/-Türme/Spezials/Ausbaupfade, Welten/Sterne, Endlos, Fortschritt, Shop, Aufgaben, Speichern/Cloud-Abgleich, Layouts, Szenen
 ./gradlew build                 # alles bauen: Tests, Web (build/dist), Desktop-Paket
 ./gradlew :web:assembleWeb -PdebugJs      # Web-Version unminifiziert, zum Debuggen
 ./scripts/screenshots.sh        # Screenshots der Doku neu erzeugen (läuft ohne Fenster)
@@ -444,7 +466,7 @@ Fortschritts-Schicht ergänzt, steht in **[docs/ENTWICKLUNG.md](docs/ENTWICKLUNG
 
 ## Ausblick
 
-Naheliegende nächste Schritte: weitere Level mit eigenen Wellen (Level werden über den Spielerlevel freigeschaltet), Ton,
-weitere Gegner- und Turmarten, Sterne pro Level, Bestenlisten über die Gists und Wiederholungen aus aufgezeichneten
-Befehlen (die Simulation ist deterministisch). Der Spielstand-Mechanismus (`neontd.save`) und das Profil
-(`neontd.progress`) sind dafür vorbereitet – siehe [docs/ENTWICKLUNG.md](docs/ENTWICKLUNG.md).
+Naheliegende nächste Schritte: Ton, Wiederholungen aus aufgezeichneten Befehlen (die Simulation ist deterministisch),
+Wochen-Challenges mit eigenen Bestenlisten, weitere Welten und Elite-Pfade. Der Spielstand-Mechanismus (`neontd.save`),
+das Profil (`neontd.progress`) und die Bestenliste (`neontd.save.Leaderboard`) sind dafür vorbereitet – siehe
+[docs/ENTWICKLUNG.md](docs/ENTWICKLUNG.md).

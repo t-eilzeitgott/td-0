@@ -123,6 +123,26 @@ public final class Draw {
         g.text(s, x, y, Math.max(8, size * k), color, align, bold);
     }
 
+    /** Text in voller Größe; was nicht in {@code maxW} passt, wird mit „…“ abgeschnitten. */
+    public static void cut(Gfx g, String s, double x, double y, double size, double maxW, int color, int align,
+                           boolean bold) {
+        if (g.textWidth(s, size, bold) <= maxW) {
+            g.text(s, x, y, size, color, align, bold);
+            return;
+        }
+        int lo = 0;
+        int hi = s.length();
+        while (lo < hi) {
+            int mid = (lo + hi + 1) / 2;
+            if (g.textWidth(s.substring(0, mid) + "…", size, bold) <= maxW) {
+                lo = mid;
+            } else {
+                hi = mid - 1;
+            }
+        }
+        g.text(lo <= 0 ? "…" : s.substring(0, lo).trim() + "…", x, y, size, color, align, bold);
+    }
+
     /** Chevron „zurück“ (links) oder „weiter“ (rechts). */
     public static void chevron(Gfx g, double cx, double cy, double s, int color, boolean right) {
         g.beginPath();

@@ -196,7 +196,7 @@ public final class LevelSelectScene extends PanelScene {
         } else {
             sub = styleText(l) + (l.blurb.isEmpty() ? "" : "  ·  " + l.blurb);
         }
-        Draw.fit(g, sub, cx + pad + 4 * u, ty, 12 * u, cw - 2 * pad - 8 * u, Theme.MUTED, Gfx.ALIGN_LEFT, false);
+        Draw.cut(g, sub, cx + pad + 4 * u, ty, 12 * u, cw - 2 * pad - 8 * u, Theme.MUTED, Gfx.ALIGN_LEFT, false);
         if (open && run != null) {
             g.fillCircle(cx + cw - pad - 6 * u, ty, 3 * u, Theme.GREEN);
         }
