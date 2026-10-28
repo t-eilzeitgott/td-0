@@ -45,6 +45,10 @@ public final class EnemyArt {
 
         g.save();
         g.rotate(e.heading);
+        if (flash > 0) {
+            // Treffer: in Laufrichtung gestaucht, quer dazu gedehnt
+            g.scale(1 - 0.14 * flash, 1 + 0.16 * flash);
+        }
         g.beginPath();
         shapePath(g, e.type, r);
         g.fill(Colors.withAlpha(Colors.lerp(c, 0xFFFFFF, flash * 0.7), 0.17 + 0.55 * flash));

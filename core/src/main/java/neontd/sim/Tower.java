@@ -41,6 +41,8 @@ public final class Tower {
     public double recoil;
     /** Sekunden seit dem Bau (Pop-Animation, nur Darstellung). */
     public double age;
+    /** Aufblitzen nach Upgrade/Ausbau 1 → 0 (nur Darstellung). */
+    public double pulse;
     public boolean hasTarget;
     /** Verstärkung durch Kommando-Türme und Kommandanten in der Nähe (0 = keine), neu berechnet je Schritt. */
     public double buffDamage;

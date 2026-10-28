@@ -27,6 +27,10 @@ public final class TowerArt {
     /** Ein platzierter Turm in der Spielwelt. */
     public static void drawTower(Gfx g, Tower t, double time) {
         double pop = Easing.outBack(Mathx.clamp01(t.age / 0.32));
+        if (t.pulse > 0) {
+            // Upgrade: kurz aufplustern und zurückfedern
+            pop *= 1 + 0.16 * Math.sin(t.pulse * Math.PI) * t.pulse;
+        }
         g.save();
         g.translate(t.x, t.y);
         g.scale(pop, pop);

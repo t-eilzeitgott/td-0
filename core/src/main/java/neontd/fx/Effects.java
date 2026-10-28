@@ -142,6 +142,26 @@ public final class Effects {
         delayedCount++;
     }
 
+    /**
+     * Zerspringen: die Kontur eines Gegners bricht in {@code sides} Bruchstücke, die nach außen fliegen und sich
+     * drehen – der "satisfying" Moment beim Abschuss. Dazu ein kurzer Blitz und ein enger Ring.
+     */
+    public void shatter(double x, double y, double radius, double heading, int sides, int rgb) {
+        int n = Math.max(3, Math.min(sides, 10));
+        double a0 = heading + Math.PI / n;
+        double seg = 2 * radius * Math.sin(Math.PI / n) * 1.1;
+        for (int i = 0; i < n; i++) {
+            double a = a0 + Mathx.TAU * i / n;
+            double sp = rng.range(110, 230) * (0.7 + radius / 30.0);
+            double px = x + Math.cos(a) * radius * 0.8;
+            double py = y + Math.sin(a) * radius * 0.8;
+            particles.add(Particles.SHARD, px, py, Math.cos(a) * sp + rng.range(-25, 25), Math.sin(a) * sp - 40,
+                    rng.range(0.38, 0.62), seg, rgb);
+        }
+        particles.add(Particles.FLASH, x, y, 0, 0, 0.16, radius * 2.2, Colors.lighten(rgb, 0.6));
+        particles.add(Particles.RING, x, y, 0, 0, 0.32, radius * 2.6, Colors.lighten(rgb, 0.3));
+    }
+
     public void explosion(double x, double y, double radius, int rgb) {
         particles.add(Particles.FLASH, x, y, 0, 0, 0.25, radius * 1.1, Colors.lighten(rgb, 0.3));
         particles.add(Particles.RING, x, y, 0, 0, 0.38, radius, rgb);

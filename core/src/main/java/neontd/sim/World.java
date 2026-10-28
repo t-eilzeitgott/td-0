@@ -812,6 +812,9 @@ public final class World {
             if (t.recoil > 0) {
                 t.recoil = Math.max(0, t.recoil - STEP * 6);
             }
+            if (t.pulse > 0) {
+                t.pulse = Math.max(0, t.pulse - STEP * 2.6);
+            }
             t.cooldown -= STEP;
             if (t.type.passive) {
                 updatePassive(t);

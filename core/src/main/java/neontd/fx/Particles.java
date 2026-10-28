@@ -23,6 +23,8 @@ public final class Particles {
     public static final int FLASH = 4;
     /** Aufsteigender Text. */
     public static final int TEXT = 5;
+    /** Splitter: rotierendes Bruchstück einer Kontur (size = Länge), fliegt mit leichter Schwerkraft. */
+    public static final int SHARD = 6;
 
     private static final double GRAVITY = 150;
     private static final double DRAG = 2.4;
@@ -126,7 +128,13 @@ public final class Particles {
                 continue;
             }
             int k = kind[i];
-            if (k == SPARK || k == POP || k == DOT) {
+            if (k == SHARD) {
+                vy[i] += GRAVITY * 0.55 * dt;
+                vx[i] *= drag;
+                vy[i] *= drag;
+                x[i] += vx[i] * dt;
+                y[i] += vy[i] * dt;
+            } else if (k == SPARK || k == POP || k == DOT) {
                 vy[i] += GRAVITY * dt;
                 vx[i] *= drag;
                 vy[i] *= drag;
@@ -197,6 +205,19 @@ public final class Particles {
                 case DOT:
                     g.fillCircle(x[i], y[i], size[i] * (0.3 + 0.7 * u), Colors.withAlpha(c, Math.min(1, u * 1.6)));
                     break;
+                case SHARD: {
+                    // Bruchstück: dreht sich beim Flug, schrumpft und verglüht
+                    double ang = Math.atan2(vy[i], vx[i]) + (maxLife[i] - life[i]) * (6 + (i % 5)) * ((i & 1) == 0 ? 1 : -1);
+                    double len = size[i] * (0.35 + 0.65 * u);
+                    double dx = Math.cos(ang) * len * 0.5;
+                    double dy = Math.sin(ang) * len * 0.5;
+                    double a = Math.min(1, u * 1.5);
+                    if (Neon.quality >= 1) {
+                        g.line(x[i] - dx, y[i] - dy, x[i] + dx, y[i] + dy, 6, Colors.withAlpha(c, a * 0.16));
+                    }
+                    g.line(x[i] - dx, y[i] - dy, x[i] + dx, y[i] + dy, 2.2, Colors.withAlpha(Colors.lighten(c, 0.3 * u), a));
+                    break;
+                }
                 case RING: {
                     double t = 1 - u;
                     double e = 1 - (1 - t) * (1 - t) * (1 - t);

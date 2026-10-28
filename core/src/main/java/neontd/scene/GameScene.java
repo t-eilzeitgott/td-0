@@ -2529,6 +2529,14 @@ public final class GameScene extends Scene {
 
         @Override
         public void onWaveCleared(int index, int bonus) {
+            // Feier an der Basis: grüner Ring, Funkenfontäne
+            for (neontd.physics.Path p : world.paths) {
+                double ex = p.x(p.pointCount() - 1);
+                double ey = p.y(p.pointCount() - 1);
+                fx.ring(ex, ey, 120, Theme.GREEN, 0.75);
+                fx.ring(ex, ey, 70, Colors.lighten(Theme.GREEN, 0.5), 0.5);
+                fx.sparks(ex, ey - 10, -Math.PI / 2, Math.PI * 0.9, 22, 230, Theme.GREEN);
+            }
             int xp = 0;
             if (progressOn) {
                 int before = progress.level();

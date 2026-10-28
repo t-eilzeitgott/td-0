@@ -40,6 +40,9 @@ public class GameFx implements SimListener {
         int c = Theme.enemyColor(e.maxHp);
         double power = e.radius / 17.0;
         fx.firework(e.x, e.y, c, power);
+        if (fx.load() < 0.75) {
+            fx.shatter(e.x, e.y, e.radius, e.heading, sides(e.type.shape), c);
+        }
         if (e.type == EnemyType.BOSS) {
             for (int i = 1; i <= 5; i++) {
                 double a = fx.particles.rng().angle();
@@ -50,6 +53,18 @@ public class GameFx implements SimListener {
             fx.shake = 10;
         }
         fx.moneyPopup(e.x, e.y - e.radius - 4, reward, Theme.MONEY, 15);
+    }
+
+    /** Zahl der Bruchstücke je Gegnerform. */
+    static int sides(EnemyType.Shape shape) {
+        switch (shape) {
+            case TRIANGLE: return 3;
+            case SQUARE: case DIAMOND: case CROSS: return 4;
+            case PENTAGON: return 5;
+            case HEXAGON: return 6;
+            case STAR: case OCTAGON: return 8;
+            default: return 7;
+        }
     }
 
     @Override
@@ -131,6 +146,7 @@ public class GameFx implements SimListener {
 
     @Override
     public void onSpecialSet(Tower t, neontd.sim.Special special) {
+        t.pulse = 1;
         fx.ring(t.x, t.y, 70, special.color, 0.5);
         fx.sparks(t.x, t.y, -Math.PI / 2, Math.PI, 12, 160, special.color);
     }
@@ -148,7 +164,18 @@ public class GameFx implements SimListener {
     }
 
     @Override
+    public void onBranchBought(Tower t, neontd.sim.Branch branch, int rank) {
+        t.pulse = 1;
+        fx.ring(t.x, t.y, 80, branch.color, 0.6);
+        fx.ring(t.x, t.y, 50, Colors.lighten(branch.color, 0.5), 0.4);
+        fx.flash(t.x, t.y, 60, branch.color, 0.35);
+        fx.sparks(t.x, t.y, -Math.PI / 2, Math.PI, 18, 200, branch.color);
+        fx.text(t.x, t.y - 44, branch.label + (rank > 1 ? " II" : ""), branch.color, 15);
+    }
+
+    @Override
     public void onTowerUpgraded(Tower t, UpgradeTrack track) {
+        t.pulse = 1;
         fx.ring(t.x, t.y, 56, track.color, 0.5);
         fx.sparks(t.x, t.y - 10, -Math.PI / 2, 0.8, 12, 190, track.color);
         fx.flash(t.x, t.y, 44, track.color, 0.3);
