@@ -58,7 +58,33 @@ public final class ScreenshotTool {
         app.resize(w, h, il, it, ir, ib);
     }
 
+    private void command(String cmd) {
+        if (cmd.equals("win") || cmd.equals("lose")) {
+            if (app.scene() instanceof neontd.scene.GameScene) {
+                ((neontd.scene.GameScene) app.scene()).testWorld().forceEnd(cmd.equals("win"));
+            }
+        }
+    }
+
     private void openScene(String name) {
+        if (name.startsWith("level:") || name.startsWith("levelrich:")) {
+            boolean rich = name.startsWith("levelrich:");
+            String id = name.substring(name.indexOf(':') + 1);
+            neontd.level.LevelDef l = neontd.level.Levels.find(id);
+            if (l == null) {
+                throw new IllegalArgumentException("Unbekanntes Level: " + id);
+            }
+            if (rich) {
+                l = l.copy();
+                l.startMoney = 6000;
+            }
+            app.goTo(new neontd.scene.GameScene(app, l));
+            return;
+        }
+        if (name.startsWith("world:")) {
+            app.goTo(new neontd.scene.LevelSelectScene(app, Integer.parseInt(name.substring(6))));
+            return;
+        }
         switch (name) {
             case "game":
                 app.goTo(new neontd.scene.GameScene(app, neontd.level.Levels.serpentine()));
@@ -292,6 +318,11 @@ public final class ScreenshotTool {
                 case "open":
                     openScene(p[1]);
                     advance(1.0);
+                    break;
+                case "win":
+                case "lose":
+                    command(p[0]);
+                    advance(0.05);
                     break;
                 default:
                     throw new IllegalArgumentException("Unbekannter Befehl: " + cmd);

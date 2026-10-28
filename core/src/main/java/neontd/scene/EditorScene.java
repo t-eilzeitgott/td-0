@@ -175,8 +175,7 @@ public final class EditorScene extends Scene {
         double w = b.w;
         double h = b.h;
         double hv = b.hover.value;
-        g.fillRoundRect(-w / 2, -h / 2, w, h, h * 0.25, Colors.withAlpha(Theme.PANEL, 0.95));
-        Neon.roundRect(g, -w / 2, -h / 2, w, h, h * 0.25, 1.5, Colors.withAlpha(Theme.TEXT_DIM, 0.8 + 0.2 * hv), 2 + 4 * hv);
+        g.fillRoundRect(-w / 2, -h / 2, w, h, h * 0.25, Colors.lerp(Theme.SURFACE2, Theme.SURFACE3, hv));
         double ang = portrait ? (railWanted ? Math.PI : 0) : (railWanted ? -Math.PI / 2 : Math.PI / 2);
         g.save();
         g.rotate(ang);
@@ -189,12 +188,10 @@ public final class EditorScene extends Scene {
         double w = b.w;
         double h = b.h;
         double hv = Math.max(b.hover.value, sel ? 1 : 0);
-        g.fillRoundRect(-w / 2, -h / 2, w, h, h * 0.2, Colors.withAlpha(Theme.PANEL, 0.95));
-        g.fillRoundRect(-w / 2, -h / 2, w, h, h * 0.2, Colors.withAlpha(color, (sel ? 0.16 : 0.03) + 0.1 * b.hover.value + 0.15 * b.press.value));
-        Neon.roundRect(g, -w / 2, -h / 2, w, h, h * 0.2, sel ? 2.4 : 1.4, Colors.withAlpha(color, sel ? 1 : 0.55), sel ? 9 : 2 + 5 * hv);
+        g.fillRoundRect(-w / 2, -h / 2, w, h, h * 0.2, sel ? Colors.withAlpha(color, 0.2) : Colors.lerp(Theme.SURFACE2, Theme.SURFACE3, hv * 0.7 + b.press.value));
         double is = Math.min(h * 0.27, w * 0.2);
-        Icons.draw(g, icon, 0, -h * 0.13, is, color, sel ? 5 : 2);
-        g.text(label, 0, h * 0.30, Math.max(8, Math.min(h * 0.19, w * 0.13)), sel ? Theme.TEXT : Theme.TEXT_DIM, Gfx.ALIGN_CENTER, true);
+        Icons.draw(g, icon, 0, -h * 0.13, is, color, 0);
+        g.text(label, 0, h * 0.30, Math.max(8, Math.min(h * 0.19, w * 0.13)), sel ? Theme.TEXT : Theme.MUTED, Gfx.ALIGN_CENTER, true);
     }
 
     private void paintChip(Gfx g, Button b, int idx) {
@@ -205,12 +202,10 @@ public final class EditorScene extends Scene {
         double h = b.h;
         int c = isPlus ? Theme.GREEN : Theme.YELLOW;
         double hv = Math.max(b.hover.value, sel ? 1 : 0);
-        g.fillRoundRect(-w / 2, -h / 2, w, h, h * 0.3, Colors.withAlpha(Theme.PANEL, 0.95));
-        g.fillRoundRect(-w / 2, -h / 2, w, h, h * 0.3, Colors.withAlpha(c, (sel ? 0.16 : 0.03) + 0.12 * b.press.value));
         double a = (exists || isPlus) ? 1 : 0.28;
-        Neon.roundRect(g, -w / 2, -h / 2, w, h, h * 0.3, sel ? 2.4 : 1.4, Colors.withAlpha(c, (sel ? 1 : 0.6) * a), sel ? 8 : 2 + 4 * hv);
+        g.fillRoundRect(-w / 2, -h / 2, w, h, h * 0.3, sel ? Colors.withAlpha(c, 0.22) : Colors.lerp(Theme.SURFACE2, Theme.SURFACE3, hv * 0.7 + b.press.value));
         if (isPlus) {
-            Icons.draw(g, Icon.PLUS, 0, 0, h * 0.24, c, 3);
+            Icons.draw(g, Icon.PLUS, 0, 0, h * 0.24, c, 0);
         } else {
             g.text(Integer.toString(idx + 1), 0, 0, h * 0.42, Colors.withAlpha(Theme.TEXT, a), Gfx.ALIGN_CENTER, true);
         }
@@ -222,10 +217,8 @@ public final class EditorScene extends Scene {
         double hv = b.hover.value;
         int c = b.color;
         boolean on = b.enabled;
-        g.fillRoundRect(-w / 2, -h / 2, w, h, h * 0.25, Colors.withAlpha(Theme.PANEL, 0.95));
-        g.fillRoundRect(-w / 2, -h / 2, w, h, h * 0.25, Colors.withAlpha(c, 0.03 + 0.1 * hv + 0.15 * b.press.value));
-        Neon.roundRect(g, -w / 2, -h / 2, w, h, h * 0.25, 1.5, Colors.withAlpha(c, on ? 0.75 : 0.3), 2 + 5 * hv);
-        Icons.draw(g, icon, 0, 0, Math.min(h * 0.3, w * 0.2), c, on ? 3 : 0);
+        g.fillRoundRect(-w / 2, -h / 2, w, h, h * 0.25, Colors.lerp(Theme.SURFACE2, Theme.SURFACE3, hv * 0.7 + b.press.value));
+        Icons.draw(g, icon, 0, 0, Math.min(h * 0.3, w * 0.2), on ? c : Colors.withAlpha(c, 0.35), 0);
     }
 
     // ---------------------------------------------------------------------------------------- Layout
@@ -593,17 +586,15 @@ public final class EditorScene extends Scene {
     private void askLeave() {
         confirming = true;
         confirmUi.clear();
-        Button s = new Button("SPEICHERN", Icon.SAVE, Theme.CYAN, () -> {
+        Button s = new Button("Speichern", Icon.SAVE, Theme.CYAN, () -> {
             if (save(false)) {
                 app.goTo(new LevelSelectScene(app, neontd.level.Levels.CUSTOM));
             }
             confirming = false;
         });
-        Button d = new Button("VERWERFEN", Icon.TRASH, Theme.RED, () -> app.goTo(new LevelSelectScene(app, neontd.level.Levels.CUSTOM)));
-        Button c = new Button("WEITER BEARBEITEN", Icon.PENCIL, Theme.TEXT_DIM, () -> confirming = false);
-        s.neonFont = true;
-        d.neonFont = true;
-        c.neonFont = true;
+        Button d = new Button("Verwerfen", Icon.TRASH, Theme.RED, () -> app.goTo(new LevelSelectScene(app, neontd.level.Levels.CUSTOM)));
+        Button c = new Button("Weiter bearbeiten", Icon.PENCIL, Theme.TEXT, () -> confirming = false);
+        s.style = Button.Style.PRIMARY;
         confirmUi.add(s).appearAfter(0.08);
         confirmUi.add(d).appearAfter(0.16);
         confirmUi.add(c).appearAfter(0.24);
@@ -861,8 +852,8 @@ public final class EditorScene extends Scene {
         g.save();
         g.alpha(a);
         g.fillRect(0, 0, vp.w, vp.h, Colors.withAlpha(0x000000, 0.82));
-        NeonText.draw(g, "ÄNDERUNGEN?", vp.w / 2, vp.h / 2 - 90 * u, Math.min(36 * u, vp.safeW() * 0.84 / 8), Theme.YELLOW, 10, 0.3, time);
-        g.text("Dein Level hat ungespeicherte Änderungen.", vp.w / 2, vp.h / 2 - 48 * u, Math.max(12, 14 * u), Theme.TEXT, Gfx.ALIGN_CENTER, true);
+        g.text("Ungespeicherte Änderungen", vp.w / 2, vp.h / 2 - 90 * u, 22 * u, Theme.TEXT, Gfx.ALIGN_CENTER, true);
+        g.text("Dein Level hat ungespeicherte Änderungen.", vp.w / 2, vp.h / 2 - 54 * u, Math.max(12, 14 * u), Theme.MUTED, Gfx.ALIGN_CENTER, false);
         confirmUi.render(g);
         g.restore();
     }

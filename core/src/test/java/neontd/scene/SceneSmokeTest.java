@@ -144,8 +144,16 @@ class SceneSmokeTest {
     void everySceneRendersAtEverySize() {
         for (double[] s : SIZES) {
             Harness h = new Harness(s[0], s[1], s[0] < 900 || s[1] > s[0], 0, 0, 0, 0);
-            h.run(1.0);
+            h.run(0.5);
+            assertEquals("IntroScene", h.scene());
+            h.run(3.0);
             assertEquals("MenuScene", h.scene());
+            h.app.goTo(new DailyScene(h.app));
+            h.run(1.5);
+            assertEquals("DailyScene", h.scene());
+            h.app.goTo(new LeaderboardScene(h.app));
+            h.run(1.5);
+            assertEquals("LeaderboardScene", h.scene());
             h.app.goTo(new LevelSelectScene(h.app));
             h.run(1.5);
             assertEquals("LevelSelectScene", h.scene());
@@ -180,14 +188,13 @@ class SceneSmokeTest {
     @Test
     void menuToGameFlowWithTouch() {
         Harness h = new Harness(852, 393, true);
-        h.run(1.0);
-        h.tap(426, 220); // SPIELEN
-        h.run(1.2);
-        assertEquals("LevelSelectScene", h.scene());
-        h.tap(120, 150); // Kapitel 1
-        h.run(1.2);
-        assertEquals("LevelSelectScene", h.scene());
-        h.tap(120, 150); // Level 1
+        h.run(0.2);
+        h.tap(426, 200); // Intro überspringen
+        h.run(2.5);
+        assertEquals("MenuScene", h.scene());
+        MenuScene menu = (MenuScene) h.app.scene();
+        double[] play = menu.playAnchor();
+        h.tap(play[0], play[1]); // Spielen auf der Weiter-Karte
         h.run(1.5);
         assertEquals("GameScene", h.scene());
         // Turm ziehen, Welle starten, laufen lassen

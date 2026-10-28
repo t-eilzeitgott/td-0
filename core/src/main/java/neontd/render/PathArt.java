@@ -27,6 +27,11 @@ public final class PathArt {
 
     /** Die Bahn selbst (ohne Start-/Zielmarken). */
     public static void drawLane(Gfx g, Path p, double time, double alpha) {
+        drawLane(g, p, time, alpha, LANE);
+    }
+
+    /** Die Bahn in der Farbe der Welt. */
+    public static void drawLane(Gfx g, Path p, double time, double alpha, int lane) {
         double half = World.LANE_HALF_WIDTH;
         g.save();
         g.alpha(alpha);
@@ -34,15 +39,59 @@ public final class PathArt {
         if (Neon.quality >= 1) {
             g.additive(true);
             if (Neon.quality >= 2) {
-                g.stroke(half * 2 + 30, Colors.withAlpha(LANE, 0.035));
+                g.stroke(half * 2 + 30, Colors.withAlpha(lane, 0.035));
             }
-            g.stroke(half * 2 + 16, Colors.withAlpha(LANE, 0.07));
+            g.stroke(half * 2 + 16, Colors.withAlpha(lane, 0.07));
             g.additive(false);
         }
-        g.stroke(half * 2 + 3.5, Colors.withAlpha(LANE, 0.9));
+        g.stroke(half * 2 + 3.5, Colors.withAlpha(lane, 0.9));
         g.stroke(half * 2 - 1.5, Theme.LANE_FILL);
-        g.strokeDashed(2, Colors.withAlpha(LANE, 0.40), 10, 30, -time * 38);
+        g.strokeDashed(2, Colors.withAlpha(lane, 0.40), 10, 30, -time * 38);
         g.restore();
+    }
+
+    /** Hindernisse und Bonus-Pads. */
+    public static void drawZones(Gfx g, java.util.List<neontd.level.Zone> zones, int accent, double time) {
+        for (int i = 0; i < zones.size(); i++) {
+            neontd.level.Zone z = zones.get(i);
+            if (z.kind.pad()) {
+                double pulse = 0.5 + 0.5 * Math.sin(time * 2.2 + i);
+                int c = z.kind.color;
+                Neon.halo(g, z.x, z.y, z.w * 1.8, c, 0.14 + 0.08 * pulse);
+                g.fillCircle(z.x, z.y, z.w, Colors.withAlpha(c, 0.14));
+                g.beginPath();
+                g.circle(z.x, z.y, z.w);
+                g.strokeDashed(2.2, Colors.withAlpha(c, 0.95), 7, 6, time * 10);
+                g.strokeCircle(z.x, z.y, z.w * 0.62, 1.2, Colors.withAlpha(c, 0.5));
+                neontd.gfx.Icons.Icon icon = z.kind == neontd.level.Zone.Kind.PAD_DAMAGE ? neontd.gfx.Icons.Icon.DAMAGE
+                        : (z.kind == neontd.level.Zone.Kind.PAD_RANGE ? neontd.gfx.Icons.Icon.RANGE : neontd.gfx.Icons.Icon.SPEED);
+                neontd.gfx.Icons.draw(g, icon, z.x, z.y, z.w * 0.3, Colors.withAlpha(c, 0.8), 0);
+            } else if (z.round()) {
+                g.fillCircle(z.x, z.y, z.w, 0x0C0C16);
+                g.strokeCircle(z.x, z.y, z.w, 1.4, Colors.withAlpha(accent, 0.22));
+                g.beginPath();
+                g.circle(z.x, z.y, z.w * 0.55);
+                g.strokeDashed(1, Colors.withAlpha(accent, 0.16), 4, 6, 0);
+            } else {
+                double x = z.x - z.w;
+                double y = z.y - z.h;
+                g.fillRoundRect(x, y, z.w * 2, z.h * 2, 10, 0x0C0C16);
+                g.strokeRoundRect(x, y, z.w * 2, z.h * 2, 10, 1.4, Colors.withAlpha(accent, 0.22));
+                // Schraffur
+                g.beginPath();
+                for (double d = -z.h * 2; d < z.w * 2; d += 14) {
+                    double x0 = Math.max(x, x + d);
+                    double y0 = y + Math.max(0, -d);
+                    double x1 = Math.min(x + z.w * 2, x + d + z.h * 2);
+                    double y1 = y + Math.min(z.h * 2, z.h * 2 - Math.max(0, d + z.h * 2 - z.w * 2));
+                    if (x1 > x0) {
+                        g.moveTo(x0, y0);
+                        g.lineTo(x1, y1);
+                    }
+                }
+                g.stroke(1, Colors.withAlpha(accent, 0.07));
+            }
+        }
     }
 
     /** Start-Portal und Basis. */

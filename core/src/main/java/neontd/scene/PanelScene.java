@@ -7,8 +7,6 @@ import neontd.gfx.Colors;
 import neontd.gfx.Gfx;
 import neontd.gfx.Icons;
 import neontd.gfx.Icons.Icon;
-import neontd.gfx.Neon;
-import neontd.gfx.NeonText;
 import neontd.gfx.Theme;
 import neontd.math.Mathx;
 import neontd.ui.Button;
@@ -24,7 +22,7 @@ import neontd.ui.Viewport;
  * und ein Bestätigungsdialog. Unterklassen zeichnen ihren Inhalt in {@link #drawContent} und melden antippbare Flächen
  * mit {@link #hit}; der Tipp kommt als {@link #onTap} zurück.
  */
-abstract class PanelScene extends Scene {
+public abstract class PanelScene extends Scene {
     /** Eine antippbare Fläche des Inhalts (Bildschirmkoordinaten, gültig für ein Bild). */
     private static final class Hit {
         double x;
@@ -78,11 +76,20 @@ abstract class PanelScene extends Scene {
         super(app);
         this.title = title;
         this.accent = accent;
-        back = ui.add(new Button("", Icon.BACK, Theme.CYAN, () -> {
+        back = ui.add(new Button("", Icon.BACK, Theme.TEXT, () -> {
             if (!back()) {
                 app.goTo(new MenuScene(app));
             }
         }));
+        back.painter = (g, b) -> {
+            double r = Math.min(b.w, b.h) / 2;
+            g.fillCircle(0, 0, r, Colors.lerp(Theme.SURFACE2, Theme.SURFACE3, Math.max(b.hover.value, b.press.value)));
+            neontd.ui.Draw.chevron(g, 1, 0, r * 0.3, Theme.TEXT, false);
+        };
+    }
+
+    /** Hintergrund der Seite: pures Schwarz (Unterklassen können etwas ergänzen). */
+    protected void drawBackdrop(Gfx g, Viewport vp) {
     }
 
     // ----------------------------------------------------------------------------------------- Aufbau
@@ -97,6 +104,7 @@ abstract class PanelScene extends Scene {
             final int idx = i;
             Button b = new Button(labels[i], null, accent, () -> selectTab(idx));
             b.fontScale = 0.9;
+            b.painter = this::paintTab;
             tabButtons.add(ui.add(b));
         }
         tab = 0;
@@ -123,6 +131,30 @@ abstract class PanelScene extends Scene {
         }
     }
 
+    /** Reiter als Segment: gewählt = helle Fläche, sonst nur Text. */
+    private void paintTab(Gfx g, Button b) {
+        double w = b.w;
+        double h = b.h;
+        double r = h * 0.4;
+        if (b.selected) {
+            g.fillRoundRect(-w / 2, -h / 2, w, h, r, Theme.SURFACE3);
+        } else if (b.hover.value > 0 || b.press.value > 0) {
+            g.fillRoundRect(-w / 2, -h / 2, w, h, r, Colors.withAlpha(0xFFFFFF, 0.04 * b.hover.value + 0.06 * b.press.value));
+        }
+        double fs = h * 0.36;
+        String label = b.label;
+        boolean dot = label.endsWith(" ●");
+        if (dot) {
+            label = label.substring(0, label.length() - 2);
+        }
+        double tw = g.textWidth(label, fs, true);
+        double k = tw > w * 0.84 ? w * 0.84 / tw : 1;
+        g.text(label, 0, 0, fs * k, b.selected ? Theme.TEXT : Theme.MUTED, Gfx.ALIGN_CENTER, true);
+        if (dot) {
+            g.fillCircle(tw * k / 2 + h * 0.22, -h * 0.18, h * 0.08, Theme.RED);
+        }
+    }
+
     /** Reiter-Beschriftung nachträglich ändern (z. B. mit Hinweispunkt). */
     protected void setTabLabel(int i, String label) {
         if (i >= 0 && i < tabButtons.size()) {
@@ -136,23 +168,22 @@ abstract class PanelScene extends Scene {
     public void layout() {
         Viewport vp = app.vp;
         double u = vp.u;
-        double m = 14 * u;
-        double bs = 46 * u;
-        back.bounds(vp.insetL + m, vp.insetT + m, bs, bs);
-        titleY = vp.insetT + m + bs / 2;
-        double y = vp.insetT + m + bs + m * 0.7;
-        contentX = vp.insetL + m;
-        contentW = Math.min(vp.safeW() - 2 * m, 980 * u);
+        double m = 16 * u;
+        double bs = 40 * u;
+        contentW = Math.min(vp.safeW() - 2 * m, 720 * u);
         contentX = vp.insetL + (vp.safeW() - contentW) / 2;
-        chipRight = vp.w - vp.insetR - m;
+        back.bounds(contentX, vp.insetT + m, bs, bs);
+        titleY = vp.insetT + m + bs / 2;
+        double y = vp.insetT + m + bs + m * 0.9;
+        chipRight = contentX + contentW;
         if (!tabButtons.isEmpty()) {
-            double th = 38 * u;
-            double gap = 8 * u;
-            double tw = (contentW - gap * (tabButtons.size() - 1)) / tabButtons.size();
+            double th = 36 * u;
+            double gap = 3 * u;
+            double tw = (contentW - gap * (tabButtons.size() - 1) - 2 * gap) / tabButtons.size();
             for (int i = 0; i < tabButtons.size(); i++) {
-                tabButtons.get(i).bounds(contentX + i * (tw + gap), y, tw, th);
+                tabButtons.get(i).bounds(contentX + gap + i * (tw + gap), y + gap, tw, th);
             }
-            y += th + m * 0.7;
+            y += th + 2 * gap + m * 0.9;
         }
         contentTop = y;
         contentBottom = vp.h - vp.insetB - m * 0.5;
@@ -162,11 +193,14 @@ abstract class PanelScene extends Scene {
     private void layoutModal() {
         Viewport vp = app.vp;
         double u = vp.u;
-        double bw = Math.min(vp.safeW() * 0.8, 340 * u);
-        double bh = 52 * u;
-        double y0 = vp.h / 2 + (modalLines.size() * 20 * u) / 2 + 18 * u;
-        for (int i = 0; i < modalUi.buttons.size(); i++) {
-            modalUi.buttons.get(i).bounds(vp.w / 2 - bw / 2, y0 + i * (bh + 10 * u), bw, bh);
+        double sw = Math.min(vp.safeW() - 24 * u, 440 * u);
+        double bw = sw - 32 * u;
+        double bh = 50 * u;
+        int n = modalUi.buttons.size();
+        double bottom = vp.h - vp.insetB - 16 * u - 16 * u;
+        for (int i = 0; i < n; i++) {
+            double y = bottom - (n - i) * (bh + 10 * u) + 10 * u;
+            modalUi.buttons.get(i).bounds(vp.w / 2 - bw / 2, y, bw, bh);
         }
     }
 
@@ -195,13 +229,40 @@ abstract class PanelScene extends Scene {
                 ok.run();
             }
         });
-        yes.neonFont = true;
-        yes.fontScale = 0.8;
-        Button no = new Button("ABBRECHEN", Icon.CROSS, Theme.TEXT_DIM, () -> modalOpen = false);
-        no.neonFont = true;
-        no.fontScale = 0.8;
+        yes.style = Button.Style.PRIMARY;
+        Button no = new Button("Abbrechen", null, Theme.TEXT, () -> modalOpen = false);
         modalUi.add(yes).appearAfter(0.05);
         modalUi.add(no).appearAfter(0.1);
+        modalOpen = true;
+        layoutModal();
+    }
+
+    /**
+     * Ein Blatt von unten mit Überschrift, Zeilen und beliebigen Schaltflächen; jede schließt das Blatt, bevor ihre
+     * Aktion läuft. Die erste Schaltfläche ist die Haupttaste.
+     */
+    protected void sheet(String heading, int color, String[] lines, Button... buttons) {
+        modalTitle = heading;
+        modalColor = color;
+        modalLines.clear();
+        for (String l : lines) {
+            modalLines.add(l);
+        }
+        modalUi.clear();
+        for (int i = 0; i < buttons.length; i++) {
+            Button b = buttons[i];
+            final Runnable action = b.onClick;
+            b.onClick = () -> {
+                modalOpen = false;
+                if (action != null) {
+                    action.run();
+                }
+            };
+            if (i == 0) {
+                b.style = Button.Style.PRIMARY;
+            }
+            modalUi.add(b).appearAfter(0.04 * i);
+        }
         modalOpen = true;
         layoutModal();
     }
@@ -215,9 +276,8 @@ abstract class PanelScene extends Scene {
             modalLines.add(l);
         }
         modalUi.clear();
-        Button ok = new Button("OK", Icon.CHECK, color, () -> modalOpen = false);
-        ok.neonFont = true;
-        ok.fontScale = 0.8;
+        Button ok = new Button("OK", null, color, () -> modalOpen = false);
+        ok.style = Button.Style.PRIMARY;
         modalUi.add(ok).appearAfter(0.05);
         modalOpen = true;
         layoutModal();
@@ -228,7 +288,7 @@ abstract class PanelScene extends Scene {
     }
 
     /** Mitte der {@code i}. Schaltfläche des offenen Dialogs (für Tests) oder {@code null}. */
-    double[] modalAnchor(int i) {
+    public double[] modalAnchor(int i) {
         if (!modalOpen || i >= modalUi.buttons.size()) {
             return null;
         }
@@ -316,43 +376,36 @@ abstract class PanelScene extends Scene {
         scroll = Mathx.clamp(scroll, 0, scrollMax);
         drawScrollBar(g, u);
 
-        String shown = title;
-        double titleW = vp.safeW() - 2 * (46 * u + 28 * u) - 150 * u;
-        NeonText.draw(g, shown, vp.w / 2, titleY, Math.min(30 * u, titleW / Math.max(4, shown.length() * 0.85)),
-                accent, 8, 0.4, time);
+        // Kopf: Zurück, Titel links, Kristalle rechts (die Inhalte scrollen darunter hindurch)
+        double headBottom = contentTop - 6 * u;
+        g.fillRect(0, 0, vp.w, headBottom, Theme.BG);
+        if (!tabButtons.isEmpty()) {
+            Button t0 = tabButtons.get(0);
+            Button tn = tabButtons.get(tabButtons.size() - 1);
+            g.fillRoundRect(contentX, t0.y - 3 * u, contentW, t0.h + 6 * u, (t0.h + 6 * u) * 0.4, Theme.SURFACE);
+        }
+        double tx = back.x + back.w + 12 * u;
+        double titleMax = chipRight - 110 * u - tx;
+        neontd.ui.Draw.fit(g, title, tx, titleY, 24 * u, titleMax, Theme.TEXT, Gfx.ALIGN_LEFT, true);
         drawCrystalChip(g, u);
         ui.render(g);
 
         if (toastTime > 0 && toast != null) {
             double a = Mathx.clamp01(toastTime / 0.4);
             double fs = 15 * u;
-            double w = Math.min(vp.safeW() - 24 * u, g.textWidth(toast, fs, true) + 34 * u);
-            double hh = 34 * u;
+            double w = Math.min(vp.safeW() - 24 * u, g.textWidth(toast, fs, true) + 52 * u);
+            double hh = 36 * u;
             g.save();
             g.alpha(a);
-            g.fillRoundRect(vp.w / 2 - w / 2, vp.h - vp.insetB - hh - 16 * u, w, hh, hh / 2, Colors.withAlpha(0x000000, 0.92));
-            Neon.roundRect(g, vp.w / 2 - w / 2, vp.h - vp.insetB - hh - 16 * u, w, hh, hh / 2, 1.6, toastColor, 5);
-            g.text(toast, vp.w / 2, vp.h - vp.insetB - hh / 2 - 16 * u, fs, Theme.TEXT, Gfx.ALIGN_CENTER, true);
+            double ty = vp.h - vp.insetB - hh - 16 * u;
+            g.fillRoundRect(vp.w / 2 - w / 2, ty, w, hh, hh / 2, Theme.SURFACE3);
+            g.fillCircle(vp.w / 2 - w / 2 + hh * 0.5, ty + hh / 2, hh * 0.12, toastColor);
+            g.text(toast, vp.w / 2 + hh * 0.25, ty + hh / 2, fs, Theme.TEXT, Gfx.ALIGN_CENTER, true);
             g.restore();
         }
         if (modalIn.value > 0.01) {
             drawModal(g, u);
         }
-    }
-
-    private void drawBackdrop(Gfx g, Viewport vp) {
-        g.beginPath();
-        double step = 56 * vp.u;
-        double off = (time * 6) % step;
-        for (double x = -off; x < vp.w; x += step) {
-            g.moveTo(x, 0);
-            g.lineTo(x, vp.h);
-        }
-        for (double y = -off; y < vp.h; y += step) {
-            g.moveTo(0, y);
-            g.lineTo(vp.w, y);
-        }
-        g.stroke(1, Colors.withAlpha(Theme.GRID, 0.55));
     }
 
     private void drawScrollBar(Gfx g, double u) {
@@ -367,16 +420,8 @@ abstract class PanelScene extends Scene {
 
     /** Kristall-Guthaben oben rechts. */
     protected void drawCrystalChip(Gfx g, double u) {
-        String text = Fmt.compact(app.progress.crystals());
-        double fs = 15 * u;
-        double w = g.textWidth(text, fs, true) + 44 * u;
-        double h = 32 * u;
-        double x = chipRight - w;
-        double y = titleY - h / 2;
-        g.fillRoundRect(x, y, w, h, h / 2, Colors.withAlpha(Theme.PANEL, 0.95));
-        Neon.roundRect(g, x, y, w, h, h / 2, 1.6, Colors.withAlpha(Theme.CRYSTAL, 0.9), 4);
-        Icons.draw(g, Icon.CRYSTAL, x + h * 0.55, titleY, h * 0.3, Theme.CRYSTAL, 3);
-        g.text(text, x + h * 0.95, titleY, fs, Theme.TEXT, Gfx.ALIGN_LEFT, true);
+        neontd.ui.Draw.chipRight(g, chipRight, titleY - 16 * u, 32 * u, Icon.CRYSTAL, Fmt.compact(app.progress.crystals()),
+                Theme.CRYSTAL, true);
     }
 
     private void drawModal(Gfx g, double u) {
@@ -384,17 +429,23 @@ abstract class PanelScene extends Scene {
         double a = Easing.outCubic(Mathx.clamp01(modalIn.value));
         g.save();
         g.alpha(a);
-        g.fillRect(0, 0, vp.w, vp.h, Colors.withAlpha(0x000000, 0.84));
-        double top = vp.h / 2 - (modalLines.size() * 20 * u) / 2 - 56 * u;
-        NeonText.draw(g, modalTitle, vp.w / 2, top, Math.min(32 * u, vp.safeW() * 0.84 / Math.max(6, modalTitle.length() * 0.8)),
-                modalColor, 10, 0.3, time);
-        double y = top + 38 * u;
+        g.fillRect(0, 0, vp.w, vp.h, Colors.withAlpha(0x000000, 0.6));
+        g.restore();
+        double sw = Math.min(vp.safeW() - 24 * u, 440 * u);
+        int n = modalUi.buttons.size();
+        double textH = modalLines.size() * 21 * u;
+        double sh = 24 * u + 30 * u + textH + 18 * u + n * (50 * u + 10 * u) + 16 * u;
+        double sy = vp.h - vp.insetB - 16 * u - sh + (1 - a) * 40 * u;
+        g.save();
+        g.alpha(a);
+        g.fillRoundRect(vp.w / 2 - sw / 2, sy, sw, sh, 22 * u, Theme.SURFACE);
+        g.strokeRoundRect(vp.w / 2 - sw / 2, sy, sw, sh, 22 * u, 1, Theme.LINE);
+        double y = sy + 24 * u + 10 * u;
+        neontd.ui.Draw.fit(g, modalTitle, vp.w / 2 - sw / 2 + 20 * u, y, 20 * u, sw - 40 * u, Theme.TEXT, Gfx.ALIGN_LEFT, true);
+        y += 30 * u;
         for (String l : modalLines) {
-            double fs = Math.max(11, 15 * u);
-            double w = g.textWidth(l, fs, true);
-            double k = Math.min(1, (vp.safeW() - 30 * u) / Math.max(1, w));
-            g.text(l, vp.w / 2, y, fs * k, Theme.TEXT, Gfx.ALIGN_CENTER, true);
-            y += 20 * u;
+            neontd.ui.Draw.fit(g, l, vp.w / 2 - sw / 2 + 20 * u, y, 14 * u, sw - 40 * u, Theme.MUTED, Gfx.ALIGN_LEFT, false);
+            y += 21 * u;
         }
         modalUi.render(g);
         g.restore();
@@ -512,18 +563,16 @@ abstract class PanelScene extends Scene {
 
     /** Karte mit leuchtendem Rand; {@code hv} 0..1 hebt sie hervor. */
     protected void card(Gfx g, double x, double y, double w, double h, int color, double hv, boolean dim) {
-        double r = Math.min(18, h * 0.2);
-        g.fillRoundRect(x, y, w, h, r, Colors.withAlpha(Theme.PANEL, 0.95));
-        g.fillRoundRect(x, y, w, h, r, Colors.withAlpha(color, 0.04 + 0.1 * hv));
-        Neon.roundRect(g, x, y, w, h, r, 1.8, Colors.withAlpha(color, dim ? 0.28 : 0.9), dim ? 0 : 3 + 7 * hv);
+        double r = Math.min(18 * app.vp.u, h * 0.24);
+        neontd.ui.Draw.card(g, x, y, w, h, r, dim ? 0 : hv);
+        if (!dim && color != Theme.TEXT) {
+            g.fillRoundRect(x, y, w, h, r, Colors.withAlpha(color, 0.035 + 0.03 * hv));
+        }
     }
 
     /** Fortschrittsbalken. */
     protected void bar(Gfx g, double x, double y, double w, double h, double f, int color) {
-        g.fillRoundRect(x, y, w, h, h / 2, Colors.withAlpha(0xFFFFFF, 0.1));
-        if (f > 0) {
-            g.fillRoundRect(x, y, Math.max(h, w * Mathx.clamp01(f)), h, h / 2, color);
-        }
+        neontd.ui.Draw.bar(g, x, y, w, h, f, color);
     }
 
     /** Text, der bei Bedarf verkleinert wird, damit er in {@code maxW} passt. */

@@ -282,7 +282,8 @@ public final class ProfileScene extends Scene {
         g.restore();
         drawScrollBar(g);
 
-        NeonText.draw(g, "PROFIL", vp.w / 2, back.cy(), Math.min(34 * u, vp.safeW() * 0.5 / 5), Theme.MAGENTA, 8, 0.4, time);
+        g.fillRect(0, 0, vp.w, top - 4 * u, Theme.BG);
+        g.text("Profil", back.x + back.w + 12 * u, back.cy(), 24 * u, Theme.TEXT, Gfx.ALIGN_LEFT, true);
         back.render(g);
 
         if (toastTime > 0 && toast != null) {
@@ -293,27 +294,15 @@ public final class ProfileScene extends Scene {
             double y = vp.h - vp.insetB - h - 16 * u;
             g.save();
             g.alpha(a);
-            g.fillRoundRect(vp.w / 2 - w / 2, y, w, h, h / 2, Colors.withAlpha(0x000000, 0.92));
-            Neon.roundRect(g, vp.w / 2 - w / 2, y, w, h, h / 2, 1.6, toastColor, 5);
-            double shrink = Math.min(1, (w - 20 * u) / Math.max(1, g.textWidth(toast, fs, true)));
-            g.text(toast, vp.w / 2, y + h / 2, fs * shrink, Theme.TEXT, Gfx.ALIGN_CENTER, true);
+            g.fillRoundRect(vp.w / 2 - w / 2, y, w, h, h / 2, Theme.SURFACE3);
+            g.fillCircle(vp.w / 2 - w / 2 + h * 0.5, y + h / 2, h * 0.12, toastColor);
+            double shrink = Math.min(1, (w - 20 * u - h * 0.5) / Math.max(1, g.textWidth(toast, fs, true)));
+            g.text(toast, vp.w / 2 + h * 0.25, y + h / 2, fs * shrink, Theme.TEXT, Gfx.ALIGN_CENTER, true);
             g.restore();
         }
     }
 
     private void drawBackdrop(Gfx g, Viewport vp) {
-        g.beginPath();
-        double step = 56 * vp.u;
-        double off = (time * 6) % step;
-        for (double x = -off; x < vp.w; x += step) {
-            g.moveTo(x, 0);
-            g.lineTo(x, vp.h);
-        }
-        for (double y = -off; y < vp.h; y += step) {
-            g.moveTo(0, y);
-            g.lineTo(vp.w, y);
-        }
-        g.stroke(1, Colors.withAlpha(Theme.GRID, 0.55));
     }
 
     private void drawScrollBar(Gfx g) {
@@ -323,15 +312,14 @@ public final class ProfileScene extends Scene {
         double trackH = bottom - top;
         double barH = Math.max(30 * u, trackH * trackH / (trackH + scrollMax));
         double y = top + (trackH - barH) * (scroll / scrollMax);
-        g.fillRoundRect(app.vp.w - app.vp.insetR - 6 * u, y, 3 * u, barH, 2 * u, Colors.withAlpha(Theme.MAGENTA, 0.45));
+        g.fillRoundRect(app.vp.w - app.vp.insetR - 6 * u, y, 3 * u, barH, 2 * u, Theme.SURFACE3);
     }
 
     private void panel(Gfx g, double y, double h, int accent, String title) {
         double r = 16 * u;
-        g.fillRoundRect(cx, y, cw, h, r, Colors.withAlpha(Theme.PANEL, 0.95));
-        Neon.roundRect(g, cx, y, cw, h, r, 1.6, Colors.withAlpha(accent, 0.8), 4);
+        neontd.ui.Draw.card(g, cx, y, cw, h, r, 0);
         if (title != null) {
-            g.text(title, cx + 16 * u, y + 22 * u, Math.max(11, 14 * u), accent, Gfx.ALIGN_LEFT, true);
+            g.text(title, cx + 16 * u, y + 22 * u, Math.max(11, 14 * u), Theme.TEXT, Gfx.ALIGN_LEFT, true);
         }
     }
 
@@ -342,9 +330,12 @@ public final class ProfileScene extends Scene {
         double r = 38 * u;
         double bx = cx + 16 * u + r;
         double by = yCard + 16 * u + r;
-        Neon.circle(g, bx, by, r, 2.6, Theme.MAGENTA, 9);
-        g.text(Integer.toString(p.level()), bx, by - 2 * u, r * 0.95, Theme.TEXT, Gfx.ALIGN_CENTER, true);
-        g.text("LEVEL", bx, by + r * 0.62, Math.max(8, r * 0.26), Theme.TEXT_DIM, Gfx.ALIGN_CENTER, true);
+        g.strokeCircle(bx, by, r, 4 * u, Theme.SURFACE3);
+        g.beginPath();
+        g.arc(bx, by, r, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * Math.max(0.01, p.levelFraction()));
+        g.stroke(4 * u, Theme.MAGENTA);
+        g.text(Integer.toString(p.level()), bx, by - 2 * u, r * 0.9, Theme.TEXT, Gfx.ALIGN_CENTER, true);
+        g.text("LEVEL", bx, by + r * 0.6, Math.max(8, r * 0.24), Theme.MUTED, Gfx.ALIGN_CENTER, true);
         // Name (antippen zum Ändern) und Titel
         double nx = cx + 96 * u;
         double fs = Math.max(14, 24 * u);

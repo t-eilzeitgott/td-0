@@ -22,6 +22,9 @@ public final class ProfileJson {
         m.put("won", new java.util.ArrayList<Object>(p.won));
         m.put("best", new LinkedHashMap<String, Object>(p.bestWave));
         m.put("endless", new LinkedHashMap<String, Object>(p.bestEndless));
+        m.put("stars", new LinkedHashMap<String, Object>(p.stars));
+        m.put("sday", p.streakDay);
+        m.put("streak", p.streak);
         m.put("t", p.updated);
         // Shop, Errungenschaften, Aufgaben, Season
         m.put("cr", p.crystalsEarned);
@@ -113,6 +116,9 @@ public final class ProfileJson {
         }
         readCounts(Json.map(m, "best"), p.bestWave);
         readCounts(Json.map(m, "endless"), p.bestEndless);
+        readCounts(Json.map(m, "stars"), p.stars);
+        p.streakDay = (int) Mathx.clamp(Json.num(m, "sday", -1), -1, 1_000_000);
+        p.streak = clampInt(Json.integer(m, "streak", 0), 100_000);
         p.updated = Math.max(0, Json.num(m, "t", 0));
         p.crystalsEarned = Mathx.clamp(Json.num(m, "cr", 0), 0, Mathx.MAX_SAFE);
         readStrings(Json.list(m, "ot"), p.ownedTowers);
@@ -183,6 +189,11 @@ public final class ProfileJson {
         maxInto(r.bestWave, b.bestWave);
         maxInto(r.bestEndless, a.bestEndless);
         maxInto(r.bestEndless, b.bestEndless);
+        maxInto(r.stars, a.stars);
+        maxInto(r.stars, b.stars);
+        Progress sk = a.streakDay > b.streakDay ? a : (b.streakDay > a.streakDay ? b : (a.streak >= b.streak ? a : b));
+        r.streakDay = sk.streakDay;
+        r.streak = sk.streak;
         r.updated = Math.max(a.updated, b.updated);
         r.resetEpoch = a.resetEpoch;
         r.ownedTowers.addAll(a.ownedTowers);

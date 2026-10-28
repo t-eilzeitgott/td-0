@@ -8,6 +8,19 @@ public final class Theme {
     }
 
     public static final int BLACK = 0x000000;
+    // ---- Oberflächen im cleanen Stil (Flächen statt Leuchtrahmen; Neon bleibt dem Spielfeld vorbehalten) ----
+    public static final int BG = 0x000000;
+    public static final int SURFACE = 0x111113;
+    public static final int SURFACE2 = 0x1C1C1F;
+    public static final int SURFACE3 = 0x26262A;
+    public static final int LINE = 0x26262A;
+    public static final int MUTED = 0x8E8E93;
+    /** Hauptakzent der Oberfläche. */
+    public static final int ACCENT = 0x00E5FF;
+    public static final int POS = 0x3DDC84;
+    public static final int NEG = 0xFF7A6B;
+    public static final int STAR = 0xFFD60A;
+    public static final int STAR_OFF = 0x3A3A44;
     /** Füllung von Panels und Karten. */
     public static final int PANEL = 0x07070D;
     public static final int PANEL_EDGE = 0x24243C;

@@ -23,7 +23,21 @@ import neontd.gfx.Gfx;
 /** {@link Gfx} auf Basis von Java2D (Desktop-Fenster und Screenshot-Werkzeug). */
 public final class Java2DGfx implements Gfx {
     private static final FontRenderContext FRC = new FontRenderContext(null, true, true);
-    private static final String FONT_FAMILY = "SansSerif";
+    private static final String FONT_FAMILY = pickFont();
+
+    /** Inter (falls installiert) sieht der iPhone-Systemschrift am ähnlichsten; sonst die Standardschrift. */
+    private static String pickFont() {
+        try {
+            for (String f : java.awt.GraphicsEnvironment.getLocalGraphicsEnvironment().getAvailableFontFamilyNames()) {
+                if (f.equals("Inter")) {
+                    return f;
+                }
+            }
+        } catch (Throwable ignored) {
+            // kopflos ohne Schriften: Standard
+        }
+        return "SansSerif";
+    }
 
     private Graphics2D g2;
     private double width;

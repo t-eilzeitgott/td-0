@@ -41,6 +41,16 @@ public final class LevelDef {
     public WaveStyle style;
     /** Zweiter Stil für die geraden Wellen ("Wellenbrecher"-Level) oder {@code null}. */
     public WaveStyle altStyle;
+    /** Hindernisse und Bonus-Pads (eingebaute Level). */
+    public final ArrayList<Zone> zones = new ArrayList<>();
+    /** Kurze Beschreibung für die Levelkarte (was dieses Level besonders macht). */
+    public String blurb = "";
+    /** Hat das Level alle fünf Wellen einen Boss (Boss-Level am Ende einer Welt)? */
+    public boolean bossLevel;
+    /** Faktor auf die Geschwindigkeit aller Gegner (Tages-Challenge). */
+    public double speedMul = 1;
+    /** Gegner-Stufe für die Wellen (welche Arten vorkommen); 0 = wie die Welt ({@link #chapter}). */
+    public int tier;
 
     public LevelDef() {
     }
@@ -67,6 +77,11 @@ public final class LevelDef {
         c.number = number;
         c.style = style;
         c.altStyle = altStyle;
+        c.zones.addAll(zones);
+        c.blurb = blurb;
+        c.bossLevel = bossLevel;
+        c.speedMul = speedMul;
+        c.tier = tier;
         return c;
     }
 
@@ -89,6 +104,30 @@ public final class LevelDef {
     /** Eine einzelne Welle (1-basiert) – im Endlosmodus auch über die festen Wellen hinaus, im Stil des Levels. */
     public WaveDef buildWave(int wave) {
         return builtin && style != null ? CampaignWaves.wave(this, wave) : WaveFactory.wave(wave, hpMul);
+    }
+
+    /**
+     * Sterne für einen Sieg: 1 für den Sieg, 2 mit mindestens der Hälfte der Start-Leben, 3 ohne ein einziges
+     * verlorenes Leben.
+     */
+    public static int starsFor(boolean won, int livesLeft, int livesStart) {
+        if (!won) {
+            return 0;
+        }
+        if (livesLeft >= livesStart) {
+            return 3;
+        }
+        return livesLeft * 2 >= livesStart ? 2 : 1;
+    }
+
+    /** Gegner-Stufe für die Wellen: {@link #tier}, sonst die Welt. */
+    public int enemyTier() {
+        return tier > 0 ? tier : Math.max(1, chapter);
+    }
+
+    /** Welt (1-basiert) eines eingebauten Levels – dasselbe wie {@link #chapter}. */
+    public int world() {
+        return chapter;
     }
 
     /** Prüft, ob das Level spielbar ist. Liefert {@code null} wenn ja, sonst eine verständliche Fehlermeldung. */

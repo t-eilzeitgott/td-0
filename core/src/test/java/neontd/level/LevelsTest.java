@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.Set;
 import neontd.progress.Medals;
 import neontd.progress.Progress;
+
 import neontd.sim.AutoPlayer;
 import neontd.sim.SimListener;
 import neontd.sim.WaveDef;
@@ -19,25 +20,27 @@ import org.junit.jupiter.api.Test;
 /** Die zehn eingebauten Level und ihre Medaillen. */
 class LevelsTest {
     @Test
-    void tenChaptersWithFifteenValidLevelsEach() {
+    void eightWorldsWithSixHandmadeLevelsEach() {
         List<LevelDef> all = Levels.builtins();
-        assertEquals(150, all.size());
+        assertEquals(Worlds.COUNT * Worlds.LEVELS, all.size());
         Set<String> ids = new HashSet<>();
         Set<String> sigs = new HashSet<>();
+        Set<String> names = new HashSet<>();
         for (int i = 0; i < all.size(); i++) {
             LevelDef l = all.get(i);
             assertTrue(ids.add(l.id), "Kennung doppelt: " + l.id);
+            assertTrue(names.add(l.name), "Name doppelt: " + l.name);
             assertNull(l.validate(), l.name);
-            assertEquals(i / 15 + 1, l.chapter);
-            assertEquals(i % 15 + 1, l.number);
-            assertEquals(l.chapter, l.difficulty);
+            assertEquals(i / Worlds.LEVELS + 1, l.chapter);
+            assertEquals(i % Worlds.LEVELS + 1, l.number);
             assertTrue(l.builtin);
             assertEquals(20, l.waveCount);
             assertEquals(i, Levels.indexOf(l.id));
             assertEquals(20, l.buildWaves().size());
-            assertTrue(l.hpMul > 0.3 && l.hpMul < 5, l.name + ": hpMul " + l.hpMul);
+            assertTrue(l.hpMul > 0.1 && l.hpMul < 5, l.name + ": hpMul " + l.hpMul);
+            assertFalse(l.blurb.isEmpty(), l.name + " hat keine Beschreibung");
             sigs.add(java.util.Arrays.deepToString(l.paths.toArray()));
-            // jedes Level lässt Bauplätze neben der Bahn frei
+            // jedes Level lässt Bauplätze neben der Bahn frei – auch mit Hindernissen
             World w = new World(l, SimListener.NONE);
             int spots = 0;
             for (double y = 40; y < w.height - 30; y += 30) {
@@ -47,30 +50,81 @@ class LevelsTest {
                     }
                 }
             }
-            assertTrue(spots > 60, l.name + ": nur " + spots + " Bauplätze");
+            assertTrue(spots > 200, l.name + ": nur " + spots + " Bauplätze");
+            // Pads liegen frei (ein Turm passt darauf) und Hindernisse sperren
+            for (Zone z : l.zones) {
+                if (z.kind.pad()) {
+                    assertEquals(World.PlaceCheck.OK, w.checkPlacement(z.x, z.y), l.name + ": Pad verdeckt");
+                    assertEquals(z, w.padAt(z.x, z.y));
+                } else {
+                    assertTrue(w.checkPlacement(z.x, z.y) != World.PlaceCheck.OK, l.name + ": Hindernis sperrt nicht");
+                }
+            }
         }
-        assertTrue(sigs.size() >= 120, "zu viele identische Pfade: nur " + sigs.size() + " verschiedene");
-        assertEquals("serpentine", all.get(0).id);
-        assertEquals("zickzack", all.get(15).id);
-        assertEquals(15, Levels.chapter(10).size());
-        assertEquals(3, all.get(149).paths.size());
-        assertEquals(1, all.get(0).paths.size());
-        for (int c = 1; c <= 10; c++) {
+        assertEquals(all.size(), sigs.size(), "alle Strecken sind verschieden");
+        assertEquals(Levels.FIRST, all.get(0).id);
+        assertEquals(Worlds.LEVELS, Levels.chapter(Worlds.COUNT).size());
+        for (int c = 1; c <= Worlds.COUNT; c++) {
             List<LevelDef> ch = Levels.chapter(c);
-            java.util.Set<neontd.level.WaveStyle> styles = new java.util.HashSet<>();
+            java.util.Set<WaveStyle> styles = new java.util.HashSet<>();
             for (LevelDef l : ch) {
                 styles.add(l.style);
                 assertTrue(l.style != null);
-                assertEquals(l.number % 5 == 0, l.style == neontd.level.WaveStyle.TITANEN, l.name);
             }
-            assertTrue(styles.size() >= 4, "Kapitel " + c + " spielt sich abwechslungsreich: " + styles);
+            assertTrue(styles.size() >= 3, "Welt " + c + " spielt sich abwechslungsreich: " + styles);
+            assertTrue(ch.get(Worlds.LEVELS - 1).bossLevel);
         }
     }
 
     @Test
+    void padsStrengthenTheTowerStandingOnThem() {
+        LevelDef l = Levels.find("stadt-1");
+        World w = new World(l, SimListener.NONE);
+        w.money = 10000;
+        Zone pad = l.zones.get(0);
+        neontd.sim.Tower on = w.placeTower(neontd.sim.TowerType.PULSE, pad.x, pad.y);
+        neontd.sim.Tower off = w.placeTower(neontd.sim.TowerType.PULSE, pad.x, pad.y + 200);
+        assertTrue(on != null && off != null);
+        assertEquals(Zone.Kind.PAD_DAMAGE, on.pad);
+        assertNull(off.pad);
+        assertTrue(on.damage > off.damage);
+    }
+
+    @Test
+    void starsFollowLivesAndUnlockWorlds() {
+        assertEquals(0, LevelDef.starsFor(false, 20, 20));
+        assertEquals(3, LevelDef.starsFor(true, 20, 20));
+        assertEquals(2, LevelDef.starsFor(true, 10, 20));
+        assertEquals(1, LevelDef.starsFor(true, 9, 20));
+        Progress p = new Progress();
+        assertTrue(p.worldUnlocked(1));
+        assertFalse(p.worldUnlocked(2));
+        assertTrue(p.levelUnlocked("stadt-1"));
+        assertFalse(p.levelUnlocked("stadt-2"));
+        assertEquals(2, p.onStars("stadt-1", 2));
+        assertTrue(p.levelUnlocked("stadt-2"));
+        assertEquals(1, p.onStars("stadt-1", 3));
+        assertEquals(0, p.onStars("stadt-1", 2), "schlechter als vorher zählt nicht");
+        assertEquals(3, p.stars("stadt-1"));
+        assertEquals("stadt-2", p.nextLevel().id);
+        for (LevelDef l : Levels.chapter(1)) {
+            p.onStars(l.id, 2);
+        }
+        assertEquals(13, p.totalStars());
+        assertTrue(p.worldUnlocked(2), "Welt 2 ab " + Worlds.REQUIRED_STARS[1] + " Sternen");
+        assertFalse(p.worldUnlocked(3));
+        assertTrue(p.levelUnlocked("tiefsee-1"));
+        assertFalse(p.levelUnlocked("tiefsee-2"));
+        assertEquals(Worlds.REQUIRED_STARS[2] - 13, p.starsToNextWorld());
+        assertEquals(3, p.nextLockedWorld());
+        // Kristalle und XP für Sterne
+        assertTrue(p.crystals() > 0);
+    }
+
+    @Test
     void harderLevelsScaleHitPoints() {
-        LevelDef easy = Levels.serpentine();
-        LevelDef hard = Levels.find("labyrinth");
+        LevelDef easy = Levels.find("stadt-1");
+        LevelDef hard = Levels.find("horizont-6");
         WaveDef a = easy.buildWaves().get(9);
         WaveDef b = hard.buildWaves().get(9);
         assertTrue(b.groups.get(0).hp > a.groups.get(0).hp);
@@ -98,33 +152,17 @@ class LevelsTest {
     }
 
     @Test
-    void levelsUnlockWithBronzeOfThePreviousOne() {
+    void playedLevelsStayOpenAndCustomLevelsAreAlwaysOpen() {
         Progress p = new Progress();
-        assertTrue(p.levelUnlocked("serpentine"));
-        assertFalse(p.levelUnlocked("serpentine-02"));
         assertTrue(p.levelUnlocked("c12eigenes"), "eigene Level sind immer offen");
-        p.onRecord("serpentine", 19, false);
-        assertFalse(p.levelUnlocked("serpentine-02"));
-        p.onRecord("serpentine", 20, false);
-        assertTrue(p.levelUnlocked("serpentine-02"));
-        assertFalse(p.levelUnlocked("serpentine-03"));
-        // Endlos-Wellen zählen für die Medaille mit
-        p.onRecord("serpentine-02", 55, true);
-        assertEquals(2, p.medal("serpentine-02"));
-        assertTrue(p.levelUnlocked("serpentine-03"));
-        assertEquals(3, p.totalMedals());
-        // das nächste Kapitel öffnet mit Bronze im 10. Level des vorigen
-        assertFalse(p.chapterUnlocked(2));
-        for (int n = 3; n <= 10; n++) {
-            p.onRecord(Levels.chapter(1).get(n - 1).id, 20, false);
-        }
-        assertEquals(10, p.chapterMedals(1, 1));
-        assertTrue(p.chapterUnlocked(2));
-        assertEquals(1, p.chapterMedals(1, 2));
-        // schon gespielte Level bleiben offen (alte Spielstände)
+        assertTrue(p.levelUnlocked("serpentine"), "die Referenz-Serpentine ist kein Kampagnenlevel");
         Progress old = new Progress();
-        old.onRecord("zickzack", 25, false);
-        assertTrue(old.levelUnlocked("zickzack"));
+        old.onRecord("tiefsee-3", 25, false);
+        assertTrue(old.levelUnlocked("tiefsee-3"), "schon gespielte Level bleiben offen");
+        // Endlos-Wellen zählen für die Medaille mit
+        old.onRecord("tiefsee-3", 55, true);
+        assertEquals(2, old.medal("tiefsee-3"));
+        assertEquals(2, old.totalMedals());
     }
 
     @Test

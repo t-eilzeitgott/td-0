@@ -8,7 +8,7 @@ public final class Enemy {
     /** Index der Welle, zu der der Gegner zählt. */
     public final int wave;
     public final double radius;
-    public final double baseSpeed;
+    public double baseSpeed;
     public final int maxHp;
     /** Geld beim Abschuss. */
     public final int reward;

@@ -34,12 +34,20 @@ public final class WorldView {
     }
 
     public static void drawFrame(Gfx g, double w, double h) {
-        Neon.roundRect(g, 0, 0, w, h, 6, 2, Colors.withAlpha(Theme.CYAN, 0.55), 8);
+        drawFrame(g, w, h, Theme.CYAN);
+    }
+
+    public static void drawFrame(Gfx g, double w, double h, int accent) {
+        Neon.roundRect(g, 0, 0, w, h, 6, 1.6, Colors.withAlpha(accent, 0.45), 6);
     }
 
     public static void drawPaths(Gfx g, Path[] paths, double time, double baseFlash) {
+        drawPaths(g, paths, time, baseFlash, PathArt.LANE);
+    }
+
+    public static void drawPaths(Gfx g, Path[] paths, double time, double baseFlash, int lane) {
         for (Path p : paths) {
-            PathArt.drawLane(g, p, time, 1);
+            PathArt.drawLane(g, p, time, 1, lane);
         }
         for (Path p : paths) {
             PathArt.drawEndpoints(g, p, time, baseFlash);

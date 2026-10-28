@@ -50,6 +50,11 @@ public final class Progress {
     public final Map<String, Integer> bestWave = new TreeMap<>();
     /** Je Level: weiteste besiegte Welle im Endlosmodus. */
     public final Map<String, Integer> bestEndless = new TreeMap<>();
+    /** Je Level: beste Sternewertung (1–3), siehe {@link neontd.level.LevelDef#starsFor}. */
+    public final Map<String, Integer> stars = new TreeMap<>();
+    /** Streak: Tageszahl des letzten Spieltags und Länge der Serie (Tage in Folge mit mindestens einer Welle). */
+    public int streakDay = -1;
+    public int streak;
     /** Zeitpunkt der letzten Änderung (Millisekunden seit 1970) – Grundlage für das Zusammenführen mit der Cloud. */
     public double updated;
 
@@ -90,6 +95,10 @@ public final class Progress {
         bestWave.putAll(o.bestWave);
         bestEndless.clear();
         bestEndless.putAll(o.bestEndless);
+        stars.clear();
+        stars.putAll(o.stars);
+        streakDay = o.streakDay;
+        streak = o.streak;
         updated = o.updated;
         crystalsEarned = o.crystalsEarned;
         ownedTowers.clear();
@@ -255,6 +264,79 @@ public final class Progress {
         return v == null ? 0 : v;
     }
 
+    /** Kristalle je neuem Stern (einmalig je Level und Stern). */
+    public static final int STAR_CRYSTALS = 12;
+    public static final int STAR_XP = 120;
+
+    /** Verbucht die Sterne eines Siegs. @return Anzahl neu gewonnener Sterne (0, wenn nichts Neues) */
+    public int onStars(String levelId, int got) {
+        int old = stars(levelId);
+        if (got <= old) {
+            return 0;
+        }
+        stars.put(levelId, got);
+        int gained = got - old;
+        earnCrystals(STAR_CRYSTALS * gained);
+        addXp(STAR_XP * gained);
+        return gained;
+    }
+
+    public int stars(String levelId) {
+        Integer v = stars.get(levelId);
+        return v == null ? 0 : Math.min(3, v);
+    }
+
+    /** Alle Sterne über alle eingebauten Level. */
+    public int totalStars() {
+        int n = 0;
+        for (neontd.level.LevelDef l : neontd.level.Levels.builtins()) {
+            n += stars(l.id);
+        }
+        return n;
+    }
+
+    /** Sterne in einer Welt (höchstens 18). */
+    public int worldStars(int world) {
+        int n = 0;
+        for (neontd.level.LevelDef l : neontd.level.Levels.chapter(world)) {
+            n += stars(l.id);
+        }
+        return n;
+    }
+
+    /** Ist die Welt offen? Welt 1 immer, die anderen ab ihrer Sternen-Hürde. */
+    public boolean worldUnlocked(int world) {
+        if (world <= 1) {
+            return true;
+        }
+        if (world > neontd.level.Worlds.COUNT) {
+            return true;
+        }
+        return totalStars() >= neontd.level.Worlds.REQUIRED_STARS[world - 1];
+    }
+
+    /** Sterne, die zur nächsten noch gesperrten Welt fehlen (0, wenn alles offen ist). */
+    public int starsToNextWorld() {
+        int total = totalStars();
+        for (int w = 2; w <= neontd.level.Worlds.COUNT; w++) {
+            int need = neontd.level.Worlds.REQUIRED_STARS[w - 1];
+            if (total < need) {
+                return need - total;
+            }
+        }
+        return 0;
+    }
+
+    /** Die nächste gesperrte Welt oder 0. */
+    public int nextLockedWorld() {
+        for (int w = 2; w <= neontd.level.Worlds.COUNT; w++) {
+            if (!worldUnlocked(w)) {
+                return w;
+            }
+        }
+        return 0;
+    }
+
     /** Weiteste besiegte Welle eines Levels – Normalspiel und Endlosmodus zusammen. */
     public int bestOverall(String levelId) {
         return Math.max(best(levelId, false), best(levelId, true));
@@ -285,8 +367,14 @@ public final class Progress {
         if (l == null) {
             return true;
         }
+        if (bestOverall(levelId) > 0 || stars(levelId) > 0) {
+            return true;
+        }
+        if (!worldUnlocked(l.chapter)) {
+            return false;
+        }
         neontd.level.LevelDef need = neontd.level.Levels.prerequisite(l);
-        return need == null || medal(need.id) >= 1 || bestOverall(levelId) > 0;
+        return need == null || stars(need.id) >= 1 || medal(need.id) >= 1;
     }
 
     /** Anzahl Level eines Kapitels mit mindestens dieser Medaillenstufe (1 = Bronze). */
@@ -300,9 +388,60 @@ public final class Progress {
         return n;
     }
 
-    /** Ein Kapitel ist offen, sobald sein erstes Level spielbar ist. */
+    /** Ein Kapitel (eine Welt) ist offen, sobald die Sternen-Hürde erreicht ist. */
     public boolean chapterUnlocked(int chapter) {
-        return levelUnlocked(neontd.level.Levels.chapter(chapter).get(0).id);
+        return worldUnlocked(chapter);
+    }
+
+    /**
+     * Das Level, das als Nächstes dran ist: das erste offene Level ohne Stern – oder, wenn alles mindestens einen
+     * Stern hat, das erste ohne drei Sterne; sonst das letzte Level.
+     */
+    public neontd.level.LevelDef nextLevel() {
+        java.util.List<neontd.level.LevelDef> all = neontd.level.Levels.builtins();
+        for (neontd.level.LevelDef l : all) {
+            if (stars(l.id) == 0 && levelUnlocked(l.id)) {
+                return l;
+            }
+        }
+        for (neontd.level.LevelDef l : all) {
+            if (stars(l.id) < 3 && levelUnlocked(l.id)) {
+                return l;
+            }
+        }
+        return all.get(all.size() - 1);
+    }
+
+    /** Beste Welle der heutigen Tages-Challenge. */
+    public int dailyBestToday(int today) {
+        return best("daily-" + today, true);
+    }
+
+    // ---- Streak
+
+    /** Verbucht Spielaktivität am Tag {@code day}. @return ob die Serie heute weitergezählt wurde (neuer Tag) */
+    public boolean onPlayedDay(int day) {
+        if (day == streakDay) {
+            return false;
+        }
+        if (day == streakDay + 1) {
+            streak++;
+        } else {
+            streak = 1;
+        }
+        streakDay = day;
+        addStat("streakbest", Math.max(0, streak - stat("streakbest")));
+        return true;
+    }
+
+    /** Die aktuelle Serie, wie sie heute zählt: gestern oder heute gespielt = Serie lebt, sonst 0. */
+    public int streakNow(int today) {
+        return streakDay >= today - 1 ? streak : 0;
+    }
+
+    /** Wurde heute schon gespielt? */
+    public boolean playedToday(int today) {
+        return streakDay == today;
     }
 
     /** Der Endlosmodus eines Levels ist nach dem ersten Sieg offen. */
@@ -670,10 +809,12 @@ public final class Progress {
             case CHAPTERS: {
                 int n = 0;
                 for (int c = 1; c <= neontd.level.Levels.CHAPTERS; c++) {
-                    n += chapterMedals(c, 1) >= neontd.level.Levels.PER_CHAPTER ? 1 : 0;
+                    n += worldStars(c) >= neontd.level.Levels.PER_CHAPTER * 3 ? 1 : 0;
                 }
                 return n;
             }
+            case STARS: return totalStars();
+            case STREAK: return stat("streakbest");
             case BEST_ENDLESS: {
                 int best = 0;
                 for (int v : bestEndless.values()) {

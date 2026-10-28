@@ -3,12 +3,17 @@ package neontd.ui;
 import neontd.gfx.Colors;
 import neontd.gfx.Gfx;
 import neontd.gfx.Icons;
-import neontd.gfx.Neon;
 import neontd.gfx.NeonText;
 import neontd.gfx.Theme;
 
-/** Eine Schaltfläche im Neon-Stil mit Hover-, Druck- und Einblend-Animation. */
+/**
+ * Eine Schaltfläche im cleanen Stil (Fläche, Systemschrift, weicher Druck) mit Hover-, Druck- und Einblend-Animation.
+ * {@link Style#PRIMARY} ist die gefüllte Akzent-Taste, {@link Style#SECONDARY} die dunkle Fläche, {@link Style#GHOST}
+ * nur eine Linie.
+ */
 public final class Button {
+    public enum Style { PRIMARY, SECONDARY, GHOST }
+
     /** Eigene Darstellung statt des Standardaussehens. Koordinaten: (0,0) = Mitte, Größe b.w × b.h. */
     public interface Painter {
         void paint(Gfx g, Button b);
@@ -27,6 +32,9 @@ public final class Button {
     /** Beschriftung in der Neon-Strichschrift statt der Systemschrift. */
     public boolean neonFont;
     public double fontScale = 1;
+    public Style style = Style.SECONDARY;
+    /** Kleiner roter Punkt oben rechts (etwas wartet). */
+    public boolean badge;
     public Runnable onClick;
     public Painter painter;
 
@@ -89,7 +97,7 @@ public final class Button {
             return;
         }
         double pop = Easing.outBack(Math.min(1, ap));
-        double sc = (0.8 + 0.2 * pop) * (1 - 0.05 * press.value);
+        double sc = (0.9 + 0.1 * pop) * (1 - 0.035 * press.value);
         g.save();
         g.translate(cx(), cy());
         g.scale(sc, sc);
@@ -103,24 +111,46 @@ public final class Button {
     }
 
     private void paintDefault(Gfx g) {
-        double r = Math.min(w, h) * 0.28;
-        double hv = Math.max(hover.value, selected ? 1 : 0);
+        double r = Math.min(h * 0.5, Math.max(10, h * 0.32));
+        double hv = hover.value;
         double pr = press.value;
-        g.fillRoundRect(-w / 2, -h / 2, w, h, r, Colors.withAlpha(Theme.PANEL, 0.92));
-        g.fillRoundRect(-w / 2, -h / 2, w, h, r, Colors.withAlpha(color, 0.05 + 0.10 * hv + 0.20 * pr));
-        Neon.roundRect(g, -w / 2, -h / 2, w, h, r, 2, color, 3 + 7 * hv + 4 * pr);
+        int fill;
+        int fg;
+        switch (style) {
+            case PRIMARY:
+                fill = Colors.lerp(Colors.lighten(color, 0.08 * hv), Colors.darken(color, 0.2), pr);
+                fg = 0x000000;
+                g.fillRoundRect(-w / 2, -h / 2, w, h, r, fill);
+                break;
+            case GHOST:
+                fg = selected ? color : Theme.TEXT;
+                if (hv > 0 || pr > 0 || selected) {
+                    g.fillRoundRect(-w / 2, -h / 2, w, h, r, Colors.withAlpha(color, 0.06 * hv + 0.12 * pr + (selected ? 0.14 : 0)));
+                }
+                g.strokeRoundRect(-w / 2, -h / 2, w, h, r, 1, selected ? Colors.withAlpha(color, 0.6) : Theme.LINE);
+                break;
+            default:
+                if (selected) {
+                    fill = Colors.withAlpha(color, 0.18 + 0.06 * hv + 0.1 * pr);
+                    fg = Colors.lighten(color, 0.3);
+                } else {
+                    fill = Colors.lerp(Theme.SURFACE2, Theme.SURFACE3, Math.max(hv * 0.8, pr));
+                    fg = Theme.TEXT;
+                }
+                g.fillRoundRect(-w / 2, -h / 2, w, h, r, fill);
+                break;
+        }
 
-        double textSize = h * 0.40 * fontScale;
-        double iconSize = h * 0.30;
+        double textSize = h * 0.38 * fontScale;
+        double iconSize = h * 0.26;
         boolean hasIcon = icon != null;
         boolean hasText = label != null && !label.isEmpty();
         double textW = 0;
         if (hasText) {
             textW = neonFont ? NeonText.width(label, textSize * 1.08) : g.textWidth(label, textSize, true);
         }
-        double gap = hasIcon && hasText ? h * 0.2 : 0;
+        double gap = hasIcon && hasText ? h * 0.18 : 0;
         double total = (hasIcon ? iconSize * 2 : 0) + gap + textW;
-        // Passt der Inhalt nicht hinein, wird er verhältnismäßig verkleinert.
         double avail = w * 0.86;
         if (total > avail) {
             double k = avail / total;
@@ -131,16 +161,21 @@ public final class Button {
             total = avail;
         }
         double left = -total / 2;
+        int iconColor = style == Style.PRIMARY ? 0x000000 : (style == Style.SECONDARY && !selected ? color : fg);
         if (hasIcon) {
-            Icons.draw(g, icon, left + iconSize, 0, iconSize, color, 3 + 3 * hv);
+            Icons.draw(g, icon, left + iconSize, 0, iconSize, iconColor, 0);
             left += iconSize * 2 + gap;
         }
         if (hasText) {
             if (neonFont) {
                 NeonText.draw(g, label, left + textW / 2, 0, textSize * 1.08, Colors.lighten(color, 0.25), 3 + 3 * hv, 0, 0);
             } else {
-                g.text(label, left, 0, textSize, Theme.TEXT, Gfx.ALIGN_LEFT, true);
+                g.text(label, left, 0, textSize, fg, Gfx.ALIGN_LEFT, true);
             }
+        }
+        if (badge) {
+            double pr2 = Math.max(4, h * 0.09);
+            g.fillCircle(w / 2 - pr2 * 1.4, -h / 2 + pr2 * 1.4, pr2, Theme.RED);
         }
     }
 }

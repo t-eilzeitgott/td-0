@@ -10,7 +10,8 @@ public final class Achievements {
     /** Was gezählt wird; {@link Progress#achievementValue} liefert den aktuellen Wert. */
     public enum Kind {
         KILLS, WAVES, BOSSES, ELITES, BUILDS, UPGRADES, SPECIALS_BUILT, WINS, MEDALS, PLATINUM, CHAPTERS,
-        BEST_ENDLESS, PLAYER_LEVEL, TOWERS_OWNED, SPECIALS_OWNED, PERK_LEVELS, DAILIES, SEASON_TIERS, CRYSTALS
+        BEST_ENDLESS, PLAYER_LEVEL, TOWERS_OWNED, SPECIALS_OWNED, PERK_LEVELS, DAILIES, SEASON_TIERS, CRYSTALS,
+        STARS, STREAK
     }
 
     /** Eine Familie mit ihren Stufen. */
@@ -62,12 +63,16 @@ public final class Achievements {
                 new int[] {5, 50, 500}, new int[] {20, 60, 150}),
         fam(Kind.WINS, "SIEGER", "Gewinne {n} Level", 0x39FF88,
                 new int[] {1, 10, 50, 150}, new int[] {10, 30, 80, 200}),
+        fam(Kind.STARS, "STERNENSAMMLER", "Sammle {n} Sterne", 0xFFD60A,
+                new int[] {3, 18, 54, 100, 144}, new int[] {15, 40, 100, 250, 600}),
         fam(Kind.MEDALS, "MEDAILLENSAMMLER", "Sammle {n} Medaillen", 0xE08A3C,
-                new int[] {5, 25, 100, 300, 600}, new int[] {15, 40, 100, 250, 500}),
+                new int[] {5, 25, 60, 120, 192}, new int[] {15, 40, 100, 250, 500}),
         fam(Kind.PLATINUM, "PLATIN-JÄGER", "Erreiche {n} Platin-Medaillen", 0x6FF3FF,
-                new int[] {1, 5, 20, 50}, new int[] {40, 100, 250, 600}),
-        fam(Kind.CHAPTERS, "KAPITELMEISTER", "Schließe {n} Kapitel ab (alle 15 Level mit Bronze)", 0x4DA6FF,
-                new int[] {1, 3, 6, 10}, new int[] {50, 120, 250, 500}),
+                new int[] {1, 5, 20, 48}, new int[] {40, 100, 250, 600}),
+        fam(Kind.CHAPTERS, "WELTENMEISTER", "Schließe {n} Welten mit drei Sternen in jedem Level ab", 0x4DA6FF,
+                new int[] {1, 3, 6, 8}, new int[] {50, 120, 250, 500}),
+        fam(Kind.STREAK, "DRANBLEIBER", "Spiele {n} Tage in Folge", 0xFF8A00,
+                new int[] {3, 7, 30, 100}, new int[] {20, 60, 200, 600}),
         fam(Kind.BEST_ENDLESS, "ENDLOS-LEGENDE", "Erreiche Welle {n} im Endlosmodus", 0xFF5470,
                 new int[] {50, 100, 250, 500, 1000}, new int[] {20, 50, 120, 300, 800}),
         fam(Kind.PLAYER_LEVEL, "AUFSTEIGER", "Erreiche Spielerlevel {n}", 0xFFFFFF,

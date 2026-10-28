@@ -44,7 +44,7 @@ public final class World {
     public enum State { RUNNING, WON, LOST }
 
     /** Ergebnis einer Platzierungsprüfung. */
-    public enum PlaceCheck { OK, OUT_OF_BOUNDS, ON_PATH, OVERLAP }
+    public enum PlaceCheck { OK, OUT_OF_BOUNDS, ON_PATH, OVERLAP, BLOCKED }
 
     public final LevelDef level;
     public final Path[] paths;
@@ -127,6 +127,18 @@ public final class World {
         this.cleared = new boolean[cap];
     }
 
+    /** Nur für Werkzeuge und Tests: beendet das Spiel sofort als Sieg oder Niederlage. */
+    public void forceEnd(boolean won) {
+        if (state != State.RUNNING) {
+            return;
+        }
+        state = won ? State.WON : State.LOST;
+        if (!won) {
+            lives = 0;
+        }
+        listener.onGameEnded(won);
+    }
+
     /** Wechselt in den Endlosmodus (auch mitten im Spiel, z. B. nach dem Sieg über die letzte feste Welle). */
     public void enableEndless() {
         endless = true;
@@ -200,6 +212,11 @@ public final class World {
                 return PlaceCheck.ON_PATH;
             }
         }
+        for (int i = 0; i < level.zones.size(); i++) {
+            if (level.zones.get(i).blocks(x, y, TOWER_RADIUS - 2)) {
+                return PlaceCheck.BLOCKED;
+            }
+        }
         double minGap = 2 * TOWER_RADIUS + TOWER_GAP;
         for (int i = 0; i < towers.size(); i++) {
             Tower o = towers.get(i);
@@ -208,6 +225,17 @@ public final class World {
             }
         }
         return PlaceCheck.OK;
+    }
+
+    /** Das Bonus-Pad, auf dem ein Turm an (x, y) stünde, oder {@code null}. */
+    public neontd.level.Zone padAt(double x, double y) {
+        for (int i = 0; i < level.zones.size(); i++) {
+            neontd.level.Zone z = level.zones.get(i);
+            if (z.covers(x, y)) {
+                return z;
+            }
+        }
+        return null;
     }
 
     public boolean canAfford(int cost) {
@@ -249,6 +277,8 @@ public final class World {
 
     private Tower newTower(TowerType type, double x, double y) {
         Tower t = new Tower(nextId++, type, x, y);
+        neontd.level.Zone pad = padAt(x, y);
+        t.pad = pad == null ? null : pad.kind;
         t.aim = -Mathx.PI / 2;
         if (type == TowerType.ORBITAL) {
             t.mode = TargetMode.STRONG;
@@ -556,6 +586,9 @@ public final class World {
 
     private Enemy addEnemy(EnemyType type, int pathIndex, int wave, int hp, double dist, int reward) {
         Enemy e = new Enemy(nextId++, type, pathIndex, wave, hp, dist, reward);
+        if (level.speedMul != 1) {
+            e.baseSpeed = type.speed * level.speedMul;
+        }
         Path p = paths[pathIndex];
         p.positionAt(dist, tmp);
         e.x = tmp.x;

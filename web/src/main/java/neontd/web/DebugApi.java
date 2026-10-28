@@ -30,6 +30,10 @@ final class DebugApi {
                     a = ((GameScene) s).anchor(arg);
                 } else if (s instanceof ProfileScene) {
                     a = ((ProfileScene) s).anchor(arg);
+                } else if (s instanceof neontd.scene.PanelScene && arg.startsWith("modal")) {
+                    a = ((neontd.scene.PanelScene) s).modalAnchor(arg.charAt(5) - '0');
+                } else if (s instanceof MenuScene && arg.equals("play")) {
+                    a = ((MenuScene) s).playAnchor();
                 }
                 return a == null ? "null" : a[0] + "," + a[1];
             }
@@ -69,6 +73,15 @@ final class DebugApi {
                         break;
                     case "game":
                         app.goTo(new GameScene(app, Levels.serpentine()));
+                        break;
+                    case "first":
+                        app.goTo(new GameScene(app, Levels.builtins().get(0)));
+                        break;
+                    case "daily":
+                        app.goTo(new neontd.scene.DailyScene(app));
+                        break;
+                    case "board":
+                        app.goTo(new neontd.scene.LeaderboardScene(app));
                         break;
                     default:
                         return "unknown scene";

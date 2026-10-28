@@ -15,7 +15,8 @@ class CampaignWavesTest {
     void everyBuiltinLevelHasAStyleAndDeterministicWaves() {
         for (LevelDef l : Levels.builtins()) {
             assertTrue(l.style != null, l.name);
-            assertEquals(l.number % 5 == 0, l.style == WaveStyle.TITANEN, l.name);
+            assertEquals(l.number == Levels.PER_CHAPTER, l.style == WaveStyle.TITANEN, l.name);
+            assertEquals(l.number == Levels.PER_CHAPTER, l.bossLevel, l.name);
             assertEquals(signature(l.buildWaves(), 1, 20, 1), signature(l.buildWaves(), 1, 20, 1), l.name);
         }
     }

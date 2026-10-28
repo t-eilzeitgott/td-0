@@ -27,12 +27,16 @@ public final class App {
     public final Progress progress;
     /** Abgleich mit dem privaten GitHub-Gist des Spielers (inaktiv, solange nicht verbunden). */
     public final GistSync cloud;
+    /** Globale Bestenlisten (best-effort). */
+    public final neontd.save.Leaderboard board;
     public final Viewport vp = new Viewport();
     /** Laufzeit in Sekunden – für Animationen. */
     public double time;
 
     private final Transition transition = new Transition();
     private Scene scene;
+    /** Die vorige Szene, solange die Überblendung läuft. */
+    private Scene fading;
     private double last = -1;
     private double ema = 1.0 / 60;
     private double slowFor;
@@ -47,11 +51,12 @@ public final class App {
         this.levels = new LevelStore(platform.store(), platform::nowMillis);
         this.progress = saves.loadProgress();
         this.cloud = new GistSync(platform.http(), saves, levels, progress);
+        this.board = new neontd.save.Leaderboard(platform.http(), platform.store());
         if (progress.grantLegacyCrystals()) {
             commitProgress();
         }
         checkPeriods();
-        this.scene = new MenuScene(this);
+        this.scene = new neontd.scene.IntroScene(this);
     }
 
     /** Setzt Spielerlevel und XP zurück (Einstellungen). */
@@ -121,9 +126,13 @@ public final class App {
 
     /** Wechselt mit Animation zu einer anderen Szene. */
     public void goTo(Scene next) {
+        if (transition.active()) {
+            return;
+        }
         transition.start(() -> {
             scene.pointerCancel();
             scene.onExit();
+            fading = scene;
             scene = next;
             scene.layout();
             scene.onEnter();
@@ -146,6 +155,7 @@ public final class App {
         if (cloudTick >= 1) {
             cloudTick = 0;
             cloud.tick();
+            board.flush(progress.displayName());
             periodTick++;
             if (periodTick >= 5) {
                 periodTick = 0;
@@ -153,12 +163,26 @@ public final class App {
             }
         }
         transition.update(dt);
+        if (!transition.active()) {
+            fading = null;
+        }
         scene.update(dt);
     }
 
     public void render(Gfx g) {
+        if (fading != null && transition.active()) {
+            g.save();
+            g.alpha(transition.oldAlpha());
+            fading.render(g);
+            g.restore();
+            g.save();
+            g.alpha(transition.newAlpha());
+            g.translate(0, transition.lift(vp.u));
+            scene.render(g);
+            g.restore();
+            return;
+        }
         scene.render(g);
-        transition.render(g, vp.w, vp.h);
     }
 
     public void frame(double nowSeconds, Gfx g) {

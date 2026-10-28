@@ -1,33 +1,27 @@
 package neontd.ui;
 
-import neontd.gfx.Colors;
 import neontd.gfx.Gfx;
-import neontd.gfx.Theme;
 import neontd.math.Mathx;
 
 /**
- * Szenenwechsel als "Jalousie": Neon-Streifen fahren von der Mitte aus zu und nach dem Wechsel wieder auf.
- * Der eigentliche Wechsel passiert, wenn der Bildschirm komplett bedeckt ist.
+ * Szenenwechsel als weiche Überblendung: Die alte Szene blendet aus, die neue blendet ein und hebt sich dabei ein
+ * paar Pixel an – ruhig und schnell, wie ein Seitenwechsel in einer guten App. Der Wechsel selbst passiert sofort
+ * (die neue Szene ist ab dem ersten Bild aktiv), nur die Darstellung mischt noch kurz.
  */
 public final class Transition {
-    private static final int BARS = 10;
-    private static final double DURATION = 0.62;
+    private static final double DURATION = 0.28;
 
     private double t = -1;
-    private boolean swapped;
-    private Runnable swap;
 
     public boolean active() {
         return t >= 0;
     }
 
     public void start(Runnable swapAction) {
-        if (active()) {
-            return;
+        if (swapAction != null) {
+            swapAction.run();
         }
         t = 0;
-        swapped = false;
-        swap = swapAction;
     }
 
     public void update(double dt) {
@@ -35,39 +29,32 @@ public final class Transition {
             return;
         }
         t += dt / DURATION;
-        if (!swapped && t >= 0.5) {
-            swapped = true;
-            if (swap != null) {
-                swap.run();
-            }
-        }
         if (t >= 1) {
             t = -1;
         }
     }
 
+    /** Fortschritt 0..1 der Einblendung (1 = fertig). */
+    public double progress() {
+        return t < 0 ? 1 : Mathx.clamp01(t);
+    }
+
+    /** Deckkraft der alten Szene. */
+    public double oldAlpha() {
+        return t < 0 ? 0 : 1 - Easing.outCubic(Mathx.clamp01(t * 1.6));
+    }
+
+    /** Deckkraft der neuen Szene. */
+    public double newAlpha() {
+        return t < 0 ? 1 : Easing.outCubic(Mathx.clamp01(t));
+    }
+
+    /** Versatz (Pixel nach oben), mit dem die neue Szene hereinkommt. */
+    public double lift(double u) {
+        return t < 0 ? 0 : (1 - Easing.outCubic(Mathx.clamp01(t))) * 14 * u;
+    }
+
     public void render(Gfx g, double w, double h) {
-        if (t < 0) {
-            return;
-        }
-        boolean closing = t < 0.5;
-        double phase = closing ? t * 2 : (t - 0.5) * 2;
-        double bw = w / BARS;
-        double cy = h / 2;
-        for (int i = 0; i < BARS; i++) {
-            int order = closing ? i : BARS - 1 - i;
-            double local = Mathx.clamp01((phase - order * 0.05) / 0.55);
-            double cover = closing ? Easing.outCubic(local) : 1 - Easing.inQuad(local);
-            if (cover <= 0.001) {
-                continue;
-            }
-            double hh = h * cover;
-            double x = i * bw;
-            g.fillRect(x - 0.5, cy - hh / 2, bw + 1, hh, Theme.BLACK);
-            if (cover < 0.999) {
-                g.line(x, cy - hh / 2, x + bw, cy - hh / 2, 2, Colors.withAlpha(Theme.CYAN, 0.9));
-                g.line(x, cy + hh / 2, x + bw, cy + hh / 2, 2, Colors.withAlpha(Theme.MAGENTA, 0.9));
-            }
-        }
+        // nichts mehr zu zeichnen – die App mischt die Szenen selbst
     }
 }

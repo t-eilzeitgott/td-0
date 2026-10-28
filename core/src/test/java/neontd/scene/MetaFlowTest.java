@@ -167,7 +167,7 @@ class MetaFlowTest {
         MissionsScene ms = (MissionsScene) h.app.scene();
         // "Alle abholen" sitzt rechts im Kopf der Season
         double u = h.app.vp.u;
-        h.tap(1280 - 80 * u, ms.contentTop + 96 * u * 0.75);
+        h.tap(ms.contentX + ms.contentW - 60 * u, ms.contentTop + 96 * u * 0.75);
         assertEquals(0, h.app.progress.claimable() - openMonthlyReady(h.app.progress));
         assertTrue(h.app.progress.seasonClaimed[1] && h.app.progress.seasonClaimed[3]);
     }

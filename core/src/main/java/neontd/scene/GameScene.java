@@ -9,11 +9,11 @@ import neontd.gfx.Gfx;
 import neontd.gfx.Icons;
 import neontd.gfx.Icons.Icon;
 import neontd.gfx.Neon;
-import neontd.gfx.NeonText;
 import neontd.gfx.Theme;
 import neontd.gfx.UprightGfx;
 import neontd.level.LevelDef;
 import neontd.level.Levels;
+import neontd.level.Worlds;
 import neontd.math.Mathx;
 import neontd.physics.FixedTimestep;
 import neontd.progress.Medals;
@@ -149,6 +149,8 @@ public final class GameScene extends Scene {
     private boolean ended;
     private boolean newRecord;
     private String medalText = "";
+    /** Sterne dieses Siegs (0–3). */
+    private int starsRun;
 
     // Anzeige
     private final Smooth moneyShown = new Smooth(0, 9);
@@ -243,8 +245,9 @@ public final class GameScene extends Scene {
         pagerBtn = ui.add(new Button("", null, Theme.TEXT_DIM, this::flipShopPage));
         pagerBtn.painter = this::paintPager;
         startBtn = ui.add(new Button("START", Icon.PLAY, Theme.GREEN, this::startWave));
+        startBtn.style = Button.Style.PRIMARY;
         speedBtn = ui.add(new Button("1x", null, Theme.CYAN, this::cycleSpeed));
-        pauseBtn = ui.add(new Button("", Icon.PAUSE, Theme.VIOLET, () -> setOverlay(Overlay.PAUSE)));
+        pauseBtn = ui.add(new Button("", Icon.PAUSE, Theme.TEXT, () -> setOverlay(Overlay.PAUSE)));
         autoBtn = ui.add(new Button("", Icon.LOOP, Theme.YELLOW, () -> {
             world.autoStart = !world.autoStart;
             showToast(world.autoStart ? "Automatischer Wellenstart AN" : "Automatischer Wellenstart AUS",
@@ -253,7 +256,7 @@ public final class GameScene extends Scene {
                 startWave();
             }
         }));
-        toggleBtn = ui.add(new Button("", Icon.UP, Theme.TEXT_DIM, this::toggleRail));
+        toggleBtn = ui.add(new Button("", Icon.UP, Theme.MUTED, this::toggleRail));
         toggleBtn.painter = this::paintToggle;
         startBtn.fontScale = 0.9;
         speedBtn.fontScale = 0.9;
@@ -372,23 +375,19 @@ public final class GameScene extends Scene {
         double w = b.w;
         double h = b.h;
         double hv = b.hover.value;
-        g.fillRoundRect(-w / 2, -h / 2, w, h, h * 0.3, Colors.withAlpha(Theme.PANEL, 0.94));
-        Neon.roundRect(g, -w / 2, -h / 2, w, h, h * 0.3, 1.4, Colors.withAlpha(Theme.TEXT_DIM, 0.75 + 0.25 * hv),
-                2 + 4 * hv);
+        g.fillRoundRect(-w / 2, -h / 2, w, h, Math.min(w, h) * 0.3, Colors.lerp(Theme.SURFACE2, Theme.SURFACE3, hv));
         String t = (shopPage + 1) + "/" + pageCount();
         if (h > w * 1.2) {
-            // schmale Spalte (Handy hoch): Symbol über der Seitenzahl
-            Icons.draw(g, Icon.LOOP, 0, -h * 0.17, Math.min(w, h) * 0.27, Theme.TEXT_DIM, 0);
+            Icons.draw(g, Icon.LOOP, 0, -h * 0.17, Math.min(w, h) * 0.24, Theme.MUTED, 0);
             g.text(t, 0, h * 0.22, Math.max(8, Math.min(w * 0.36, h * 0.18)), Theme.TEXT, Gfx.ALIGN_CENTER, true);
         } else if (w < h * 3.4) {
-            // kurze Leiste (Handy quer): Symbol und Seitenzahl nebeneinander
             double fs = Math.max(8, Math.min(h * 0.5, w * 0.3));
-            Icons.draw(g, Icon.LOOP, -w * 0.28, 0, Math.min(h * 0.3, w * 0.12), Theme.TEXT_DIM, 0);
+            Icons.draw(g, Icon.LOOP, -w * 0.28, 0, Math.min(h * 0.28, w * 0.12), Theme.MUTED, 0);
             g.text(t, w * 0.12, 0, fs, Theme.TEXT, Gfx.ALIGN_CENTER, true);
         } else {
             double fs = Math.max(8, Math.min(h * 0.46, w * 0.34));
-            Icons.draw(g, Icon.LOOP, -w * 0.3, 0, Math.min(h * 0.32, w * 0.1), Theme.TEXT_DIM, 0);
-            g.text("SEITE " + t, w * 0.06, 0, fs, Theme.TEXT, Gfx.ALIGN_CENTER, true);
+            Icons.draw(g, Icon.LOOP, -w * 0.3, 0, Math.min(h * 0.28, w * 0.1), Theme.MUTED, 0);
+            g.text("Seite " + t, w * 0.06, 0, fs, Theme.TEXT, Gfx.ALIGN_CENTER, true);
         }
     }
 
@@ -464,28 +463,38 @@ public final class GameScene extends Scene {
         }
     }
 
+    /** Maße des Blatts der Einblendung (Pause, Sieg, Niederlage): {x, y, w, h}. */
+    private double[] sheetBox() {
+        Viewport vp = app.vp;
+        double u = vp.u;
+        int n = overlayUi.buttons.size();
+        double sw = Math.min(vp.safeW() - 20 * u, 440 * u);
+        double bh = Math.min(50 * u, Math.max(38 * u, (vp.safeH() - 260 * u) / Math.max(1, n) - 10 * u));
+        double stats = overlay == Overlay.PAUSE ? 30 * u : (overlay == Overlay.WON ? 150 * u : 96 * u);
+        double sh = 22 * u + 34 * u + stats + n * (bh + 10 * u) + 12 * u;
+        double sy = vp.h - vp.insetB - 12 * u - sh;
+        double minTop = vp.insetT + 10 * u;
+        if (sy < minTop) {
+            sy = minTop;
+            sh = vp.h - vp.insetB - 12 * u - sy;
+        }
+        return new double[] {vp.w / 2 - sw / 2, sy, sw, sh, bh};
+    }
+
     private void layoutOverlay() {
         if (overlay == Overlay.SPECIAL) {
             buildSpecialButtons();
             return;
         }
         double u = app.vp.u;
-        Viewport vp = app.vp;
+        double[] box = sheetBox();
         int n = overlayUi.buttons.size();
-        double bw = Math.min(vp.safeW() * 0.84, 360 * u);
-        double bh = 56 * u;
-        double gap = 12 * u;
-        double top = vp.h / 2 - 20 * u;
-        double bottom = vp.h - vp.insetB - 8 * u;
-        if (n > 3 && top + n * bh + (n - 1) * gap > bottom) {
-            // Vier Schaltflächen (Sieg mit "Nächstes Level") auf kleinen Bildschirmen: enger setzen und höher beginnen.
-            gap = 8 * u;
-            double textBottom = vp.h / 2 - 150 * u + Math.min(64 * u, vp.safeW() * 0.84 / 6.2) + Math.max(12, 15 * u) * 3.4;
-            top = Math.max(textBottom, Math.min(top, bottom - n * 40 * u - (n - 1) * gap));
-            bh = Math.max(34 * u, Math.min(56 * u, (bottom - top - (n - 1) * gap) / n));
-        }
+        double bw = box[2] - 32 * u;
+        double bh = box[4];
+        double bottom = box[1] + box[3] - 12 * u;
         for (int i = 0; i < n; i++) {
-            overlayUi.buttons.get(i).bounds(vp.w / 2 - bw / 2, top + i * (bh + gap), bw, bh);
+            double y = bottom - (n - i) * (bh + 10 * u) + 10 * u;
+            overlayUi.buttons.get(i).bounds(app.vp.w / 2 - bw / 2, y, bw, bh);
         }
     }
 
@@ -568,7 +577,7 @@ public final class GameScene extends Scene {
         if (o == Overlay.PAUSE) {
             trySaveRun();
         }
-        String back = editorReturn != null ? "ZURÜCK ZUM EDITOR" : "HAUPTMENÜ";
+        String back = editorReturn != null ? "Zurück zum Editor" : "Startseite";
         Runnable leave = () -> {
             if (editorReturn != null) {
                 app.goTo(new EditorScene(app, editorReturn));
@@ -587,33 +596,32 @@ public final class GameScene extends Scene {
         Button b;
         Button c = null;
         if (o == Overlay.PAUSE) {
-            a = new Button("WEITER", Icon.PLAY, Theme.GREEN, () -> setOverlay(Overlay.NONE));
-            b = new Button("NEU STARTEN", Icon.LOOP, Theme.YELLOW, again);
-            c = new Button(back, Icon.HOME, Theme.MAGENTA, leave);
+            a = new Button("Weiter", Icon.PLAY, Theme.GREEN, () -> setOverlay(Overlay.NONE));
+            b = new Button("Neu starten", Icon.LOOP, Theme.YELLOW, again);
+            c = new Button(back, Icon.HOME, Theme.TEXT, leave);
         } else if (o == Overlay.WON) {
-            a = new Button("ENDLOS WEITER", Icon.WAVES, Theme.MAGENTA, this::continueEndless);
-            b = new Button("NOCHMAL", Icon.LOOP, Theme.GREEN, again);
-            c = new Button(back, Icon.HOME, Theme.CYAN, leave);
+            a = new Button("Endlos weiter", Icon.WAVES, Theme.MAGENTA, this::continueEndless);
+            b = new Button("Nochmal", Icon.LOOP, Theme.GREEN, again);
+            c = new Button(back, Icon.HOME, Theme.TEXT, leave);
         } else {
-            a = new Button("NOCHMAL", Icon.LOOP, Theme.YELLOW, again);
-            b = new Button(back, Icon.HOME, Theme.MAGENTA, leave);
+            a = new Button("Nochmal", Icon.LOOP, Theme.YELLOW, again);
+            b = new Button(back, Icon.HOME, Theme.TEXT, leave);
         }
-        a.neonFont = true;
-        b.neonFont = true;
         double delay = 0.25;
         LevelDef next = o == Overlay.WON ? nextLevel() : null;
         if (next != null) {
             // Nach einem Sieg gleich mit dem nächsten Level weitermachen (die wichtigste Schaltfläche steht oben).
-            Button n = new Button("NÄCHSTES LEVEL", Icon.PLAY, Theme.CYAN, () -> startNext(next));
-            n.neonFont = true;
+            Button n = new Button("Nächstes Level", Icon.PLAY, Theme.CYAN, () -> startNext(next));
+            n.style = Button.Style.PRIMARY;
             overlayUi.add(n).appearAfter(delay);
-            delay += 0.1;
+            delay += 0.08;
+        } else {
+            a.style = Button.Style.PRIMARY;
         }
         overlayUi.add(a).appearAfter(delay);
-        overlayUi.add(b).appearAfter(delay + 0.1);
+        overlayUi.add(b).appearAfter(delay + 0.08);
         if (c != null) {
-            c.neonFont = true;
-            overlayUi.add(c).appearAfter(delay + 0.2);
+            overlayUi.add(c).appearAfter(delay + 0.16);
         }
         layoutOverlay();
     }
@@ -953,8 +961,11 @@ public final class GameScene extends Scene {
         mapTransform(g);
         g.clipRect(0, 0, world.width, world.height);
         g.translate(sx, sy);
+        int accent = level.builtin && level.chapter >= 1 ? Worlds.accent(level.chapter) : Theme.CYAN;
+        int lane = level.builtin && level.chapter >= 1 ? Worlds.lane(level.chapter) : neontd.render.PathArt.LANE;
         WorldView.drawBackground(g, world.width, world.height);
-        WorldView.drawPaths(g, world.paths, time, listener.baseFlash);
+        neontd.render.PathArt.drawZones(g, level.zones, accent, time);
+        WorldView.drawPaths(g, world.paths, time, listener.baseFlash, lane);
         if (selected != null) {
             WorldView.drawRange(g, selected.x, selected.y, selected.range, selected.type.color, time, true);
         } else if (hoverTower != null && !touchMode) {
@@ -984,7 +995,7 @@ public final class GameScene extends Scene {
         g.restore();
         g.save();
         mapTransform(g);
-        WorldView.drawFrame(g, world.width, world.height);
+        WorldView.drawFrame(g, world.width, world.height, accent);
         g.restore();
         TowerArt.uprightAngle = 0;
 
@@ -1083,33 +1094,34 @@ public final class GameScene extends Scene {
         if (bannerTime <= 0 || bannerTitle == null) {
             return;
         }
+        double u = app.vp.u;
         double total = bannerTotal;
         double t = Math.min(total, bannerTime);
-        double inT = Mathx.clamp01((total - t) / 0.3);
-        double outT = Mathx.clamp01(t / 0.5);
+        double inT = Mathx.clamp01((total - t) / 0.28);
+        double outT = Mathx.clamp01(t / 0.4);
         double a = Math.min(inT, outT);
-        double sc = 0.9 + 0.1 * Easing.outBack(inT);
+        double sc = 0.94 + 0.06 * Easing.outBack(inT);
         double mw = lay.mapW;
         double cx = lay.mapX + mw / 2;
-        double cy = lay.mapY + lay.mapH * (lay.rotated ? 0.3 : 0.36);
-        double h = Math.min(54 * app.vp.u, mw * 0.11);
-        double tw = NeonText.width(bannerTitle, h);
-        if (tw > mw * 0.92) {
-            h *= mw * 0.92 / tw;
-        }
-        h = Math.max(h, 18);
+        double cy = lay.mapY + (lay.rotated ? 92 * u : Math.min(lay.mapH * 0.2, 70 * u));
+        String title = bannerTitle.charAt(0) + bannerTitle.substring(1).toLowerCase();
+        boolean hasSub = bannerSub != null && !bannerSub.isEmpty();
+        double ts = Math.min(22 * u, mw * 0.06);
+        double ss = Math.max(11, 12.5 * u);
+        double w = Math.max(g.textWidth(title, ts, true), hasSub ? g.textWidth(bannerSub, ss, false) : 0) + 44 * u;
+        w = Math.min(w, mw - 16 * u);
+        double h = hasSub ? 56 * u : 40 * u;
         g.save();
         g.alpha(a);
         g.translate(cx, cy);
         g.scale(sc, sc);
-        NeonText.draw(g, bannerTitle, 0, 0, h, bannerColor, 10, 0.5, time);
-        if (bannerSub != null && !bannerSub.isEmpty()) {
-            double sf = Math.max(12, h * 0.34);
-            double sw = g.textWidth(bannerSub, sf, true);
-            if (sw > mw * 0.94) {
-                sf = Math.max(8, sf * mw * 0.94 / sw);
-            }
-            g.text(bannerSub, 0, h * 0.95, sf, Theme.TEXT, Gfx.ALIGN_CENTER, true);
+        g.translate(0, (1 - Easing.outCubic(inT)) * -10 * u);
+        g.fillRoundRect(-w / 2, -h / 2, w, h, 16 * u, Colors.withAlpha(Theme.SURFACE, 0.96));
+        g.strokeRoundRect(-w / 2, -h / 2, w, h, 16 * u, 1, Colors.withAlpha(bannerColor, 0.5));
+        g.fillRoundRect(-w / 2, -h / 2, w, h, 16 * u, Colors.withAlpha(bannerColor, 0.08));
+        Draw.fit(g, title, 0, hasSub ? -h * 0.18 : 0, ts, w - 28 * u, Colors.lighten(bannerColor, 0.45), Gfx.ALIGN_CENTER, true);
+        if (hasSub) {
+            Draw.fit(g, bannerSub, 0, h * 0.24, ss, w - 28 * u, Theme.TEXT, Gfx.ALIGN_CENTER, false);
         }
         g.restore();
     }
@@ -1119,17 +1131,17 @@ public final class GameScene extends Scene {
             return;
         }
         double a = Mathx.clamp01(toastTime / 0.4);
-        double fs = Math.max(12, 15 * u);
-        double w = Math.min(lay.mapW + 10, g.textWidth(toast, fs, true) + 34 * u);
+        double fs = Math.max(12, 14 * u);
         double h = 34 * u;
+        double w = Math.min(lay.mapW + 10, g.textWidth(toast, fs, true) + 30 * u + h * 0.5);
         double cx = lay.mapX + lay.mapW / 2;
         double y = lay.mapY + lay.mapH - h - 14 * u;
         g.save();
         g.alpha(a);
-        g.fillRoundRect(cx - w / 2, y, w, h, h / 2, Colors.withAlpha(0x000000, 0.88));
-        Neon.roundRect(g, cx - w / 2, y, w, h, h / 2, 1.6, toastColor, 5);
-        double shrink = Math.min(1, (w - 20 * u) / Math.max(1, g.textWidth(toast, fs, true)));
-        g.text(toast, cx, y + h / 2, fs * shrink, Theme.TEXT, Gfx.ALIGN_CENTER, true);
+        g.fillRoundRect(cx - w / 2, y, w, h, h / 2, Colors.withAlpha(Theme.SURFACE3, 0.96));
+        g.fillCircle(cx - w / 2 + h * 0.5, y + h / 2, h * 0.12, toastColor);
+        double shrink = Math.min(1, (w - 26 * u - h * 0.5) / Math.max(1, g.textWidth(toast, fs, true)));
+        g.text(toast, cx + h * 0.25, y + h / 2, fs * shrink, Theme.TEXT, Gfx.ALIGN_CENTER, true);
         g.restore();
     }
 
@@ -1138,14 +1150,17 @@ public final class GameScene extends Scene {
     private void chip(Gfx g, double x, double y, double w, double h, Icon icon, String text, int color,
                       double flash) {
         int c = Colors.lerp(color, Theme.RED, flash);
-        Draw.softPanel(g, x, y, w, h, h * 0.3, c);
-        double is = h * 0.30;
-        double tx = x + h * 0.25;
-        if (icon != null) {
-            Icons.draw(g, icon, x + h * 0.2 + is, y + h / 2, is, c, 3);
-            tx = x + h * 0.2 + is * 2 + h * 0.12;
+        g.fillRoundRect(x, y, w, h, h * 0.36, Colors.withAlpha(Theme.SURFACE, 0.94));
+        if (flash > 0.02) {
+            g.fillRoundRect(x, y, w, h, h * 0.36, Colors.withAlpha(Theme.RED, 0.25 * flash));
         }
-        double size = Math.min(h * 0.5, (x + w - tx - h * 0.2) / Math.max(1, text.length() * 0.62));
+        double is = h * 0.26;
+        double tx = x + h * 0.3;
+        if (icon != null) {
+            Icons.draw(g, icon, x + h * 0.25 + is, y + h / 2, is, c, 0);
+            tx = x + h * 0.25 + is * 2 + h * 0.15;
+        }
+        double size = Math.min(h * 0.48, (x + w - tx - h * 0.2) / Math.max(1, text.length() * 0.62));
         g.text(text, tx, y + h / 2, Math.max(8, size), Theme.TEXT, Gfx.ALIGN_LEFT, true);
     }
 
@@ -1168,10 +1183,10 @@ public final class GameScene extends Scene {
                 chip(g, h.x, h.y, w1, chipH, Icon.HEART, lives, Theme.LIFE, livesPulse.value);
                 chip(g, h.x + w1 + gap, h.y, h.w - w1 - gap, chipH, Icon.GEM, money, Theme.MONEY, moneyDeny);
                 double y2 = h.y + chipH + gap;
-                Draw.softPanel(g, h.x, y2, h.w, chipH, chipH * 0.3, Theme.CYAN);
-                g.text(waveText(false), h.x + chipH * 0.35, y2 + chipH / 2, chipH * 0.46, Theme.TEXT, Gfx.ALIGN_LEFT, true);
-                g.text(world.enemiesRemaining() + " Gegner", h.x + h.w - chipH * 0.3, y2 + chipH / 2, chipH * 0.38,
-                        Theme.TEXT_DIM, Gfx.ALIGN_RIGHT, false);
+                g.fillRoundRect(h.x, y2, h.w, chipH, chipH * 0.36, Colors.withAlpha(Theme.SURFACE, 0.94));
+                g.text(waveText(false), h.x + chipH * 0.4, y2 + chipH / 2, chipH * 0.44, Theme.TEXT, Gfx.ALIGN_LEFT, true);
+                g.text(world.enemiesRemaining() + " Gegner", h.x + h.w - chipH * 0.4, y2 + chipH / 2, chipH * 0.36,
+                        Theme.MUTED, Gfx.ALIGN_RIGHT, false);
                 drawLevelBar(g, h.x, y2 + chipH + gap, h.w, chipH, u);
                 break;
             }
@@ -1189,14 +1204,14 @@ public final class GameScene extends Scene {
                 x += w2 + gap;
                 chip(g, x, h.y, w3, h.h, Icon.STAR, Integer.toString(progress.level()), Theme.MAGENTA, 0);
                 x += w3 + gap;
-                Draw.softPanel(g, x, h.y, w4, h.h, h.h * 0.3, Theme.CYAN);
+                g.fillRoundRect(x, h.y, w4, h.h, h.h * 0.36, Colors.withAlpha(Theme.SURFACE, 0.94));
                 boolean small = h.h < 34 * u;
                 if (small) {
                     g.text(waveText(true), x + w4 / 2, h.y + h.h * 0.5, h.h * 0.42, Theme.TEXT, Gfx.ALIGN_CENTER, true);
                 } else {
                     g.text(waveText(false), x + w4 / 2, h.y + h.h * 0.36, h.h * 0.36, Theme.TEXT, Gfx.ALIGN_CENTER, true);
                     g.text(world.enemiesRemaining() + " Gegner", x + w4 / 2, h.y + h.h * 0.74, h.h * 0.26,
-                            Theme.TEXT_DIM, Gfx.ALIGN_CENTER, false);
+                            Theme.MUTED, Gfx.ALIGN_CENTER, false);
                 }
                 if (progressOn) {
                     double bw = h.w;
@@ -1210,16 +1225,15 @@ public final class GameScene extends Scene {
                 double k = lay.k;
                 g.save();
                 g.alpha(0.88);
-                g.fillRoundRect(h.x, h.y, h.w, h.h, h.h * 0.4, Colors.withAlpha(0x000000, 0.62));
-                g.strokeRoundRect(h.x, h.y, h.w, h.h, h.h * 0.4, 1, Colors.withAlpha(Theme.CYAN, 0.4));
+                g.fillRoundRect(h.x, h.y, h.w, h.h, h.h * 0.4, Colors.withAlpha(Theme.SURFACE, 0.9));
                 double cy = h.y + h.h / 2;
                 double fs = h.h * 0.5;
                 double x = h.x + 8 * k;
-                Icons.draw(g, Icon.HEART, x + fs * 0.5, cy, fs * 0.5, Theme.LIFE, 2);
+                Icons.draw(g, Icon.HEART, x + fs * 0.5, cy, fs * 0.5, Theme.LIFE, 0);
                 x += fs * 1.2;
                 g.text(lives, x, cy, fs, Theme.TEXT, Gfx.ALIGN_LEFT, true);
                 x += g.textWidth(lives, fs, true) + 10 * k;
-                Icons.draw(g, Icon.GEM, x + fs * 0.5, cy, fs * 0.5, Theme.MONEY, 2);
+                Icons.draw(g, Icon.GEM, x + fs * 0.5, cy, fs * 0.5, Theme.MONEY, 0);
                 x += fs * 1.2;
                 g.text(money, x, cy, fs, moneyDeny > 0.1 ? Theme.RED : Theme.TEXT, Gfx.ALIGN_LEFT, true);
                 x += g.textWidth(money, fs, true) + 10 * k;
@@ -1238,20 +1252,16 @@ public final class GameScene extends Scene {
 
     /** Dritte Zeile der Seitenleiste: Spielerlevel mit Titel und Fortschrittsbalken. */
     private void drawLevelBar(Gfx g, double x, double y, double w, double h, double u) {
-        Draw.softPanel(g, x, y, w, h, h * 0.3, Theme.MAGENTA);
-        double is = h * 0.28;
-        Icons.draw(g, Icon.STAR, x + h * 0.2 + is, y + h * 0.4, is, Theme.MAGENTA, 3);
-        g.text("LEVEL " + progress.level(), x + h * 0.2 + is * 2 + h * 0.12, y + h * 0.37, h * 0.36, Theme.TEXT,
+        g.fillRoundRect(x, y, w, h, h * 0.36, Colors.withAlpha(Theme.SURFACE, 0.94));
+        double is = h * 0.24;
+        Icons.draw(g, Icon.STAR, x + h * 0.25 + is, y + h * 0.4, is, Theme.MAGENTA, 0);
+        g.text("Level " + progress.level(), x + h * 0.25 + is * 2 + h * 0.15, y + h * 0.38, h * 0.36, Theme.TEXT,
                 Gfx.ALIGN_LEFT, true);
-        g.text(progress.title(), x + w - h * 0.3, y + h * 0.37, h * 0.28, Theme.TEXT_DIM, Gfx.ALIGN_RIGHT, false);
-        double bx = x + h * 0.3;
-        double bw = w - h * 0.6;
+        g.text(progress.title(), x + w - h * 0.4, y + h * 0.38, h * 0.26, Theme.MUTED, Gfx.ALIGN_RIGHT, false);
+        double bx = x + h * 0.4;
+        double bw = w - h * 0.8;
         double by = y + h * 0.74;
-        g.fillRoundRect(bx, by - 2, bw, 4, 2, Colors.withAlpha(Theme.MAGENTA, 0.22));
-        double f = progressOn ? progress.levelFraction() : 0;
-        if (f > 0) {
-            g.fillRoundRect(bx, by - 2, Math.max(4, bw * f), 4, 2, Theme.MAGENTA);
-        }
+        Draw.bar(g, bx, by - 2, bw, 4, progressOn ? progress.levelFraction() : 0, Theme.MAGENTA);
     }
 
     // ---------------------------------------------------------------------------------- Shop & Panel
@@ -1264,80 +1274,74 @@ public final class GameScene extends Scene {
         boolean active = placing == type;
         double hv = Math.max(b.hover.value, active ? 1 : 0);
         int c = type.color;
-        double r = Math.min(w, h) * 0.2;
-        g.fillRoundRect(-w / 2, -h / 2, w, h, r, Colors.withAlpha(Theme.PANEL, 0.94));
-        g.fillRoundRect(-w / 2, -h / 2, w, h, r, Colors.withAlpha(c, (unlocked ? 0.04 : 0.0) + 0.13 * hv + 0.18 * b.press.value));
-        Neon.roundRect(g, -w / 2, -h / 2, w, h, r, 1.8, Colors.withAlpha(c, !unlocked ? 0.22 : (can ? 0.95 : 0.4)),
-                unlocked ? 2 + 7 * hv : 0);
+        double r = Math.min(w, h) * 0.22;
+        int fill = active ? Colors.lerp(Theme.SURFACE2, c, 0.22) : Colors.lerp(Theme.SURFACE, Theme.SURFACE2, hv * 0.8 + b.press.value);
+        g.fillRoundRect(-w / 2, -h / 2, w, h, r, Colors.withAlpha(fill, 0.96));
+        if (active) {
+            g.strokeRoundRect(-w / 2, -h / 2, w, h, r, 1.5, Colors.withAlpha(c, 0.9));
+        }
         g.save();
-        g.alpha(!unlocked ? 0.32 : (can ? 1 : 0.5));
+        g.alpha(!unlocked ? 0.38 : (can ? 1 : 0.55));
         boolean horizontal = w > h * 1.5;
         String cost = Fmt.compact(world.buildCost(type));
         if (horizontal) {
-            double ir = h * 0.33;
+            double ir = h * 0.3;
             TowerArt.drawIcon(g, type, -w / 2 + h * 0.52, 0, ir, app.time);
             double tx = -w / 2 + h * 1.02;
-            g.text(type.label, tx, -h * 0.17, Math.max(11, h * 0.27), Theme.TEXT, Gfx.ALIGN_LEFT, true);
+            g.text(type.label, tx, -h * 0.17, Math.max(11, h * 0.26), Theme.TEXT, Gfx.ALIGN_LEFT, true);
             if (unlocked) {
-                Icons.draw(g, Icon.GEM, tx + h * 0.1, h * 0.2, h * 0.13, Theme.MONEY, 2);
-                g.text(cost, tx + h * 0.28, h * 0.2, Math.max(11, h * 0.26), can ? Theme.MONEY : Theme.RED,
+                Icons.draw(g, Icon.GEM, tx + h * 0.1, h * 0.2, h * 0.12, Theme.MONEY, 0);
+                g.text(cost, tx + h * 0.28, h * 0.2, Math.max(11, h * 0.25), can ? Theme.MONEY : Theme.RED,
                         Gfx.ALIGN_LEFT, true);
             }
         } else {
-            double ir = Math.min(w * 0.34, h * 0.27);
+            double ir = Math.min(w * 0.32, h * 0.26);
             TowerArt.drawIcon(g, type, 0, -h * 0.18, ir, app.time);
             if (unlocked) {
                 double cs = Math.max(9, Math.min(w * 0.22, h * 0.19));
                 double tw = g.textWidth(cost, cs, true);
-                double gem = Math.min(w * 0.09, h * 0.09);
+                double gem = Math.min(w * 0.08, h * 0.08);
                 double x0 = -(tw + gem * 2.4) / 2;
-                Icons.draw(g, Icon.GEM, x0 + gem, h * 0.31, gem, Theme.MONEY, 2);
+                Icons.draw(g, Icon.GEM, x0 + gem, h * 0.31, gem, Theme.MONEY, 0);
                 g.text(cost, x0 + gem * 2.4, h * 0.31, cs, can ? Theme.MONEY : Theme.RED, Gfx.ALIGN_LEFT, true);
             }
         }
         g.restore();
         if (!unlocked) {
-            // Schloss über dem Turm, darunter das Level, ab dem er frei wird
-            double ls = Math.min(w, h) * (horizontal ? 0.2 : 0.2);
+            double ls = Math.min(w, h) * 0.18;
             double lx = horizontal ? w / 2 - h * 0.62 : 0;
             double ly = horizontal ? 0 : -h * 0.12;
-            Icons.draw(g, Icon.LOCK, lx, ly, ls, Colors.withAlpha(Theme.TEXT_DIM, 0.95), 0);
+            Icons.draw(g, Icon.LOCK, lx, ly, ls, Theme.MUTED, 0);
             String need = "LV " + type.unlockLevel;
             if (horizontal) {
-                g.text(need, -w / 2 + h * 1.02, h * 0.2, Math.max(10, h * 0.24), Theme.TEXT_DIM, Gfx.ALIGN_LEFT, true);
+                g.text(need, -w / 2 + h * 1.02, h * 0.2, Math.max(10, h * 0.24), Theme.MUTED, Gfx.ALIGN_LEFT, true);
             } else {
-                g.text(need, 0, h * 0.31, Math.max(9, Math.min(w * 0.24, h * 0.2)), Theme.TEXT_DIM, Gfx.ALIGN_CENTER, true);
+                g.text(need, 0, h * 0.31, Math.max(9, Math.min(w * 0.24, h * 0.2)), Theme.MUTED, Gfx.ALIGN_CENTER, true);
             }
         }
         if (!app.platform.touchPrimary() && horizontal) {
-            g.text(Integer.toString(index + 1), -w / 2 + 7, -h / 2 + 9, 10, Colors.withAlpha(Theme.TEXT, 0.55),
-                    Gfx.ALIGN_LEFT, true);
+            g.text(Integer.toString(index + 1), -w / 2 + 8, -h / 2 + 10, 10, Theme.MUTED, Gfx.ALIGN_LEFT, true);
         }
     }
 
     private void paintStartTile(Gfx g, Button b) {
         double w = b.w;
         double h = b.h;
-        boolean on = b.enabled;
         int c = Theme.GREEN;
-        double r = Math.min(w, h) * 0.22;
+        double r = Math.min(w, h) * 0.24;
         double hv = Math.max(b.hover.value, 0);
-        g.fillRoundRect(-w / 2, -h / 2, w, h, r, Colors.withAlpha(Theme.PANEL, 0.94));
-        g.fillRoundRect(-w / 2, -h / 2, w, h, r, Colors.withAlpha(c, 0.07 + 0.1 * hv + 0.22 * b.press.value));
-        Neon.roundRect(g, -w / 2, -h / 2, w, h, r, 2, c, 4 + 6 * hv);
-        Icons.draw(g, Icon.PLAY, 0, -h * 0.14, Math.min(w * 0.3, h * 0.24), c, 5);
+        g.fillRoundRect(-w / 2, -h / 2, w, h, r, Colors.lerp(Colors.lighten(c, 0.08 * hv), Colors.darken(c, 0.2), b.press.value));
+        Icons.draw(g, Icon.PLAY, 0, -h * 0.14, Math.min(w * 0.28, h * 0.22), 0x000000, 0);
         String t = world.waveIndex == 0 ? "START" : "W" + (world.waveIndex + 1);
-        g.text(t, 0, h * 0.32, Math.max(9, Math.min(w * 0.24, h * 0.17)), Theme.TEXT, Gfx.ALIGN_CENTER, true);
+        g.text(t, 0, h * 0.32, Math.max(9, Math.min(w * 0.24, h * 0.17)), 0x000000, Gfx.ALIGN_CENTER, true);
     }
 
     private void paintToggle(Gfx g, Button b) {
         double w = b.w;
         double h = b.h;
         double hv = b.hover.value;
-        double r = Math.min(w, h) * 0.22;
-        g.fillRoundRect(-w / 2, -h / 2, w, h, r, Colors.withAlpha(Theme.PANEL, 0.94));
-        Neon.roundRect(g, -w / 2, -h / 2, w, h, r, 1.6, Colors.withAlpha(Theme.TEXT_DIM, 0.8 + 0.2 * hv), 2 + 4 * hv);
-        // Pfeil: zeigt dorthin, wohin sich die Leiste einklappt (bzw. von dort aus wieder heraus)
+        double r = Math.min(w, h) * 0.24;
+        g.fillRoundRect(-w / 2, -h / 2, w, h, r, Colors.lerp(Theme.SURFACE2, Theme.SURFACE3, Math.max(hv, b.press.value)));
         double ang;
         if (lay.mode == GameLayout.Mode.COMPACT_PORT) {
             ang = railWanted ? Math.PI : 0;
@@ -1346,7 +1350,7 @@ public final class GameScene extends Scene {
         }
         g.save();
         g.rotate(ang);
-        Icons.draw(g, Icon.UP, 0, 0, Math.min(w, h) * 0.28, Theme.TEXT_DIM, 0);
+        Icons.draw(g, Icon.UP, 0, 0, Math.min(w, h) * 0.26, Theme.MUTED, 0);
         g.restore();
     }
 
@@ -1355,29 +1359,28 @@ public final class GameScene extends Scene {
             return;
         }
         Tower t = selected;
-        String stufe = "Stufe " + t.totalLevels() + (world.endless ? "" : "/15");
+        String stufe = "Stufe " + t.totalLevels() + (world.endless ? "" : "/15")
+                + (t.pad != null ? "  ·  " + t.pad.label : "");
         switch (lay.mode) {
             case COMPACT_LAND: {
                 GameLayout.Rect p = lay.panel;
                 double k = lay.k;
-                g.fillRoundRect(p.x - 4 * k, p.y - 4 * k, p.w + 8 * k, p.h + 8 * k, 10 * k, Colors.withAlpha(0x000000, 0.86));
-                g.strokeRoundRect(p.x - 4 * k, p.y - 4 * k, p.w + 8 * k, p.h + 8 * k, 10 * k, 1.2,
-                        Colors.withAlpha(t.type.color, 0.5));
+                g.fillRoundRect(p.x - 5 * k, p.y - 5 * k, p.w + 10 * k, p.h + 10 * k, 12 * k, Colors.withAlpha(Theme.SURFACE, 0.96));
+                g.strokeRoundRect(p.x - 5 * k, p.y - 5 * k, p.w + 10 * k, p.h + 10 * k, 12 * k, 1, Theme.LINE);
                 double hh = 34 * k * (p.h / ((34 + 3 * 52 + 34 + 34 + 38 + 6 * 4) * k));
                 TowerArt.drawIcon(g, t.type, p.x + hh * 0.5, p.y + hh / 2, hh * 0.34, app.time);
                 g.text(t.type.label, p.x + hh * 1.0, p.y + hh * 0.34, Math.max(11, hh * 0.34), Theme.TEXT,
                         Gfx.ALIGN_LEFT, true);
-                g.text(stufe, p.x + hh * 1.0, p.y + hh * 0.74, Math.max(9, hh * 0.27), Theme.TEXT_DIM, Gfx.ALIGN_LEFT, false);
+                Draw.fit(g, stufe, p.x + hh * 1.0, p.y + hh * 0.74, Math.max(9, hh * 0.27), p.w - hh, Theme.MUTED, Gfx.ALIGN_LEFT, false);
                 break;
             }
             case COMPACT_PORT: {
                 GameLayout.Rect p = lay.panel;
                 double k = lay.k;
-                // Kennung des Turms links neben "Ziel" und "Verkaufen"
                 double rh = modeBtn.h;
                 double bx = p.x;
                 double bw = specialBtn.x - 4 * k - p.x;
-                Draw.softPanel(g, bx, modeBtn.y, bw, rh, rh * 0.25, t.type.color);
+                g.fillRoundRect(bx, modeBtn.y, bw, rh, rh * 0.28, Colors.withAlpha(Theme.SURFACE2, 0.96));
                 TowerArt.drawIcon(g, t.type, bx + rh * 0.5, modeBtn.y + rh / 2, rh * 0.3, app.time);
                 String lv = world.endless ? Integer.toString(t.totalLevels()) : t.totalLevels() + "/15";
                 double ls = Math.max(8, Math.min(rh * 0.36, (bw - rh * 1.0) / Math.max(1, lv.length() * 0.62)));
@@ -1385,14 +1388,14 @@ public final class GameScene extends Scene {
                 break;
             }
             default: {
-                // Kopfzeile: Symbol, Name, Gesamtstufe
                 double hx = lay.panel.x;
                 double hy = lay.panel.y;
                 double hh = sellBtn.h;
-                Draw.softPanel(g, hx, hy, lay.panel.w * 0.5 - 6 * u, hh, hh * 0.25, t.type.color);
+                double hw = lay.panel.w * 0.5 - 6 * u;
+                g.fillRoundRect(hx, hy, hw, hh, hh * 0.28, Colors.withAlpha(Theme.SURFACE2, 0.96));
                 TowerArt.drawIcon(g, t.type, hx + hh * 0.55, hy + hh / 2, hh * 0.34, app.time);
                 g.text(t.type.label, hx + hh * 1.0, hy + hh * 0.34, Math.max(11, hh * 0.3), Theme.TEXT, Gfx.ALIGN_LEFT, true);
-                g.text(stufe, hx + hh * 1.0, hy + hh * 0.7, Math.max(10, hh * 0.24), Theme.TEXT_DIM, Gfx.ALIGN_LEFT, false);
+                Draw.fit(g, stufe, hx + hh * 1.0, hy + hh * 0.7, Math.max(10, hh * 0.24), hw - hh * 1.1, Theme.MUTED, Gfx.ALIGN_LEFT, false);
                 break;
             }
         }
@@ -1425,7 +1428,7 @@ public final class GameScene extends Scene {
         double y = p.y;
         double w = p.w;
         double h = Math.min(p.h, 150 * u);
-        Draw.softPanel(g, x, y, w, h, 14 * u, t.color);
+        Draw.card(g, x, y, w, h, 14 * u, 0);
         double pad = 12 * u;
         TowerArt.drawIcon(g, t, x + pad + 26 * u, y + pad + 26 * u, 26 * u, app.time);
         g.text(t.label, x + pad * 2 + 52 * u, y + pad + 12 * u, 17 * u, Theme.TEXT, Gfx.ALIGN_LEFT, true);
@@ -1441,10 +1444,10 @@ public final class GameScene extends Scene {
         Icon[] icons = {Icon.RANGE, Icon.DAMAGE, Icon.SPEED};
         for (int i = 0; i < 3; i++) {
             double cx = x + pad + cw * i + cw / 2;
-            Icons.draw(g, icons[i], cx - 22 * u, cy, 11 * u, tracks[i].color, 3);
+            Icons.draw(g, icons[i], cx - 22 * u, cy, 11 * u, tracks[i].color, 0);
             g.text(vals[i], cx - 6 * u, cy, 16 * u, Theme.TEXT, Gfx.ALIGN_LEFT, true);
         }
-        g.text("Auf die Karte tippen oder ziehen", x + w / 2, y + h - 12 * u, 11 * u, Theme.TEXT_DIM,
+        g.text("Auf die Karte tippen oder ziehen", x + w / 2, y + h - 12 * u, 11 * u, Theme.MUTED,
                 Gfx.ALIGN_CENTER, false);
     }
 
@@ -1454,7 +1457,7 @@ public final class GameScene extends Scene {
         double y = p.y;
         double w = p.w;
         double h = Math.min(p.h, 230 * u);
-        Draw.softPanel(g, x, y, w, h, 14 * u, Theme.CYAN);
+        Draw.card(g, x, y, w, h, 14 * u, 0);
         double pad = 12 * u;
         WaveDef next = world.nextWave();
         if (next == null) {
@@ -1532,53 +1535,40 @@ public final class GameScene extends Scene {
         boolean can = !maxed && world.money >= cost;
         double hv = b.hover.value;
         int c = track.color;
-        double r = h * 0.22;
-        g.fillRoundRect(-w / 2, -h / 2, w, h, r, Colors.withAlpha(Theme.PANEL, 0.94));
-        g.fillRoundRect(-w / 2, -h / 2, w, h, r, Colors.withAlpha(c, 0.04 + 0.10 * hv + 0.18 * b.press.value));
-        Neon.roundRect(g, -w / 2, -h / 2, w, h, r, 1.6, Colors.withAlpha(c, maxed ? 0.45 : 0.9), 2 + 6 * hv);
+        double r = h * 0.24;
+        g.fillRoundRect(-w / 2, -h / 2, w, h, r, Colors.lerp(Theme.SURFACE2, Theme.SURFACE3, hv * 0.7 + b.press.value));
         boolean tile = w < h * 2.6;
         int pips = Math.min(lvl, UpgradeTrack.MAX_LEVEL);
         String master = lvl > UpgradeTrack.MAX_LEVEL ? "+" + (lvl - UpgradeTrack.MAX_LEVEL) : "";
 
         if (tile) {
-            // Schmale Kachel (Handy hoch): Kopf, Stufenpunkte + nächster Wert, Preis
             double labelSize = Math.max(8, h * 0.17);
-            Icons.draw(g, trackIcon(track), -w / 2 + h * 0.2, -h * 0.31, h * 0.13, c, 2);
+            Icons.draw(g, trackIcon(track), -w / 2 + h * 0.2, -h * 0.31, h * 0.12, c, 0);
             g.text(label, -w / 2 + h * 0.38, -h * 0.31, labelSize, Theme.TEXT, Gfx.ALIGN_LEFT, true);
-            double pip = h * 0.055;
+            double pip = h * 0.05;
             double px0 = -w / 2 + h * 0.14;
             for (int i = 0; i < UpgradeTrack.MAX_LEVEL; i++) {
                 double px = px0 + pip + i * pip * 2.9;
-                if (i < pips) {
-                    g.fillCircle(px, -h * 0.04, pip, c);
-                } else {
-                    g.strokeCircle(px, -h * 0.04, pip, 1.1, Colors.withAlpha(c, 0.45));
-                }
+                g.fillCircle(px, -h * 0.04, pip, i < pips ? c : Theme.SURFACE3);
             }
             if (!master.isEmpty()) {
                 g.text(master, px0 + pip * 2 + 5 * pip * 2.9, -h * 0.04, Math.max(8, h * 0.17), Theme.YELLOW,
                         Gfx.ALIGN_LEFT, true);
             }
-            if (!maxed) {
-                g.text("› " + statText(t, track, true), w / 2 - h * 0.1, -h * 0.04, Math.max(8, h * 0.16),
-                        Theme.TEXT_DIM, Gfx.ALIGN_RIGHT, false);
-            } else {
-                g.text(statText(t, track, false), w / 2 - h * 0.1, -h * 0.04, Math.max(8, h * 0.16), Theme.TEXT_DIM,
-                        Gfx.ALIGN_RIGHT, false);
-            }
+            g.text(maxed ? statText(t, track, false) : "› " + statText(t, track, true), w / 2 - h * 0.1, -h * 0.04,
+                    Math.max(8, h * 0.16), Theme.MUTED, Gfx.ALIGN_RIGHT, false);
             double bh = h * 0.30;
             double by = h * 0.31;
             if (maxed) {
-                g.text("MAX", 0, by, h * 0.2, Theme.TEXT_DIM, Gfx.ALIGN_CENTER, true);
+                g.text("MAX", 0, by, h * 0.2, Theme.MUTED, Gfx.ALIGN_CENTER, true);
             } else {
                 int bc = can ? Theme.GREEN : Theme.RED;
                 double bw = w - h * 0.2;
-                g.fillRoundRect(-bw / 2, by - bh / 2, bw, bh, bh * 0.3, Colors.withAlpha(bc, can ? 0.14 : 0.07));
-                Neon.roundRect(g, -bw / 2, by - bh / 2, bw, bh, bh * 0.3, 1.3, Colors.withAlpha(bc, can ? 0.95 : 0.5), can ? 3 : 0);
+                g.fillRoundRect(-bw / 2, by - bh / 2, bw, bh, bh * 0.35, Colors.withAlpha(bc, can ? 0.2 : 0.1));
                 String cs = Fmt.compact(cost);
                 double fs = Math.max(9, Math.min(bh * 0.62, (bw - bh * 1.1) / Math.max(1, cs.length() * 0.62)));
                 double tw = g.textWidth(cs, fs, true);
-                double gem = bh * 0.22;
+                double gem = bh * 0.2;
                 double x0 = -(tw + gem * 2.5) / 2;
                 Icons.draw(g, Icon.GEM, x0 + gem, by, gem, can ? Theme.MONEY : Colors.withAlpha(Theme.MONEY, 0.5), 0);
                 g.text(cs, x0 + gem * 2.5, by, fs, can ? Theme.TEXT : Colors.withAlpha(Theme.RED, 0.9), Gfx.ALIGN_LEFT, true);
@@ -1586,42 +1576,35 @@ public final class GameScene extends Scene {
             return;
         }
 
-        Icons.draw(g, trackIcon(track), -w / 2 + h * 0.52, 0, h * 0.27, c, 3);
+        Icons.draw(g, trackIcon(track), -w / 2 + h * 0.52, 0, h * 0.24, c, 0);
         double tx = -w / 2 + h * 1.0;
         double priceW = Math.min(w * (w < 240 ? 0.28 : 0.32), h * 1.5);
         double avail = (w / 2 - priceW - h * 0.12) - h * 0.1 - tx;
         double labelSize = Math.max(8, Math.min(h * 0.23, avail / Math.max(1, label.length() * 0.64)));
         g.text(label, tx, -h * 0.25, labelSize, Theme.TEXT, Gfx.ALIGN_LEFT, true);
-        // Stufenpunkte (Meisterstufen als goldene Zahl dahinter)
-        double pip = Math.min(h * 0.09, avail / (5 * 2.9 + (lvl > UpgradeTrack.MAX_LEVEL ? 3.5 : 0)));
+        double pip = Math.min(h * 0.08, avail / (5 * 2.9 + (lvl > UpgradeTrack.MAX_LEVEL ? 3.5 : 0)));
         for (int i = 0; i < UpgradeTrack.MAX_LEVEL; i++) {
             double px = tx + pip + i * pip * 2.9;
-            if (i < pips) {
-                g.fillCircle(px, h * 0.02, pip, c);
-            } else {
-                g.strokeCircle(px, h * 0.02, pip, 1.2, Colors.withAlpha(c, 0.45));
-            }
+            g.fillCircle(px, h * 0.02, pip, i < pips ? c : Theme.SURFACE3);
         }
         if (!master.isEmpty()) {
             g.text(master, tx + pip + 5 * pip * 2.9 - pip, h * 0.02, Math.max(8, Math.min(h * 0.22, pip * 2.6)), Theme.YELLOW,
                     Gfx.ALIGN_LEFT, true);
         }
         String cur = statText(t, track, false);
-        String txt = maxed ? cur : cur + " > " + statText(t, track, true);
-        g.text(txt, tx, h * 0.31, Math.max(8, Math.min(h * 0.2, avail / Math.max(1, txt.length() * 0.58))), Theme.TEXT_DIM,
+        String txt = maxed ? cur : cur + " › " + statText(t, track, true);
+        g.text(txt, tx, h * 0.31, Math.max(8, Math.min(h * 0.2, avail / Math.max(1, txt.length() * 0.58))), Theme.MUTED,
                 Gfx.ALIGN_LEFT, false);
 
-        // Preis
         double bw = priceW;
         double bh = h * 0.62;
         double bx = w / 2 - bw - h * 0.12;
         if (maxed) {
-            g.text("MAX", bx + bw / 2, 0, h * 0.28, Theme.TEXT_DIM, Gfx.ALIGN_CENTER, true);
+            g.text("MAX", bx + bw / 2, 0, h * 0.28, Theme.MUTED, Gfx.ALIGN_CENTER, true);
         } else {
             int bc = can ? Theme.GREEN : Theme.RED;
-            g.fillRoundRect(bx, -bh / 2, bw, bh, bh * 0.3, Colors.withAlpha(bc, can ? 0.14 : 0.07));
-            Neon.roundRect(g, bx, -bh / 2, bw, bh, bh * 0.3, 1.4, Colors.withAlpha(bc, can ? 0.95 : 0.5), can ? 4 : 0);
-            Icons.draw(g, Icon.GEM, bx + bw * 0.2, 0, bh * 0.2, can ? Theme.MONEY : Colors.withAlpha(Theme.MONEY, 0.5), 0);
+            g.fillRoundRect(bx, -bh / 2, bw, bh, bh * 0.35, Colors.withAlpha(bc, can ? 0.2 : 0.1));
+            Icons.draw(g, Icon.GEM, bx + bw * 0.2, 0, bh * 0.18, can ? Theme.MONEY : Colors.withAlpha(Theme.MONEY, 0.5), 0);
             String cs = Fmt.compact(cost);
             double fs = Math.min(h * 0.3, Math.min(bw * 0.3, (bw * 0.6) / Math.max(1, cs.length() * 0.62)));
             g.text(cs, bx + bw * 0.4, 0, Math.max(8, fs), can ? Theme.TEXT : Colors.withAlpha(Theme.RED, 0.9),
@@ -1650,29 +1633,27 @@ public final class GameScene extends Scene {
         double h = b.h;
         int c = armed ? Theme.RED : Theme.MONEY;
         double hv = Math.max(b.hover.value, armed ? 1 : 0);
-        g.fillRoundRect(-w / 2, -h / 2, w, h, h * 0.25, Colors.withAlpha(Theme.PANEL, 0.94));
-        g.fillRoundRect(-w / 2, -h / 2, w, h, h * 0.25, Colors.withAlpha(c, 0.06 + 0.12 * hv + 0.2 * b.press.value));
-        Neon.roundRect(g, -w / 2, -h / 2, w, h, h * 0.25, 1.6, c, 3 + 5 * hv);
+        g.fillRoundRect(-w / 2, -h / 2, w, h, h * 0.28, armed ? Colors.withAlpha(Theme.RED, 0.25)
+                : Colors.lerp(Theme.SURFACE2, Theme.SURFACE3, hv * 0.7 + b.press.value));
         boolean flat = w > h * 2.2 && h < 44;
         if (armed) {
-            g.text("SICHER?", 0, -h * 0.02, Math.max(11, h * 0.34), Theme.TEXT, Gfx.ALIGN_CENTER, true);
+            g.text("Sicher?", 0, -h * 0.02, Math.max(11, h * 0.34), Theme.TEXT, Gfx.ALIGN_CENTER, true);
         } else if (flat) {
-            // Flache Zeile (Handy): Beschriftung und Erlös nebeneinander
             String v = Fmt.compact(world.sellValue(selected));
             double fs = Math.max(9, h * 0.4);
-            double tw = g.textWidth("VERKAUFEN", fs, true) + g.textWidth(v, fs, true) + h * 0.9;
+            double tw = g.textWidth("Verkaufen", fs, true) + g.textWidth(v, fs, true) + h * 0.9;
             if (tw > w * 0.9) {
                 fs *= w * 0.9 / tw;
                 tw = w * 0.9;
             }
             double x0 = -tw / 2;
-            g.text("VERKAUFEN", x0, 0, fs, Theme.TEXT, Gfx.ALIGN_LEFT, true);
-            x0 += g.textWidth("VERKAUFEN", fs, true) + h * 0.2;
-            Icons.draw(g, Icon.GEM, x0 + h * 0.13, 0, h * 0.13, Theme.MONEY, 2);
+            g.text("Verkaufen", x0, 0, fs, Theme.TEXT, Gfx.ALIGN_LEFT, true);
+            x0 += g.textWidth("Verkaufen", fs, true) + h * 0.2;
+            Icons.draw(g, Icon.GEM, x0 + h * 0.13, 0, h * 0.12, Theme.MONEY, 0);
             g.text(v, x0 + h * 0.34, 0, fs, Theme.MONEY, Gfx.ALIGN_LEFT, true);
         } else {
-            g.text("VERKAUFEN", 0, -h * 0.17, Math.max(10, h * 0.26), Theme.TEXT, Gfx.ALIGN_CENTER, true);
-            Icons.draw(g, Icon.GEM, -h * 0.34, h * 0.22, h * 0.13, Theme.MONEY, 2);
+            g.text("Verkaufen", 0, -h * 0.17, Math.max(10, h * 0.26), Theme.TEXT, Gfx.ALIGN_CENTER, true);
+            Icons.draw(g, Icon.GEM, -h * 0.34, h * 0.22, h * 0.12, Theme.MONEY, 0);
             g.text(Fmt.compact(world.sellValue(selected)), -h * 0.14, h * 0.22, Math.max(10, h * 0.27),
                     Theme.MONEY, Gfx.ALIGN_LEFT, true);
         }
@@ -1685,16 +1666,15 @@ public final class GameScene extends Scene {
         double w = b.w;
         double h = b.h;
         double hv = b.hover.value;
-        g.fillRoundRect(-w / 2, -h / 2, w, h, h * 0.25, Colors.withAlpha(Theme.PANEL, 0.94));
-        Neon.roundRect(g, -w / 2, -h / 2, w, h, h * 0.25, 1.4, Colors.withAlpha(Theme.TEXT_DIM, 0.8 + 0.2 * hv), 2 + 4 * hv);
-        Icons.draw(g, Icon.TARGET, -w / 2 + h * 0.55, 0, h * 0.27, Theme.TEXT_DIM, 0);
+        g.fillRoundRect(-w / 2, -h / 2, w, h, h * 0.28, Colors.lerp(Theme.SURFACE2, Theme.SURFACE3, hv * 0.7 + b.press.value));
+        Icons.draw(g, Icon.TARGET, -w / 2 + h * 0.55, 0, h * 0.24, Theme.MUTED, 0);
         double fs = Math.max(9, h * 0.32);
         if (w < 120) {
             g.text(selected.mode.label, w / 2 - h * 0.25, -h * 0.02, Math.max(8, Math.min(fs, (w - h * 1.1) / 5.5)),
                     Theme.TEXT, Gfx.ALIGN_RIGHT, true);
             return;
         }
-        g.text("ZIEL", -w / 2 + h * 1.0, -h * 0.02, Math.max(9, h * 0.26), Theme.TEXT_DIM, Gfx.ALIGN_LEFT, false);
+        g.text("Ziel", -w / 2 + h * 1.0, -h * 0.02, Math.max(9, h * 0.26), Theme.MUTED, Gfx.ALIGN_LEFT, false);
         g.text(selected.mode.label, w / 2 - h * 0.35, -h * 0.02, fs, Theme.TEXT, Gfx.ALIGN_RIGHT, true);
     }
 
@@ -1749,18 +1729,14 @@ public final class GameScene extends Scene {
         boolean multi = pages > 1;
         double cw = multi ? (bw - gap) / 2 : bw;
         if (multi) {
-            Button next = new Button("SEITE " + (specialPage + 1) + "/" + pages, Icon.LOOP, Theme.TEXT_DIM, () -> {
+            Button next = new Button("Seite " + (specialPage + 1) + "/" + pages, Icon.LOOP, Theme.TEXT, () -> {
                 specialPage = (specialPage + 1) % pages;
                 buildSpecialButtons();
             });
-            next.neonFont = true;
-            next.fontScale = 0.7;
             next.bounds(vp.w / 2 - bw / 2, y, cw, fh);
             overlayUi.add(next);
         }
-        Button cancel = new Button("SCHLIESSEN", Icon.CROSS, Theme.CYAN, () -> setOverlay(Overlay.NONE));
-        cancel.neonFont = true;
-        cancel.fontScale = 0.7;
+        Button cancel = new Button("Schließen", null, Theme.TEXT, () -> setOverlay(Overlay.NONE));
         cancel.bounds(multi ? vp.w / 2 + gap / 2 : vp.w / 2 - bw / 2, y, cw, fh);
         overlayUi.add(cancel);
     }
@@ -1787,24 +1763,29 @@ public final class GameScene extends Scene {
         double a = Easing.outCubic(overlayIn);
         g.save();
         g.alpha(a);
-        g.fillRect(0, 0, vp.w, vp.h, Colors.withAlpha(0x000000, 0.84));
+        g.fillRect(0, 0, vp.w, vp.h, Colors.withAlpha(0x000000, 0.6));
         double bw = Math.min(vp.safeW() * 0.92, 420 * u);
         double top = overlayUi.buttons.isEmpty() ? vp.h / 2 : overlayUi.buttons.get(0).y - 54 * u;
+        Button last = overlayUi.buttons.isEmpty() ? null : overlayUi.buttons.get(overlayUi.buttons.size() - 1);
+        double bottom = last == null ? vp.h / 2 : last.y + last.h;
+        double sx = vp.w / 2 - bw / 2 - 12 * u;
+        double sw = bw + 24 * u;
+        g.fillRoundRect(sx, top - 12 * u, sw, bottom - top + 28 * u, 22 * u, Theme.SURFACE);
+        g.strokeRoundRect(sx, top - 12 * u, sw, bottom - top + 28 * u, 22 * u, 1, Theme.LINE);
         String name = selected == null ? "" : selected.type.label;
-        NeonText.draw(g, "SPEZIAL · " + name, vp.w / 2, top + 12 * u,
-                Math.min(28 * u, bw / Math.max(8, ("SPEZIAL · " + name).length() * 0.8)), Theme.CRYSTAL, 9, 0.3, time);
+        g.text("Spezial · " + name, sx + 20 * u, top + 10 * u, 18 * u, Theme.TEXT, Gfx.ALIGN_LEFT, true);
         if (specialOptions.isEmpty()) {
-            double y = vp.h / 2 - 8 * u;
+            double y = top + 40 * u;
             String[] lines = selected != null && selected.type.passive
-                    ? new String[] {"Hilfstürme tragen nur das Spezial ZINSEN.", "Kaufe es im Shop (Hauptmenü)."}
-                    : new String[] {"Noch keine Spezial-Upgrades für diesen Turm.", "Kaufe sie im Shop im Hauptmenü (SPEZIAL)."};
+                    ? new String[] {"Hilfstürme tragen nur das Spezial ZINSEN.", "Kaufe es im Shop (Startseite)."}
+                    : new String[] {"Noch keine Spezial-Upgrades für diesen Turm.", "Kaufe sie im Shop auf der Startseite."};
             for (String l : lines) {
-                g.text(l, vp.w / 2, y, Math.max(11, 14 * u), Theme.TEXT, Gfx.ALIGN_CENTER, true);
+                Draw.fit(g, l, sx + 20 * u, y, Math.max(11, 13 * u), sw - 40 * u, Theme.MUTED, Gfx.ALIGN_LEFT, false);
                 y += 20 * u;
             }
         } else if (selected != null) {
             g.text("Einbau " + Fmt.compact(world.specialCost(selected)) + " Geld  ·  Tauschen geht jederzeit",
-                    vp.w / 2, top + 40 * u, Math.max(10, 12 * u), Theme.TEXT_DIM, Gfx.ALIGN_CENTER, false);
+                    sx + 20 * u, top + 34 * u, Math.max(10, 12 * u), Theme.MUTED, Gfx.ALIGN_LEFT, false);
         }
         overlayUi.render(g);
         g.restore();
@@ -1815,31 +1796,26 @@ public final class GameScene extends Scene {
         double h = b.h;
         boolean active = selected != null && selected.special == sp;
         boolean can = selected != null && (active || world.money >= world.specialCost(selected));
-        double hv = Math.max(b.hover.value, active ? 1 : 0);
-        double r = h * 0.22;
-        g.fillRoundRect(-w / 2, -h / 2, w, h, r, Colors.withAlpha(Theme.PANEL, 0.96));
-        g.fillRoundRect(-w / 2, -h / 2, w, h, r, Colors.withAlpha(sp.color, 0.05 + 0.12 * hv + 0.2 * b.press.value));
-        Neon.roundRect(g, -w / 2, -h / 2, w, h, r, 1.6, Colors.withAlpha(sp.color, can ? 0.95 : 0.4), can ? 3 + 5 * hv : 0);
+        double hv = Math.max(b.hover.value, 0);
+        double r = h * 0.26;
+        g.fillRoundRect(-w / 2, -h / 2, w, h, r, active ? Colors.withAlpha(sp.color, 0.18)
+                : Colors.lerp(Theme.SURFACE2, Theme.SURFACE3, hv * 0.7 + b.press.value));
         g.save();
-        g.alpha(can ? 1 : 0.55);
-        Neon.ngon(g, -w / 2 + h * 0.55, 0, h * 0.3, 6, Math.PI / 6, 1.8, sp.color, 4);
-        Icons.draw(g, Icon.STAR, -w / 2 + h * 0.55, 0, h * 0.17, sp.color, 2);
+        g.alpha(can ? 1 : 0.5);
+        Draw.iconBadge(g, -w / 2 + h * 0.55, 0, h * 0.3, Icon.STAR, sp.color);
         double tx = -w / 2 + h * 1.05;
         double right = w / 2 - h * 0.25;
         double priceW = h * 1.5;
         double tw = right - priceW - tx;
         double fs = Math.max(9, h * 0.3);
-        double lw = g.textWidth(sp.label, fs, true);
-        g.text(sp.label, tx, -h * 0.17, tw < lw ? fs * tw / lw : fs, Theme.TEXT, Gfx.ALIGN_LEFT, true);
-        double ds = Math.max(8, h * 0.22);
-        double dw = g.textWidth(sp.desc, ds, false);
-        g.text(sp.desc, tx, h * 0.24, tw < dw ? ds * tw / dw : ds, Theme.TEXT_DIM, Gfx.ALIGN_LEFT, false);
+        Draw.fit(g, sp.label, tx, -h * 0.17, fs, tw, Theme.TEXT, Gfx.ALIGN_LEFT, true);
+        Draw.fit(g, sp.desc, tx, h * 0.24, Math.max(8, h * 0.22), tw, Theme.MUTED, Gfx.ALIGN_LEFT, false);
         g.restore();
         if (active) {
-            Icons.draw(g, Icon.CHECK, right - h * 0.2, 0, h * 0.2, Theme.GREEN, 3);
-            g.text("AKTIV", right - h * 0.55, 0, Math.max(8, h * 0.25), Theme.GREEN, Gfx.ALIGN_RIGHT, true);
+            Icons.draw(g, Icon.CHECK, right - h * 0.2, 0, h * 0.18, Theme.GREEN, 0);
+            g.text("Aktiv", right - h * 0.55, 0, Math.max(8, h * 0.25), Theme.GREEN, Gfx.ALIGN_RIGHT, true);
         } else if (selected != null) {
-            Icons.draw(g, Icon.GEM, right - priceW + h * 0.1, 0, h * 0.14, can ? Theme.MONEY : Colors.withAlpha(Theme.MONEY, 0.5), 0);
+            Icons.draw(g, Icon.GEM, right - priceW + h * 0.1, 0, h * 0.13, can ? Theme.MONEY : Colors.withAlpha(Theme.MONEY, 0.5), 0);
             g.text(Fmt.compact(world.specialCost(selected)), right - priceW + h * 0.32, 0, Math.max(8, h * 0.3),
                     can ? Theme.TEXT : Colors.withAlpha(Theme.RED, 0.9), Gfx.ALIGN_LEFT, true);
         }
@@ -1855,25 +1831,23 @@ public final class GameScene extends Scene {
         Special sp = selected.special;
         int c = sp != null ? sp.color : Theme.CRYSTAL;
         double hv = b.hover.value;
-        double r = h * 0.25;
-        g.fillRoundRect(-w / 2, -h / 2, w, h, r, Colors.withAlpha(Theme.PANEL, 0.94));
-        g.fillRoundRect(-w / 2, -h / 2, w, h, r, Colors.withAlpha(c, (sp != null ? 0.10 : 0.04) + 0.12 * hv + 0.2 * b.press.value));
-        Neon.roundRect(g, -w / 2, -h / 2, w, h, r, 1.5, Colors.withAlpha(c, sp != null ? 0.95 : 0.7 + 0.2 * hv), 2 + 4 * hv);
-        double ir = Math.min(h * 0.3, w * 0.12);
-        Icons.draw(g, Icon.STAR, -w / 2 + h * 0.55, 0, ir, c, sp != null ? 4 : 1);
+        double r = h * 0.28;
+        g.fillRoundRect(-w / 2, -h / 2, w, h, r, sp != null ? Colors.withAlpha(c, 0.16 + 0.06 * hv)
+                : Colors.lerp(Theme.SURFACE2, Theme.SURFACE3, hv * 0.7 + b.press.value));
+        double ir = Math.min(h * 0.26, w * 0.12);
+        Icons.draw(g, Icon.STAR, -w / 2 + h * 0.55, 0, ir, c, 0);
         double tx = -w / 2 + h * 1.0;
         double avail = w / 2 - h * 0.2 - tx;
-        String label = sp != null ? sp.label : "SPEZIAL";
+        String label = sp != null ? sp.label : "Spezial";
         double fs = Math.max(8, Math.min(h * 0.34, avail / Math.max(1, label.length() * 0.62)));
         if (w < 110) {
-            // sehr schmal: nur Name
             g.text(label, w / 2 - h * 0.2, 0, Math.max(7, Math.min(h * 0.3, (w - h * 1.1) / Math.max(1, label.length() * 0.62))),
                     Theme.TEXT, Gfx.ALIGN_RIGHT, true);
             return;
         }
         g.text(label, tx, sp != null ? -h * 0.12 : 0, fs, Theme.TEXT, Gfx.ALIGN_LEFT, true);
         if (sp != null) {
-            g.text("tauschen", tx, h * 0.26, Math.max(7, h * 0.22), Theme.TEXT_DIM, Gfx.ALIGN_LEFT, false);
+            g.text("tauschen", tx, h * 0.26, Math.max(7, h * 0.22), Theme.MUTED, Gfx.ALIGN_LEFT, false);
         }
     }
 
@@ -1902,70 +1876,90 @@ public final class GameScene extends Scene {
         double a = Easing.outCubic(overlayIn);
         g.save();
         g.alpha(a);
-        g.fillRect(0, 0, vp.w, vp.h, Colors.withAlpha(0x000000, overlay == Overlay.PAUSE ? 0.78 : 0.7));
-        double cx = vp.w / 2;
-        double ty = vp.h / 2 - 150 * u;
-        double th = Math.min(64 * u, vp.safeW() * 0.84 / 6.2);
+        g.fillRect(0, 0, vp.w, vp.h, Colors.withAlpha(0x000000, overlay == Overlay.PAUSE ? 0.55 : 0.5));
+        g.restore();
+        double[] box = sheetBox();
+        double sx = box[0];
+        double sy = box[1] + (1 - a) * 40 * u;
+        double sw = box[2];
+        double sh = box[3];
+        g.save();
+        g.alpha(a);
+        g.fillRoundRect(sx, sy, sw, sh, 24 * u, Theme.SURFACE);
+        g.strokeRoundRect(sx, sy, sw, sh, 24 * u, 1, Theme.LINE);
         String title;
         int color;
         switch (overlay) {
             case WON:
-                title = "SIEG!";
+                title = world.endless ? "Lauf beendet" : "Geschafft!";
                 color = Theme.GREEN;
                 break;
             case LOST:
-                title = "VERLOREN";
+                title = world.endless ? "Lauf beendet" : "Verloren";
                 color = Theme.RED;
                 break;
             default:
-                title = "PAUSE";
-                color = Theme.CYAN;
+                title = "Pause";
+                color = Theme.TEXT;
                 break;
         }
-        double sc = 0.85 + 0.15 * Easing.outBack(overlayIn);
-        g.save();
-        g.translate(cx, ty);
-        g.scale(sc, sc);
-        NeonText.draw(g, title, 0, 0, th, color, 12, overlay == Overlay.LOST ? 0.8 : 0.4, time);
-        g.restore();
-        double fs = Math.max(12, 15 * u);
+        double pad = 20 * u;
+        double y = sy + 22 * u + 10 * u;
+        g.text(title, sx + pad, y, 22 * u, overlay == Overlay.PAUSE ? Theme.TEXT : color, Gfx.ALIGN_LEFT, true);
+        String sub = level.name + (world.endless ? "  ·  Endlos" : "") + (editorReturn != null ? "  ·  Testspiel" : "");
+        Draw.fit(g, sub, sx + sw - pad, y, 13 * u, sw * 0.5, Theme.MUTED, Gfx.ALIGN_RIGHT, false);
+        y += 34 * u;
         if (overlay != Overlay.PAUSE) {
+            if (overlay == Overlay.WON && !world.endless && level.builtin && progressOn) {
+                // Sterne groß, nacheinander eingeblendet
+                double scx = sx + sw / 2;
+                double sr = 18 * u;
+                for (int i = 0; i < 3; i++) {
+                    boolean on = i < starsRun;
+                    double pop = Easing.outBack(Mathx.clamp01((overlayIn * 3 - 0.3 - i * 0.35) / 0.5));
+                    double r = sr * (on ? Math.max(0.01, pop) : 1);
+                    Draw.star(g, scx + (i - 1) * sr * 2.6, y + sr, r, on ? Theme.STAR : Theme.STAR_OFF, on);
+                }
+                y += sr * 2 + 10 * u;
+                String why = starsRun >= 3 ? "Ohne ein verlorenes Leben – perfekt!" : starsRun == 2
+                        ? "Mindestens die Hälfte der Leben behalten" : "Für drei Sterne: kein einziges Leben verlieren";
+                g.text(why, scx, y + 4 * u, 12 * u, Theme.MUTED, Gfx.ALIGN_CENTER, false);
+                y += 22 * u;
+            }
             String stats;
             if (world.endless) {
-                stats = "Endlos: Welle " + world.clearedWaves() + " geschafft   ·   " + Fmt.compact(world.kills) + " Gegner";
+                stats = "Welle " + world.clearedWaves() + "  ·  " + Fmt.compact(world.kills) + " Gegner";
             } else {
                 stats = "Welle " + Math.min(world.waveIndex, world.totalWaves()) + "/" + world.totalWaves()
-                        + "   ·   " + world.kills + " Gegner besiegt   ·   " + world.lives + " Leben";
+                        + "  ·  " + world.kills + " Gegner  ·  " + world.lives + " Leben";
             }
-            g.text(stats, cx, ty + th * 1.0, fs, Theme.TEXT, Gfx.ALIGN_CENTER, true);
+            g.text(stats, sx + pad, y, 14 * u, Theme.TEXT, Gfx.ALIGN_LEFT, true);
+            y += 22 * u;
             if (progressOn) {
-                String xp = "+" + xpRun + " XP   ·   LEVEL " + progress.level();
+                StringBuilder xp = new StringBuilder("+" + xpRun + " XP");
                 if (progress.level() > levelAtStart) {
-                    xp = "+" + xpRun + " XP   ·   LEVEL " + levelAtStart + " → " + progress.level();
+                    xp.append("  ·  Level ").append(levelAtStart).append(" → ").append(progress.level());
                 }
                 if (newRecord) {
-                    xp += "   ·   NEUER REKORD!";
+                    xp.append("  ·  Neuer Rekord");
                 }
                 if (!medalText.isEmpty()) {
-                    xp += "   ·   " + medalText + "!";
+                    xp.append("  ·  ").append(medalText.charAt(0)).append(medalText.substring(1).toLowerCase());
                 }
                 int cr = (int) (progress.crystalsEarned - crystalsAtStart);
                 if (cr > 0) {
-                    xp += "   ·   +" + cr + " Kristalle";
+                    xp.append("  ·  +").append(cr).append(" ◆");
                 }
-                g.text(xp, cx, ty + th * 1.0 + fs * 1.5, fs * 0.9, Theme.MAGENTA, Gfx.ALIGN_CENTER, true);
+                Draw.fit(g, xp.toString(), sx + pad, y, 13 * u, sw - 2 * pad, Theme.MAGENTA, Gfx.ALIGN_LEFT, true);
+                y += 20 * u;
                 String nt = newTowersText();
                 if (!nt.isEmpty()) {
-                    g.text("Neu freigeschaltet: " + nt, cx, ty + th * 1.0 + fs * 2.9, fs * 0.9, Theme.GREEN,
-                            Gfx.ALIGN_CENTER, true);
-                } else if (overlay == Overlay.WON) {
-                    g.text("Endlosmodus freigeschaltet", cx, ty + th * 1.0 + fs * 2.9, fs * 0.9, Theme.TEXT_DIM,
-                            Gfx.ALIGN_CENTER, true);
+                    Draw.fit(g, "Neu freigeschaltet: " + nt, sx + pad, y, 12 * u, sw - 2 * pad, Theme.GREEN, Gfx.ALIGN_LEFT, true);
+                } else if (overlay == Overlay.WON && !world.endless) {
+                    Draw.fit(g, "Endlosmodus freigeschaltet – wie weit kommst du?", sx + pad, y, 12 * u, sw - 2 * pad, Theme.MUTED,
+                            Gfx.ALIGN_LEFT, false);
                 }
             }
-        } else {
-            String sub = world.endless ? level.name + "  ·  Endlos, Welle " + world.waveIndex : level.name;
-            g.text(sub, cx, ty + th * 0.95, fs, Theme.TEXT_DIM, Gfx.ALIGN_CENTER, true);
         }
         overlayUi.render(g);
         g.restore();
@@ -2450,6 +2444,24 @@ public final class GameScene extends Scene {
                 int before = progress.level();
                 double c0 = progress.crystalsEarned;
                 xp = progress.onWaveCleared(index + 1, hasBoss(world.waveAt(index)), world.endless);
+                if (progress.onPlayedDay(app.today())) {
+                    int streak = progress.streakNow(app.today());
+                    if (streak >= 2) {
+                        showToast("Serie: " + streak + " Tage in Folge!", Theme.ORANGE);
+                    }
+                }
+                if (neontd.progress.Daily.isDaily(level.id)) {
+                    String key = "dailyreward-" + level.id;
+                    if (index + 1 >= neontd.progress.Daily.REWARD_WAVE && progress.stat(key) == 0) {
+                        progress.stats.put(key, 1.0);
+                        progress.earnCrystals(neontd.progress.Daily.REWARD);
+                        showBanner("TAGES-CHALLENGE", "Welle " + (index + 1) + " – +" + neontd.progress.Daily.REWARD
+                                + " Kristalle", Theme.ACCENT, 3.0);
+                    }
+                    app.board.submit(level.id, index + 1, null);
+                } else if (world.endless && level.builtin) {
+                    app.board.submit(neontd.save.Leaderboard.BOARD_ENDLESS, index + 1, level.name);
+                }
                 crystalsWave = (int) (progress.crystalsEarned - c0 - (progress.level() > before
                         ? Progress.LEVEL_UP_CRYSTALS * (progress.level() - before) : 0));
                 xpRun += xp;
@@ -2521,6 +2533,14 @@ public final class GameScene extends Scene {
                     int lv = progress.level();
                     int gain = progress.onWon(level.id);
                     xpRun += gain;
+                    if (level.builtin && !neontd.progress.Daily.isDaily(level.id)) {
+                        starsRun = LevelDef.starsFor(true, world.lives, world.level.startLives);
+                        int newStars = progress.onStars(level.id, starsRun);
+                        if (newStars > 0) {
+                            xpRun += Progress.STAR_XP * newStars;
+                            app.board.submit(neontd.save.Leaderboard.BOARD_STARS, progress.totalStars(), null);
+                        }
+                    }
                     if (progress.level() > lv) {
                         onLevelUp(lv, progress.level());
                     }

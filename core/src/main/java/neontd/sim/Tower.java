@@ -19,6 +19,8 @@ public final class Tower {
     /** Dauerhafte Boni aus der Forschung im Shop (1 = keiner). */
     public double perkDamage = 1;
     public double perkRange = 1;
+    /** Bonus-Pad, auf dem der Turm steht, oder {@code null}. */
+    public neontd.level.Zone.Kind pad;
 
     // abgeleitete Werte (siehe recompute)
     public double range;
@@ -56,12 +58,21 @@ public final class Tower {
         if (special == Special.LONGSHOT) {
             r *= Special.LONGSHOT_RANGE;
         }
+        if (pad == neontd.level.Zone.Kind.PAD_RANGE) {
+            r *= 1 + neontd.level.Zone.PAD_RANGE_BONUS;
+        }
         range = r;
         double dmg = type.damage * UpgradeTrack.DAMAGE.multAt(level[UpgradeTrack.DAMAGE.ordinal()]) * perkDamage;
+        if (pad == neontd.level.Zone.Kind.PAD_DAMAGE) {
+            dmg *= 1 + neontd.level.Zone.PAD_DAMAGE_BONUS;
+        }
         damage = dmg >= MAX_DAMAGE ? MAX_DAMAGE : Math.max(1, neontd.math.Mathx.roundToInt(dmg));
         double speed = UpgradeTrack.SPEED.multAt(level[UpgradeTrack.SPEED.ordinal()]);
         if (special == Special.OVERCLOCK) {
             speed *= Special.OVERCLOCK_SPEED;
+        }
+        if (pad == neontd.level.Zone.Kind.PAD_SPEED) {
+            speed *= 1 + neontd.level.Zone.PAD_SPEED_BONUS;
         }
         interval = type.interval / speed;
         slow = Math.max(0.25, TowerType.FROST_SLOW - TowerType.FROST_SLOW_PER_LEVEL * level[UpgradeTrack.DAMAGE.ordinal()]);

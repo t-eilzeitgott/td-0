@@ -56,17 +56,12 @@ public final class Calibrate {
                             lives(l, l.hpMul)));
             return;
         }
-        List<LevelDef> todo = new ArrayList<>();
-        for (LevelDef l : Levels.builtins()) {
-            if (l.number > 1) {
-                todo.add(l);
-            }
-        }
+        List<LevelDef> todo = new ArrayList<>(Levels.builtins());
         double[] res = new double[todo.size()];
         IntStream.range(0, todo.size()).parallel().forEach(i -> res[i] = limit(todo.get(i)));
         StringBuilder sb = new StringBuilder();
         for (int i = 0; i < res.length; i++) {
-            if (i % (Levels.PER_CHAPTER - 1) == 0) {
+            if (i % Levels.PER_CHAPTER == 0) {
                 sb.append("\n        ");
             }
             sb.append(String.format(Locale.ROOT, "%.2f, ", res[i]));

@@ -283,7 +283,9 @@ class GameFlowTest {
 
     private static void winAndStartNext(double width, double height, boolean touch) {
         Harness h = new Harness(width, height, touch);
-        GameScene gs = open(h);
+        h.app.goTo(new GameScene(h.app, Levels.find("stadt-1")));
+        h.run(1.5);
+        GameScene gs = (GameScene) h.app.scene();
         World w = gs.testWorld();
         neontd.sim.AutoPlayer bot = new neontd.sim.AutoPlayer(w, true, 40, null);
         double[] sp = gs.anchor("speed");
@@ -297,7 +299,8 @@ class GameFlowTest {
         }
         assertEquals(World.State.WON, w.state);
         h.run(3);
-        assertTrue(h.app.progress.levelUnlocked("serpentine-02"), "Bronze schaltet das nächste Level frei");
+        assertTrue(h.app.progress.stars("stadt-1") >= 1, "ein Sieg bringt mindestens einen Stern");
+        assertTrue(h.app.progress.levelUnlocked("stadt-2"), "ein Stern schaltet das nächste Level frei");
         double[] next = gs.anchor("ov0");
         assertNotNull(next, "NÄCHSTES LEVEL steht oben");
         // dahinter folgen ENDLOS WEITER, NOCHMAL und das Hauptmenü
@@ -313,7 +316,7 @@ class GameFlowTest {
         h.run(1.5);
         assertEquals("GameScene", h.scene());
         GameScene gs2 = (GameScene) h.app.scene();
-        assertEquals("serpentine-02", gs2.testWorld().level.id);
+        assertEquals("stadt-2", gs2.testWorld().level.id);
         assertEquals(0, gs2.testWorld().waveIndex);
     }
 
@@ -328,7 +331,7 @@ class GameFlowTest {
         assertEquals("GameScene", h.scene());
 
         // Mit freigeschaltetem Endlos: Dialog statt Direktstart
-        h.app.progress.won.add("serpentine");
+        h.app.progress.won.add("stadt-1");
         h.app.goTo(new LevelSelectScene(h.app, 1));
         h.run(1.5);
         h.tap(120, 150);

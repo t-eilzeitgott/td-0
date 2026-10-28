@@ -42,7 +42,7 @@ public final class CampaignWaves {
             return WaveFactory.wave(wave, level.hpMul);
         }
         double t = Math.min(1.0, (wave - 1) / 19.0);
-        int chapter = Math.max(1, level.chapter);
+        int chapter = level.enemyTier();
         int round = Math.max(0, (level.number - 1) / 5);
         double[] w = new double[WaveStyle.TYPES.length];
         double sum = 0;

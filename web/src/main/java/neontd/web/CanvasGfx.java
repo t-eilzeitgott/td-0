@@ -8,7 +8,7 @@ import org.teavm.jso.canvas.CanvasRenderingContext2D;
 /** {@link Gfx} auf Basis von Canvas2D (läuft in jedem Browser, auch auf dem iPhone). */
 final class CanvasGfx implements Gfx {
     private static final String FONT_FAMILY =
-            "ui-rounded,'SF Pro Rounded','Avenir Next','Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif";
+            "-apple-system,BlinkMacSystemFont,'SF Pro Text','Segoe UI Variable Text','Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif";
     private static final String HEX = "0123456789abcdef";
 
     private final CanvasRenderingContext2D ctx;
@@ -239,12 +239,12 @@ final class CanvasGfx implements Gfx {
             q = 0;
         }
         if (q >= 1024) {
-            return (bold ? "bold " : "") + size + "px " + FONT_FAMILY;
+            return (bold ? "600 " : "") + size + "px " + FONT_FAMILY;
         }
         int idx = q * 2 + (bold ? 1 : 0);
         String f = fontCache[idx];
         if (f == null) {
-            f = (bold ? "bold " : "") + (q / 2.0) + "px " + FONT_FAMILY;
+            f = (bold ? "600 " : "") + (q / 2.0) + "px " + FONT_FAMILY;
             fontCache[idx] = f;
         }
         return f;

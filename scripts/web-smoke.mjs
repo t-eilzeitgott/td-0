@@ -185,7 +185,7 @@ console.log('2. iPhone quer: kompaktes Layout, Spielen, Speichern, Fortsetzen �
   check(Number(prof.xp) > 0 && Number(prof.waves) >= 1, 'XP verbucht: ' + prof.xp);
   check((await store(page, 'neontd.profile'))?.includes('"xp"'), 'Profil im Speicher');
   await page.waitForTimeout(4000);
-  const run = await store(page, 'neontd.run.serpentine');
+  const run = await store(page, 'neontd.run.stadt-1');
   check(run && run.includes('"towers"') && !run.includes('"over"'), 'Lauf wurde automatisch gespeichert');
 
   // Leiste einklappen → Karte wächst; Zustand bleibt gemerkt
@@ -212,7 +212,7 @@ console.log('2. iPhone quer: kompaktes Layout, Spielen, Speichern, Fortsetzen �
   await page.waitForTimeout(1200);
   check((await state(page)).scene === 'LevelSelectScene', 'Startdialog erscheint (Lauf gespeichert)');
   await page.screenshot({ path: path.join(out, '2c-startdialog.png') });
-  await t.tap(W / 2, H / 2 - 44 * u + 26 * u);        // erste Schaltfläche: FORTSETZEN
+  await t.tap(...(await anchor(page, 'modal0')));       // erste Schaltfläche: Fortsetzen
   await page.waitForTimeout(1800);
   s = await state(page);
   check(s.towers === '3' && s.overlay === 'PAUSE', 'Lauf fortgesetzt: 3 Türme, startet in der Pause (Welle ' + s.wave + ')');

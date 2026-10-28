@@ -2,59 +2,38 @@ package neontd.level;
 
 import java.util.ArrayList;
 import java.util.List;
-import neontd.sim.EnemyType;
+import neontd.level.Zone.Kind;
 import neontd.sim.WaveDef;
-import neontd.sim.WaveFactory;
 
 /**
- * Die eingebauten Level: 10 Kapitel mit je 15 Leveln (150 insgesamt). Jedes Kapitel hat ein Thema (Pfadform) und
- * wird von Level zu Level verwinkelter und schwerer; das erste Level jedes Kapitels ist von Hand gebaut, die übrigen
- * 14 entstehen deterministisch aus Formparametern. Jedes Level hat 20 handgebaute Wellen (Bronze) und läuft danach
- * im Endlosmodus weiter (Silber ab Welle 50, Gold ab 100, Platin ab 250 – siehe {@code progress.Medals}).
+ * Die eingebauten Level: 8 Welten mit je 6 von Hand gebauten Strecken (48 insgesamt). Jede Strecke ist anders
+ * gebaut – Schleifen, Kreuzungen, Zusammenflüsse, Festungen, Spiralen – und hat Hindernisse und Bonus-Pads, die
+ * die Platzierung zur Entscheidung machen. Jedes Level hat 20 Wellen im Stil seiner Welt (3 Sterne) und läuft
+ * danach im Endlosmodus weiter (Medaillen ab Welle 50/100/250).
  */
 public final class Levels {
-    public static final String SERPENTINE = "serpentine";
-    public static final int CHAPTERS = 10;
-    public static final int PER_CHAPTER = 15;
+    public static final int CHAPTERS = Worlds.COUNT;
+    public static final int PER_CHAPTER = Worlds.LEVELS;
     /** Pseudo-Kapitel für die Übersicht der eigenen Level. */
-    public static final int CUSTOM = 11;
-    /** So viele Level eines Kapitels brauchen Bronze, damit das nächste Kapitel aufgeht (die übrigen sind Zugabe). */
-    public static final int OPEN_NEXT_AT = 10;
-
+    public static final int CUSTOM = CHAPTERS + 1;
+    /** Kennung des allerersten Levels. */
+    public static final String FIRST = "stadt-1";
     private static final int CAMPAIGN_WAVES = 20;
-    private static final String[] CHAPTER_NAMES = {"Serpentine", "Zickzack", "Spirale", "Zwillinge", "Kreuzung",
-        "Labyrinth", "Drei Wege", "Zangen", "Festung", "Chaos"};
-    private static final String[] CHAPTER_IDS = {SERPENTINE, "zickzack", "spirale", "zwillinge", "kreuzung",
-        "labyrinth", "dreiwege", "zangen", "festung", "chaos"};
-
-    /** Je Kapitel drei Stile: Signatur, zweiter und dritter (die Stile eines Kapitels bauen auf den neuen Gegnern auf). */
-    private static final WaveStyle[][] CHAPTER_STYLES = {
-        {WaveStyle.KLASSIK, WaveStyle.ANSTURM, WaveStyle.SCHWARM},
-        {WaveStyle.SCHWARM, WaveStyle.KLASSIK, WaveStyle.ANSTURM},
-        {WaveStyle.SCHWERGEWICHT, WaveStyle.SPLITTER, WaveStyle.SCHWARM},
-        {WaveStyle.BOLLWERK, WaveStyle.SCHWARM, WaveStyle.SPLITTER},
-        {WaveStyle.PANZER, WaveStyle.BOLLWERK, WaveStyle.SCHWERGEWICHT},
-        {WaveStyle.LAZARETT, WaveStyle.PANZER, WaveStyle.BOLLWERK},
-        {WaveStyle.PHANTOME, WaveStyle.LAZARETT, WaveStyle.ANSTURM},
-        {WaveStyle.ANSTURM, WaveStyle.PHANTOME, WaveStyle.SCHWARM},
-        {WaveStyle.BOLLWERK, WaveStyle.LAZARETT, WaveStyle.PANZER},
-        {WaveStyle.CHAOS, WaveStyle.PHANTOME, WaveStyle.SCHWERGEWICHT},
-    };
-    /** Start-Leben je Kapitel: Es wird knapper. */
-    private static final int[] CHAPTER_LIVES = {20, 20, 18, 18, 16, 16, 14, 14, 12, 12};
+    private static final double W = LevelDef.DEFAULT_WIDTH;
+    private static final double H = LevelDef.DEFAULT_HEIGHT;
 
     private static List<LevelDef> cache;
 
     private Levels() {
     }
 
-    /** Alle 150 eingebauten Level in Spielreihenfolge (Kapitel für Kapitel). Die Liste wird einmal erzeugt und geteilt. */
+    /** Alle 48 eingebauten Level in Spielreihenfolge (Welt für Welt). Die Liste wird einmal erzeugt und geteilt. */
     public static synchronized List<LevelDef> builtins() {
         if (cache == null) {
             List<LevelDef> list = new ArrayList<>();
-            for (int c = 1; c <= CHAPTERS; c++) {
+            for (int w = 1; w <= CHAPTERS; w++) {
                 for (int n = 1; n <= PER_CHAPTER; n++) {
-                    list.add(generate(c, n));
+                    list.add(build(w, n));
                 }
             }
             cache = java.util.Collections.unmodifiableList(list);
@@ -63,10 +42,10 @@ public final class Levels {
     }
 
     public static String chapterName(int chapter) {
-        return chapter == CUSTOM ? "Eigene Level" : CHAPTER_NAMES[chapter - 1];
+        return chapter == CUSTOM ? "Eigene Level" : Worlds.NAMES[chapter - 1];
     }
 
-    /** Die 15 Level eines Kapitels. */
+    /** Die sechs Level einer Welt. */
     public static List<LevelDef> chapter(int chapter) {
         return builtins().subList((chapter - 1) * PER_CHAPTER, chapter * PER_CHAPTER);
     }
@@ -74,6 +53,26 @@ public final class Levels {
     public static LevelDef find(String id) {
         int i = indexOf(id);
         return i < 0 ? null : builtins().get(i);
+    }
+
+    /**
+     * Die klassische Serpentine aus der ersten Fassung – nicht Teil der Kampagne, aber als feste Referenz für Tests,
+     * Werkzeuge und die Demo erhalten (viele Bauplätze, ein einziger ruhiger Pfad).
+     */
+    public static LevelDef serpentine() {
+        LevelDef l = new LevelDef("serpentine", "Serpentine");
+        l.builtin = true;
+        l.startMoney = 500;
+        l.startLives = 20;
+        l.waveCount = CAMPAIGN_WAVES;
+        l.difficulty = 1;
+        l.hpMul = 1.0;
+        l.style = WaveStyle.KLASSIK;
+        l.paths.add(new double[] {
+            30, 120, 250, 120, 430, 170, 620, 120, 840, 100, 1010, 140, 1120, 250, 1050, 370, 860, 410, 650, 375,
+            450, 320, 270, 360, 170, 480, 250, 590, 450, 625, 680, 575, 900, 560, 1070, 610, 1250, 590
+        });
+        return l;
     }
 
     /** Position (0-basiert) eines eingebauten Levels in der Reihenfolge oder -1. */
@@ -88,20 +87,18 @@ public final class Levels {
     }
 
     /**
-     * Welches Level muss Bronze haben, damit dieses spielbar ist? Innerhalb eines Kapitel das vorherige, beim ersten
-     * Level eines Kapitels das {@link #OPEN_NEXT_AT}. des vorigen Kapitels; {@code null} für das allererste Level.
+     * Welches Level muss einen Stern haben, damit dieses spielbar ist? Innerhalb einer Welt das vorherige; beim
+     * ersten Level einer Welt entscheidet die Sternen-Hürde der Welt ({@link Worlds#REQUIRED_STARS}), daher
+     * {@code null}.
      */
     public static LevelDef prerequisite(LevelDef l) {
-        if (!l.builtin || l.chapter < 1) {
+        if (!l.builtin || l.chapter < 1 || l.number <= 1) {
             return null;
         }
-        if (l.number > 1) {
-            return chapter(l.chapter).get(l.number - 2);
-        }
-        return l.chapter > 1 ? chapter(l.chapter - 1).get(OPEN_NEXT_AT - 1) : null;
+        return chapter(l.chapter).get(l.number - 2);
     }
 
-    /** Die 20 Wellen eines eingebauten Levels im Stil des Levels; Welle 20 bringt zwei Titanen. */
+    /** Die 20 Wellen eines eingebauten Levels im Stil des Levels. */
     public static List<WaveDef> campaignWaves(LevelDef level) {
         if (level.style == null) {
             level.style = WaveStyle.KLASSIK;
@@ -109,24 +106,13 @@ public final class Levels {
         return CampaignWaves.build(level, CAMPAIGN_WAVES);
     }
 
-    // ---------------------------------------------------------------------------------------- Hilfen
-
-    private static LevelDef base(String id, String name, int difficulty, double hpMul, int money, int lives) {
-        LevelDef l = new LevelDef(id, name);
-        l.builtin = true;
-        l.startMoney = money;
-        l.startLives = lives;
-        l.waveCount = CAMPAIGN_WAVES;
-        l.difficulty = difficulty;
-        l.hpMul = hpMul;
-        return l;
-    }
+    // ------------------------------------------------------------------------------------ Geometrie-Hilfen
 
     /**
      * Polylinie mit abgerundeten Ecken: Jede innere Ecke wird durch zwei Punkte im Abstand {@code r} (oder der halben
      * Segmentlänge) ersetzt, damit der Spline weiche Kurven statt Überschwinger an scharfen Knicken bildet.
      */
-    private static double[] rounded(double r, double... c) {
+    static double[] rounded(double r, double... c) {
         int n = c.length / 2;
         List<Double> out = new ArrayList<>();
         out.add(c[0]);
@@ -149,45 +135,37 @@ public final class Levels {
         }
         out.add(c[n * 2 - 2]);
         out.add(c[n * 2 - 1]);
-        double[] a = new double[out.size()];
+        // Lange Geraden bekommen Zwischenpunkte, damit der Spline sie nicht durchbiegt.
+        List<Double> dense = new ArrayList<>();
+        for (int i = 0; i < out.size(); i += 2) {
+            if (i > 0) {
+                double px = out.get(i - 2);
+                double py = out.get(i - 1);
+                double x = out.get(i);
+                double y = out.get(i + 1);
+                double d = Math.hypot(x - px, y - py);
+                int parts = (int) Math.floor(d / 220);
+                for (int k = 1; k <= parts; k++) {
+                    dense.add(px + (x - px) * k / (parts + 1));
+                    dense.add(py + (y - py) * k / (parts + 1));
+                }
+            }
+            dense.add(out.get(i));
+            dense.add(out.get(i + 1));
+        }
+        return toArray(dense);
+    }
+
+    private static double[] toArray(List<Double> l) {
+        double[] a = new double[l.size()];
         for (int i = 0; i < a.length; i++) {
-            a[i] = out.get(i);
+            a[i] = l.get(i);
         }
         return a;
     }
 
-    // ---------------------------------------------------------------------------------------- Level
-
-    /** 1 – Serpentine: ein ruhig geschwungener Pfad mit vielen Plätzen zwischen den Bahnen. */
-    public static LevelDef serpentine() {
-        LevelDef l = base(SERPENTINE, "Serpentine", 1, 1.0, 500, 20);
-        l.paths.add(new double[] {
-            30, 120, 250, 120, 430, 170, 620, 120, 840, 100, 1010, 140, 1120, 250, 1050, 370, 860, 410, 650, 375,
-            450, 320, 270, 360, 170, 480, 250, 590, 450, 625, 680, 575, 900, 560, 1070, 610, 1250, 590
-        });
-        return l;
-    }
-
-    /** 2 – Zickzack: vier lange Bahnen im Wechsel, enge Wenden an den Rändern. */
-    public static LevelDef zickzack() {
-        LevelDef l = base("zickzack", "Zickzack", 2, 1.1, 500, 20);
-        l.paths.add(rounded(70, 30, 90, 1190, 90, 1190, 250, 90, 250, 90, 410, 1190, 410, 1190, 570, 90, 570, 30, 570));
-        return l;
-    }
-
-    /** 3 – Spirale: eine lange Spirale nach innen; Türme stehen zwischen den Windungen und in der Mitte. */
-    public static LevelDef spirale() {
-        LevelDef l = base("spirale", "Spirale", 3, 1.2, 520, 20);
-        l.paths.add(rounded(70, 40, 60, 1240, 60, 1240, 660, 40, 660, 40, 170, 1130, 170, 1130, 550, 150, 550, 150, 280,
-                1020, 280, 1020, 440, 260, 440, 260, 360, 640, 360));
-        return l;
-    }
-
-    /**
-     * Eine Wellenlinie von links nach rechts (für Kreuzungen): {@code periods} volle Schwingungen mit Amplitude
-     * {@code amp} um die Höhe {@code cy}, {@code phase} im Bogenmaß.
-     */
-    private static double[] wave(double x0, double x1, double cy, double amp, double periods, double phase, int samples) {
+    /** Wellenlinie von (x0, cy) nach (x1, cy): {@code periods} Schwingungen mit Amplitude {@code amp}. */
+    static double[] wave(double x0, double x1, double cy, double amp, double periods, double phase, int samples) {
         double[] a = new double[(samples + 1) * 2];
         for (int i = 0; i <= samples; i++) {
             double t = (double) i / samples;
@@ -197,160 +175,144 @@ public final class Levels {
         return a;
     }
 
-    /** 4 – Zwillinge: zwei lange Schlangenbahnen oben und unten, Gegner wechseln sich ab. */
-    public static LevelDef zwillinge() {
-        LevelDef l = base("zwillinge", "Zwillinge", 4, 0.85, 900, 20);
-        l.paths.add(rounded(55, 30, 60, 1190, 60, 1190, 170, 90, 170, 90, 280, 1190, 280, 1250, 280));
-        l.paths.add(rounded(55, 30, 660, 1190, 660, 1190, 550, 90, 550, 90, 440, 1190, 440, 1250, 440));
-        return l;
-    }
-
-    /** 5 – Kreuzung: zwei Wellenbahnen kreuzen sich viermal. */
-    public static LevelDef kreuzung() {
-        LevelDef l = base("kreuzung", "Kreuzung", 5, 0.85, 900, 20);
-        l.paths.add(wave(30, 1250, 360, 290, 2.5, 0, 25));
-        l.paths.add(wave(30, 1250, 360, 290, 2.5, Math.PI, 25));
-        return l;
-    }
-
-    /** 6 – Labyrinth: acht senkrechte Gänge nebeneinander, sehr lang. */
-    public static LevelDef labyrinth() {
-        LevelDef l = base("labyrinth", "Labyrinth", 6, 1.15, 700, 20);
-        l.paths.add(rounded(60, 30, 60, 110, 60, 110, 660, 260, 660, 260, 60, 410, 60, 410, 660, 560, 660, 560, 60,
-                710, 60, 710, 660, 860, 660, 860, 60, 1010, 60, 1010, 660, 1160, 660, 1160, 60, 1250, 60));
-        return l;
-    }
-
-    /** 7 – Drei Wege: drei Bahnen mit je zwei Gängen übereinander. */
-    public static LevelDef dreiWege() {
-        LevelDef l = base("dreiwege", "Drei Wege", 7, 0.8, 1300, 20);
-        l.paths.add(rounded(55, 30, 70, 1190, 70, 1190, 180, 30, 180));
-        l.paths.add(rounded(55, 30, 300, 1190, 300, 1190, 410, 30, 410));
-        l.paths.add(rounded(55, 30, 530, 1190, 530, 1190, 640, 30, 640));
-        return l;
-    }
-
-    /** 8 – Zangen: zwei lange Bahnen von gegenüber, die sich in der Mitte treffen. */
-    public static LevelDef zangen() {
-        LevelDef l = base("zangen", "Zangen", 8, 1.05, 1100, 20);
-        l.paths.add(rounded(60, 30, 60, 1190, 60, 1190, 170, 90, 170, 90, 280, 900, 280, 900, 360, 640, 360));
-        l.paths.add(rounded(60, 1250, 660, 90, 660, 90, 550, 1190, 550, 1190, 440, 380, 440, 380, 360, 640, 360));
-        return l;
-    }
-
-    /** 9 – Festung: drei Bahnen aus drei Richtungen auf eine Basis am rechten Rand zu. */
-    public static LevelDef festung() {
-        LevelDef l = base("festung", "Festung", 9, 0.85, 1500, 20);
-        l.paths.add(rounded(55, 30, 60, 1050, 60, 1050, 170, 150, 170, 150, 250, 1150, 250, 1150, 360));
-        double[] mid = wave(30, 1150, 360, 40, 6, 0, 24);
-        l.paths.add(mid);
-        l.paths.add(rounded(55, 30, 660, 1050, 660, 1050, 550, 150, 550, 150, 470, 1150, 470, 1150, 360));
-        return l;
-    }
-
-    /** 10 – Chaos: drei lange, sich kreuzende Bahnen mit engen Kurven. */
-    public static LevelDef chaos() {
-        LevelDef l = base("chaos", "Chaos", 10, 1.1, 1500, 20);
-        l.paths.add(rounded(60, 30, 60, 1000, 60, 1000, 300, 250, 300, 250, 500, 1100, 500, 1100, 640, 700, 640));
-        l.paths.add(rounded(60, 30, 640, 600, 640, 600, 420, 1250, 420, 1250, 200, 400, 200, 400, 130, 30, 130));
-        l.paths.add(rounded(60, 1250, 60, 1130, 60, 1130, 360, 820, 360, 820, 600, 120, 600, 120, 420));
-        return l;
-    }
-
-    // ------------------------------------------------------------------------------------- Kapitel-Generator
-
-    private static LevelDef handmade(int chapter) {
-        switch (chapter) {
-            case 1: return serpentine();
-            case 2: return zickzack();
-            case 3: return spirale();
-            case 4: return zwillinge();
-            case 5: return kreuzung();
-            case 6: return labyrinth();
-            case 7: return dreiWege();
-            case 8: return zangen();
-            case 9: return festung();
-            default: return chaos();
+    /** Senkrechte Wellenlinie von (cx, y0) nach (cx, y1). */
+    static double[] vwave(double cx, double y0, double y1, double amp, double periods, double phase, int samples) {
+        double[] a = new double[(samples + 1) * 2];
+        for (int i = 0; i <= samples; i++) {
+            double t = (double) i / samples;
+            a[i * 2] = cx + amp * Math.sin(Math.PI * 2 * periods * t + phase);
+            a[i * 2 + 1] = y0 + (y1 - y0) * t;
         }
+        return a;
     }
 
-    /** Level {@code n} (1–15) von Kapitel {@code c} (1–10). */
-    private static LevelDef generate(int c, int n) {
-        LevelDef h = handmade(c);
-        LevelDef l = h;
-        if (n > 1) {
-            double t = (n - 1) / (double) (PER_CHAPTER - 1);
-            double hp = LIMIT[(c - 1) * (PER_CHAPTER - 1) + n - 2] * (0.40 + 0.015 * (c - 1) + 0.40 * t);
-            l = base(CHAPTER_IDS[c - 1] + "-" + (n < 10 ? "0" : "") + n, "", c, hp, h.startMoney, h.startLives);
-            int variant = n - 1;
-            switch (c) {
-                case 1: genSerpentine(l, t, variant); break;
-                case 2: genZickzack(l, t, variant); break;
-                case 3: genSpirale(l, t, variant); break;
-                case 4: genZwillinge(l, n); break;
-                case 5: genKreuzung(l, t, variant, n); break;
-                case 6: genLabyrinth(l, t, variant); break;
-                case 7: genDreiWege(l, t, variant); break;
-                case 8: genZangen(l, n); break;
-                case 9: genFestung(l, t, variant); break;
-                default: genChaos(l, variant); break;
+    /** Kreisbogen um (cx, cy) von Winkel a0 nach a1 (Grad, im Uhrzeigersinn bei steigendem Winkel), ohne Endpunkt-Duplikate. */
+    static double[] arc(double cx, double cy, double r, double a0, double a1) {
+        int n = Math.max(4, (int) Math.ceil(Math.abs(a1 - a0) / 15.0));
+        double[] a = new double[(n + 1) * 2];
+        for (int i = 0; i <= n; i++) {
+            double ang = Math.toRadians(a0 + (a1 - a0) * i / n);
+            a[i * 2] = cx + Math.cos(ang) * r;
+            a[i * 2 + 1] = cy + Math.sin(ang) * r;
+        }
+        return a;
+    }
+
+    /** Hängt mehrere Punktfolgen aneinander. */
+    static double[] join(double[]... parts) {
+        int n = 0;
+        for (double[] p : parts) {
+            n += p.length;
+        }
+        double[] a = new double[n];
+        int k = 0;
+        for (double[] p : parts) {
+            System.arraycopy(p, 0, a, k, p.length);
+            k += p.length;
+        }
+        return a;
+    }
+
+    static double[] pts(double... c) {
+        return c;
+    }
+
+    /** Spiegelt x (und/oder y) am Spielfeld. */
+    static double[] flip(double[] p, boolean fx, boolean fy) {
+        double[] r = p.clone();
+        for (int i = 0; i < r.length; i += 2) {
+            if (fx) {
+                r[i] = W - r[i];
             }
-            snap(l);
+            if (fy) {
+                r[i + 1] = H - r[i + 1];
+            }
         }
-        l.chapter = c;
-        l.number = n;
-        l.difficulty = c;
-        assignStyle(l);
-        l.name = CHAPTER_NAMES[c - 1] + " " + n;
-        return l;
+        return r;
+    }
+
+    /** Kehrt die Richtung einer Punktfolge um. */
+    static double[] reverse(double[] p) {
+        int n = p.length / 2;
+        double[] r = new double[p.length];
+        for (int i = 0; i < n; i++) {
+            r[i * 2] = p[(n - 1 - i) * 2];
+            r[i * 2 + 1] = p[(n - 1 - i) * 2 + 1];
+        }
+        return r;
     }
 
     /**
-     * Pro generiertem Level (Kapitel für Kapitel, Nummer 2–15) der größte Lebenspunkte-Faktor, den der Test-Bot
-     * gerade noch mit mindestens der Hälfte seiner Start-Leben besteht (erzeugt mit {@code Calibrate}). Der echte Faktor liegt darunter
-     * und steigt im Kapitel um 40 Prozentpunkte (Kapitel 1: 40–80 %, Kapitel 10: 54–94 %).
+     * Eine Schleife: Der Pfad kommt von links unten an, läuft dreiviertel um (cx, cy) herum (unten → links → oben →
+     * rechts) und verlässt den Kreis an der rechten Seite nach oben. Türme im Inneren sehen fast den ganzen Ring.
      */
-    private static final double[] LIMIT = {
-        1.33, 1.11, 1.40, 0.84, 1.20, 1.54, 1.27, 1.43, 1.07, 1.69, 1.38, 1.36, 1.46, 1.15,
-        1.62, 1.43, 1.37, 1.20, 2.06, 1.89, 1.85, 1.71, 1.23, 2.03, 1.88, 2.11, 2.12, 1.46,
-        1.17, 1.22, 1.24, 1.41, 1.10, 1.22, 1.30, 1.55, 1.36, 1.36, 1.49, 1.32, 1.63, 1.49,
-        0.94, 0.86, 0.69, 0.76, 1.02, 1.31, 1.06, 0.91, 0.93, 1.09, 1.18, 1.17, 1.04, 1.12,
-        0.94, 0.69, 0.60, 0.86, 0.81, 0.86, 1.03, 0.77, 1.06, 0.99, 1.24, 1.19, 0.91, 1.08,
-        0.79, 0.66, 0.92, 0.84, 0.92, 0.87, 0.94, 1.08, 1.05, 1.29, 1.21, 0.96, 1.37, 1.08,
-        0.91, 1.01, 0.86, 0.91, 1.28, 1.13, 1.17, 0.73, 0.69, 1.15, 0.87, 0.89, 0.47, 0.66,
-        1.41, 1.33, 1.25, 1.25, 1.38, 1.39, 1.39, 1.31, 1.00, 1.25, 1.16, 1.12, 1.17, 0.99,
-        0.99, 0.83, 0.91, 0.98, 1.04, 1.03, 1.07, 0.89, 0.99, 0.87, 0.94, 0.91, 0.68, 0.83,
-        1.36, 1.56, 0.83, 1.17, 1.36, 1.30, 1.72, 0.98, 0.57, 1.12, 1.49, 1.70, 1.02, 0.79
-    };
+    static double[] loop(double cx, double cy, double r) {
+        return arc(cx, cy, r, 90, -270);
+    }
 
-    /**
-     * Fünferrhythmus je Kapitel: 1 Signatur-Stil, 2 Wechsel aus Signatur und zweitem Stil, 3 zweiter Stil, 4 dritter Stil
-     * (knapperes Startgeld), 5 Titanen-Level (alle fünf Wellen ein Boss, mehr Startgeld). Drei Runden pro Kapitel.
-     */
-    private static void assignStyle(LevelDef l) {
-        WaveStyle[] st = CHAPTER_STYLES[l.chapter - 1];
-        int phase = (l.number - 1) % 5;
-        switch (phase) {
-            case 0:
+    /** Spirale um (cx, cy): der Radius läuft von r0 nach r1, während der Winkel von a0 nach a1 (Grad) läuft. */
+    static double[] spiral(double cx, double cy, double r0, double r1, double a0, double a1) {
+        int n = Math.max(6, (int) Math.ceil(Math.abs(a1 - a0) / 12.0));
+        double[] a = new double[(n + 1) * 2];
+        for (int i = 0; i <= n; i++) {
+            double t = (double) i / n;
+            double ang = Math.toRadians(a0 + (a1 - a0) * t);
+            double r = r0 + (r1 - r0) * t;
+            a[i * 2] = cx + Math.cos(ang) * r;
+            a[i * 2 + 1] = cy + Math.sin(ang) * r;
+        }
+        return a;
+    }
+
+    // --------------------------------------------------------------------------------------- Bauen
+
+    private static LevelDef base(int world, int n, String name, String blurb, int money) {
+        LevelDef l = new LevelDef(Worlds.IDS[world - 1] + "-" + n, name);
+        l.builtin = true;
+        l.chapter = world;
+        l.number = n;
+        l.difficulty = world;
+        l.waveCount = CAMPAIGN_WAVES;
+        l.startMoney = money;
+        l.startLives = Worlds.LIVES[world - 1];
+        l.blurb = blurb;
+        WaveStyle[] st = Worlds.STYLES[world - 1];
+        switch (n) {
+            case 1:
                 l.style = st[0];
                 break;
-            case 1:
+            case 2:
                 l.style = st[0];
                 l.altStyle = st[1];
                 break;
-            case 2:
+            case 3:
                 l.style = st[1];
                 break;
-            case 3:
+            case 4:
                 l.style = st[2];
-                l.startMoney = (int) Math.round(l.startMoney * 0.85 / 10) * 10;
+                break;
+            case 5:
+                l.style = st[1];
+                l.altStyle = st[2];
                 break;
             default:
                 l.style = WaveStyle.TITANEN;
-                l.startMoney = (int) Math.round(l.startMoney * 1.3 / 10) * 10;
+                l.bossLevel = true;
                 break;
         }
-        l.startLives = CHAPTER_LIVES[l.chapter - 1];
+        return l;
+    }
+
+    private static void pad(LevelDef l, Kind k, double x, double y) {
+        l.zones.add(Zone.pad(k, x, y));
+    }
+
+    private static void rock(LevelDef l, double x, double y, double r) {
+        l.zones.add(Zone.rock(x, y, r));
+    }
+
+    private static void block(LevelDef l, double x, double y, double w, double h) {
+        l.zones.add(Zone.block(x, y, w, h));
     }
 
     /** Rundet alle Punkte auf ganze Zahlen – damit sind die Pfade auf jeder Plattform identisch. */
@@ -362,240 +324,557 @@ public final class Levels {
         }
     }
 
-    /** Spiegelt x (und/oder y) am Spielfeld. */
-    private static double[] flip(double[] p, boolean fx, boolean fy) {
-        double[] r = p.clone();
-        for (int i = 0; i < r.length; i += 2) {
-            if (fx) {
-                r[i] = 1280 - r[i];
+    /**
+     * Lebenspunkte-Faktor je Level: der mit dem Test-Bot gemessene Grenzwert ({@link #LIMIT}, höchster Faktor, den
+     * er noch mit halben Leben besteht) mal einem Anteil, der innerhalb der Welt und über die Welten wächst.
+     */
+    private static double hpMul(int world, int n) {
+        double limit = LIMIT[(world - 1) * PER_CHAPTER + n - 1];
+        double share = 0.42 + 0.02 * (world - 1) + 0.07 * (n - 1);
+        return Math.round(limit * share * 100) / 100.0;
+    }
+
+    /**
+     * Grenzwerte des Test-Bots je Level (erzeugt mit {@code Calibrate}; Reihenfolge: Welt für Welt, Level 1–6).
+     * Ein Wert von 1,0 bedeutet: Mit der Standardkurve kommt der Bot gerade so mit halben Leben durch.
+     */
+    static final double[] LIMIT = {
+        0.45, 1.05, 1.64, 0.68, 1.43, 1.17,
+        0.96, 0.89, 1.99, 1.06, 0.55, 1.31,
+        0.45, 0.51, 0.84, 0.96, 0.48, 1.38,
+        0.78, 0.91, 0.63, 1.01, 1.26, 0.66,
+        1.34, 1.56, 0.61, 0.60, 0.58, 0.52,
+        0.94, 0.44, 0.76, 0.63, 0.78, 0.70,
+        0.93, 1.28, 1.13, 0.83, 0.65, 1.26,
+        0.45, 0.93, 1.31, 0.82, 0.81, 0.78,
+    };
+
+    private static LevelDef build(int world, int n) {
+        LevelDef l;
+        switch (world) {
+            case 1: l = stadt(n); break;
+            case 2: l = tiefsee(n); break;
+            case 3: l = magma(n); break;
+            case 4: l = garten(n); break;
+            case 5: l = hafen(n); break;
+            case 6: l = kathedrale(n); break;
+            case 7: l = strom(n); break;
+            default: l = horizont(n); break;
+        }
+        l.hpMul = hpMul(world, n);
+        snap(l);
+        return l;
+    }
+
+    // ------------------------------------------------------------------------------------ Welt 1: Neonstadt
+
+    private static LevelDef stadt(int n) {
+        switch (n) {
+            case 1: {
+                LevelDef l = base(1, 1, "Erste Runde", "Ein ruhiger Bogen durch die Stadt – lerne die Türme kennen", 500);
+                l.paths.add(pts(30, 150, 240, 120, 470, 190, 640, 350, 820, 500, 1010, 580, 1250, 560));
+                pad(l, Kind.PAD_DAMAGE, 480, 320);
+                return l;
             }
-            if (fy) {
-                r[i + 1] = 720 - r[i + 1];
+            case 2: {
+                LevelDef l = base(1, 2, "Haarnadel", "Die Bahn kommt zurück – Türme in der Mitte treffen zweimal", 520);
+                l.paths.add(rounded(120, 30, 190, 1090, 190, 1090, 530, 30, 530));
+                block(l, 560, 360, 170, 90);
+                pad(l, Kind.PAD_RANGE, 1180, 360);
+                return l;
             }
-        }
-        return r;
-    }
-
-    /** Rechter Wendepunkt der Gänge (1070–1190), je Variante anders. */
-    private static double turnRight(int v) {
-        return 1190 - ((v * 53) % 7) * 20;
-    }
-
-    /** Linker Wendepunkt der Gänge (90–210), je Variante anders. */
-    private static double turnLeft(int v) {
-        return 90 + ((v * 29) % 7) * 20;
-    }
-
-    private static void genSerpentine(LevelDef l, double t, int v) {
-        double periods = 2.5 + 2.5 * t;
-        double amp = 290 - 80 * t;
-        int samples = (int) Math.ceil(periods * 16);
-        l.paths.add(wave(30, 1250, 360, amp, periods, (v % 2) * Math.PI, samples));
-    }
-
-    private static void genZickzack(LevelDef l, double t, int v) {
-        int n = 4 + (int) Math.round(t * 2);
-        double sp = 580.0 / (n - 1);
-        double[] c = new double[(n * 2 + 2) * 2];
-        int k = 0;
-        c[k++] = 30;
-        c[k++] = 70;
-        for (int i = 0; i < n; i++) {
-            double y = 70 + i * sp;
-            c[k++] = i % 2 == 0 ? turnRight(v + i) : turnLeft(v + i);
-            c[k++] = y;
-            if (i < n - 1) {
-                c[k++] = i % 2 == 0 ? turnRight(v + i) : turnLeft(v + i);
-                c[k++] = y + sp;
+            case 3: {
+                LevelDef l = base(1, 3, "Schleife", "Eine Schleife mitten im Feld – wer innen steht, sieht alles", 540);
+                l.paths.add(join(pts(30, 560, 380, 640), loop(640, 360, 230), pts(900, 640, 1250, 560)));
+                rock(l, 640, 360, 40);
+                pad(l, Kind.PAD_SPEED, 560, 300);
+                return l;
             }
-        }
-        c[k++] = (n - 1) % 2 == 0 ? 1250 : 30;
-        c[k++] = 70 + (n - 1) * sp;
-        double[] pts = rounded(Math.min(70, sp / 2 - 2), java.util.Arrays.copyOf(c, k));
-        l.paths.add(flip(pts, v % 2 == 1, v % 4 >= 2));
-    }
-
-    private static void genSpirale(LevelDef l, double t, int v) {
-        double s = 150 - 45 * t;
-        double left = 40;
-        double top = 60;
-        double right = 1240;
-        double bottom = 660;
-        List<Double> q = new ArrayList<>();
-        double[] first = {left, top, right, top, right, bottom, left, bottom};
-        for (double d : first) {
-            q.add(d);
-        }
-        int k = 1;
-        double lastX = left;
-        while (bottom - k * s - (top + k * s) >= 90) {
-            double y1 = top + k * s;
-            double y2 = bottom - k * s;
-            double[] ring = {left + (k - 1) * s, y1, right - k * s, y1, right - k * s, y2, left + k * s, y2};
-            for (double d : ring) {
-                q.add(d);
+            case 4: {
+                LevelDef l = base(1, 4, "Zwei Tore", "Zwei Zufahrten münden in eine Straße", 560);
+                l.paths.add(rounded(100, 30, 120, 430, 120, 640, 330, 900, 360, 1250, 360));
+                l.paths.add(rounded(100, 30, 600, 430, 600, 640, 390, 900, 360, 1250, 360));
+                pad(l, Kind.PAD_SPEED, 760, 200);
+                rock(l, 1040, 520, 50);
+                return l;
             }
-            lastX = left + k * s;
-            k++;
-        }
-        q.add(lastX);
-        q.add(360.0);
-        q.add(640.0);
-        q.add(360.0);
-        double[] c = new double[q.size()];
-        for (int i = 0; i < c.length; i++) {
-            c[i] = q.get(i);
-        }
-        double[] pts = rounded(Math.min(70, s / 2), c);
-        l.paths.add(flip(pts, v % 2 == 1, v % 4 >= 2));
-    }
-
-    /** Eine Schlangenbahn aus {@code n} Gängen ab Höhe {@code y0}, Abstand {@code sp}, Richtung nach unten oder oben. */
-    private static double[] lanes(int n, double y0, double sp, double dir, int v) {
-        double[] c = new double[(n * 2 + 1) * 2];
-        int k = 0;
-        c[k++] = 30;
-        c[k++] = y0;
-        for (int i = 0; i < n; i++) {
-            double y = y0 + dir * i * sp;
-            c[k++] = i % 2 == 0 ? turnRight(v + i) : turnLeft(v + i);
-            c[k++] = y;
-            if (i < n - 1) {
-                c[k++] = i % 2 == 0 ? turnRight(v + i) : turnLeft(v + i);
-                c[k++] = y + dir * sp;
+            case 5: {
+                LevelDef l = base(1, 5, "Kreuzung", "Die Bahn kreuzt sich selbst – der Knoten ist der beste Platz", 580);
+                l.paths.add(rounded(90, 30, 190, 420, 190, 760, 540, 1030, 540, 1170, 360, 1030, 190, 760, 190,
+                        420, 540, 30, 540));
+                rock(l, 200, 360, 45);
+                pad(l, Kind.PAD_DAMAGE, 1000, 360);
+                return l;
+            }
+            default: {
+                LevelDef l = base(1, 6, "Boulevard", "Der lange Weg zum Rathaus – alle fünf Wellen ein Titan", 700);
+                l.paths.add(rounded(100, 30, 100, 1010, 100, 1010, 300, 270, 300, 270, 500, 1010, 500, 1010, 650,
+                        30, 650));
+                block(l, 640, 200, 240, 70);
+                block(l, 640, 400, 240, 70);
+                pad(l, Kind.PAD_DAMAGE, 1150, 200);
+                pad(l, Kind.PAD_SPEED, 1150, 400);
+                pad(l, Kind.PAD_RANGE, 130, 400);
+                return l;
             }
         }
-        c[k++] = (n - 1) % 2 == 0 ? 1250 : 30;
-        c[k++] = y0 + dir * (n - 1) * sp;
-        return rounded(Math.min(55, sp / 2 - 2), java.util.Arrays.copyOf(c, k));
     }
 
-    private static void genZwillinge(LevelDef l, int number) {
-        int n = number <= 5 ? 2 : 3;
-        double sp = Math.min(110, 240.0 / (n - 1));
-        l.paths.add(lanes(n, 60, sp, 1, number));
-        l.paths.add(lanes(n, 660, sp, -1, number + 3));
-    }
+    // ------------------------------------------------------------------------------------ Welt 2: Tiefsee
 
-    private static void genKreuzung(LevelDef l, double t, int v, int number) {
-        double periods = 1.5 + 2.5 * t;
-        double amp = 290 - 80 * t;
-        int samples = (int) Math.ceil(periods * 12);
-        l.paths.add(wave(30, 1250, 360, amp, periods, 0, samples));
-        l.paths.add(wave(30, 1250, 360, amp, periods, Math.PI, samples));
-        if (number >= 11) {
-            l.paths.add(wave(30, 1250, 360, amp * 0.55, periods * 0.5 + 0.5, Math.PI / 2, samples));
-        }
-    }
-
-    private static void genLabyrinth(LevelDef l, double t, int v) {
-        int n = 5 + (int) Math.round(t * 4);
-        double sp = 1050.0 / (n - 1);
-        double[] c = new double[(n * 2 + 2) * 2];
-        int k = 0;
-        c[k++] = 30;
-        c[k++] = 60;
-        for (int i = 0; i < n; i++) {
-            double x = 110 + i * sp;
-            double top = 60 + ((v * 31 + i * 17) % 5) * 12;
-            double bot = 660 - ((v * 17 + i * 29) % 5) * 12;
-            c[k++] = x;
-            c[k++] = i % 2 == 0 ? top : bot;
-            c[k++] = x;
-            c[k++] = i % 2 == 0 ? bot : top;
-        }
-        // Der letzte Gang endet unten oder oben; der Ausgang liegt auf derselben Höhe wie sein Ende.
-        double lastY = c[k - 1];
-        c[k++] = 1250;
-        c[k++] = lastY;
-        double[] pts = rounded(Math.min(60, sp / 2 - 2), java.util.Arrays.copyOf(c, k));
-        l.paths.add(flip(pts, false, v % 2 == 1));
-    }
-
-    private static void genDreiWege(LevelDef l, double t, int v) {
-        double gap = 110 - 40 * t;
-        double tx = 1190 - 90 * t;
-        double shift = ((v * 37) % 61) - 30; // ±30, je Level anders
-        double[] mid = {70, 300, 530};
-        for (int i = 0; i < 3; i++) {
-            double y = mid[i] + shift * (i == 1 ? -1 : 1) * 0.6;
-            l.paths.add(rounded(Math.min(55, gap / 2), 30, y, tx, y, tx, y + gap, 30, y + gap));
-        }
-    }
-
-    private static void genZangen(LevelDef l, int number) {
-        int n = number >= 11 ? 4 : 3;
-        double sp = 240.0 / (n - 1);
-        double[] c = new double[(n * 2 + 2) * 2 + 4];
-        int k = 0;
-        c[k++] = 30;
-        c[k++] = 60;
-        for (int i = 0; i < n; i++) {
-            double y = 60 + i * sp;
-            boolean right = i % 2 == 0;
-            double x = i == n - 1 ? (right ? 900 - (number % 4) * 30 : 380 + (number % 4) * 30)
-                    : (right ? turnRight(number + i) : turnLeft(number + i));
-            c[k++] = x;
-            c[k++] = y;
-            if (i < n - 1) {
-                c[k++] = x;
-                c[k++] = y + sp;
-            } else {
-                c[k++] = x;
-                c[k++] = 360;
+    private static LevelDef tiefsee(int n) {
+        switch (n) {
+            case 1: {
+                LevelDef l = base(2, 1, "Strömung", "Zwei lange Wellen – Riffe versperren die besten Plätze", 540);
+                l.paths.add(wave(30, 1250, 360, 230, 2, 0, 40));
+                rock(l, 335, 230, 55);
+                rock(l, 945, 490, 55);
+                rock(l, 640, 140, 45);
+                pad(l, Kind.PAD_RANGE, 640, 580);
+                return l;
+            }
+            case 2: {
+                LevelDef l = base(2, 2, "Doppelhelix", "Zwei Bahnen verflechten sich dreimal", 820);
+                l.paths.add(wave(30, 1250, 360, 210, 1.5, 0, 36));
+                l.paths.add(wave(30, 1250, 360, 210, 1.5, Math.PI, 36));
+                pad(l, Kind.PAD_DAMAGE, 540, 360);
+                pad(l, Kind.PAD_DAMAGE, 740, 360);
+                return l;
+            }
+            case 3: {
+                LevelDef l = base(2, 3, "Grotte", "Der Pfad windet sich zur Höhle in der Mitte", 560);
+                l.paths.add(rounded(90, 30, 60, 1220, 60, 1220, 660, 60, 660, 60, 220, 1060, 220, 1060, 500,
+                        220, 500, 220, 360, 640, 360));
+                pad(l, Kind.PAD_RANGE, 640, 580);
+                rock(l, 400, 140, 40);
+                return l;
+            }
+            case 4: {
+                LevelDef l = base(2, 4, "Riff", "Enge Kanäle zwischen Felsen", 500);
+                l.paths.add(rounded(85, 30, 360, 300, 360, 300, 120, 620, 120, 620, 600, 940, 600, 940, 200,
+                        1250, 200));
+                rock(l, 460, 300, 60);
+                rock(l, 780, 420, 60);
+                rock(l, 1100, 420, 50);
+                rock(l, 150, 200, 45);
+                rock(l, 150, 520, 45);
+                return l;
+            }
+            case 5: {
+                LevelDef l = base(2, 5, "Gezeiten", "Von beiden Seiten zur Mitte – zwei Haken, ein Ziel", 900);
+                l.paths.add(rounded(90, 30, 160, 360, 160, 360, 560, 520, 560, 520, 380, 640, 380));
+                l.paths.add(rounded(90, 1250, 560, 920, 560, 920, 160, 760, 160, 760, 340, 640, 380));
+                pad(l, Kind.PAD_SPEED, 640, 200);
+                pad(l, Kind.PAD_SPEED, 640, 580);
+                return l;
+            }
+            default: {
+                LevelDef l = base(2, 6, "Abgrund", "Eine Spirale in die Tiefe – Titanen alle fünf Wellen", 700);
+                l.paths.add(rounded(90, 40, 60, 1240, 60, 1240, 660, 40, 660, 40, 210, 1090, 210, 1090, 510,
+                        190, 510, 190, 360, 640, 360));
+                pad(l, Kind.PAD_DAMAGE, 640, 435);
+                rock(l, 400, 135, 36);
+                rock(l, 880, 585, 36);
+                return l;
             }
         }
-        c[k++] = 640;
-        c[k++] = 360;
-        double[] a = rounded(Math.min(60, sp / 2 - 2), java.util.Arrays.copyOf(c, k));
-        l.paths.add(a);
-        l.paths.add(flip(a, false, true));
     }
 
-    private static void genFestung(LevelDef l, double t, int v) {
-        double s1 = 100 - 8 * t;
-        double[] top = rounded(55, 30, 60, 1050, 60, 1050, 60 + s1, 150, 60 + s1, 150, 250, 1150, 250, 1150, 360);
-        l.paths.add(top);
-        double amp = 40 + 25 * t;
-        l.paths.add(wave(30, 1150, 360, amp, 5 + 3 * t, (v % 2) * Math.PI, 28));
-        l.paths.add(flip(top, false, true));
+    // ----------------------------------------------------------------------------------- Welt 3: Magmakern
+
+    private static LevelDef magma(int n) {
+        switch (n) {
+            case 1: {
+                LevelDef l = base(3, 1, "Lavastrom", "Ein breiter Strom in Schlangenlinien", 560);
+                l.paths.add(rounded(120, 30, 200, 400, 200, 400, 520, 760, 520, 760, 200, 1120, 200, 1120, 520,
+                        1250, 520));
+                pad(l, Kind.PAD_DAMAGE, 580, 360);
+                pad(l, Kind.PAD_SPEED, 940, 360);
+                block(l, 220, 420, 120, 120);
+                return l;
+            }
+            case 2: {
+                LevelDef l = base(3, 2, "Zange", "Aus zwei Ecken auf die Schmiede zu", 900);
+                l.paths.add(rounded(90, 30, 80, 900, 80, 900, 300, 640, 360));
+                l.paths.add(rounded(90, 1250, 640, 380, 640, 380, 420, 640, 360));
+                rock(l, 300, 300, 55);
+                rock(l, 980, 420, 55);
+                return l;
+            }
+            case 3: {
+                LevelDef l = base(3, 3, "Kessel", "Ein Ring um den Kessel – innen stehen die besten Türme", 600);
+                l.paths.add(join(pts(30, 670, 340, 670), spiral(640, 360, 300, 110, 90, -360), pts(640, 360)));
+                rock(l, 480, 250, 40);
+                rock(l, 800, 470, 40);
+                pad(l, Kind.PAD_DAMAGE, 560, 360);
+                return l;
+            }
+            case 4: {
+                LevelDef l = base(3, 4, "Schmiede", "Enge Gänge – zwischen den Bahnen passt genau ein Turm", 520);
+                l.paths.add(rounded(60, 30, 60, 1100, 60, 1100, 210, 180, 210, 180, 360, 1100, 360, 1100, 510,
+                        180, 510, 180, 660, 1250, 660));
+                pad(l, Kind.PAD_RANGE, 640, 135);
+                pad(l, Kind.PAD_RANGE, 640, 585);
+                block(l, 1190, 285, 100, 70);
+                return l;
+            }
+            case 5: {
+                LevelDef l = base(3, 5, "Dreizack", "Drei Ströme fließen zusammen", 1200);
+                l.paths.add(rounded(100, 30, 100, 800, 100, 1000, 340, 1250, 360));
+                l.paths.add(rounded(100, 30, 360, 1000, 360, 1250, 360));
+                l.paths.add(rounded(100, 30, 620, 800, 620, 1000, 380, 1250, 360));
+                rock(l, 420, 230, 50);
+                rock(l, 420, 490, 50);
+                pad(l, Kind.PAD_DAMAGE, 1150, 220);
+                pad(l, Kind.PAD_DAMAGE, 1150, 500);
+                return l;
+            }
+            default: {
+                LevelDef l = base(3, 6, "Vulkan", "Spirale in den Krater – Titanen alle fünf Wellen", 760);
+                l.paths.add(rounded(90, 1250, 60, 40, 60, 40, 660, 1240, 660, 1240, 210, 190, 210, 190, 510,
+                        1090, 510, 1090, 360, 640, 360));
+                rock(l, 640, 470, 60);
+                pad(l, Kind.PAD_DAMAGE, 115, 135);
+                pad(l, Kind.PAD_DAMAGE, 1165, 585);
+                return l;
+            }
+        }
     }
 
-    /** Kleiner deterministischer Zufallsgenerator für die Chaos-Level (nur ganzzahlig, überall identisch). */
-    private static final class Lcg {
-        private int state;
+    // --------------------------------------------------------------------------------- Welt 4: Gewächshaus
 
-        Lcg(int seed) {
-            state = seed * 7919 + 12345;
-        }
-
-        double range(double lo, double hi) {
-            state = state * 1664525 + 1013904223;
-            return lo + ((state >>> 8) & 0xFFFF) / 65535.0 * (hi - lo);
+    private static LevelDef garten(int n) {
+        switch (n) {
+            case 1: {
+                LevelDef l = base(4, 1, "Ranke", "Eine geschwungene Ranke quer durchs Haus", 560);
+                l.paths.add(pts(30, 560, 200, 420, 380, 200, 560, 140, 700, 260, 760, 460, 900, 600, 1080, 520,
+                        1180, 320, 1250, 200));
+                pad(l, Kind.PAD_RANGE, 480, 420);
+                rock(l, 560, 580, 45);
+                rock(l, 1000, 260, 45);
+                return l;
+            }
+            case 2: {
+                LevelDef l = base(4, 2, "Beete", "Sechs Beete, lange Gänge", 600);
+                l.paths.add(rounded(70, 30, 60, 110, 60, 110, 660, 330, 660, 330, 60, 550, 60, 550, 660, 770,
+                        660, 770, 60, 990, 60, 990, 660, 1210, 660, 1210, 60, 1250, 60));
+                block(l, 440, 360, 70, 220);
+                block(l, 880, 360, 70, 220);
+                pad(l, Kind.PAD_SPEED, 220, 360);
+                pad(l, Kind.PAD_SPEED, 1100, 360);
+                return l;
+            }
+            case 3: {
+                LevelDef l = base(4, 3, "Kreuzgang", "Zwei Wege kreuzen sich viermal", 880);
+                l.paths.add(wave(30, 1250, 360, 240, 2, 0, 40));
+                l.paths.add(wave(30, 1250, 360, 240, 2, Math.PI, 40));
+                pad(l, Kind.PAD_SPEED, 335, 200);
+                pad(l, Kind.PAD_SPEED, 945, 520);
+                rock(l, 640, 200, 45);
+                rock(l, 640, 520, 45);
+                return l;
+            }
+            case 4: {
+                LevelDef l = base(4, 4, "Spalier", "Lange Geraden – aber die Beete stehen im Weg", 560);
+                l.paths.add(rounded(80, 30, 140, 1150, 140, 1150, 360, 130, 360, 130, 580, 1250, 580));
+                block(l, 400, 250, 180, 60);
+                block(l, 880, 250, 180, 60);
+                block(l, 400, 470, 180, 60);
+                block(l, 880, 470, 180, 60);
+                pad(l, Kind.PAD_DAMAGE, 640, 250);
+                pad(l, Kind.PAD_SPEED, 640, 470);
+                return l;
+            }
+            case 5: {
+                LevelDef l = base(4, 5, "Knospe", "Zwei Schleifen hintereinander", 620);
+                l.paths.add(join(pts(30, 560, 170, 590), loop(360, 360, 170), pts(640, 600), loop(920, 360, 170),
+                        pts(1110, 590, 1250, 560)));
+                rock(l, 360, 360, 36);
+                rock(l, 920, 360, 36);
+                pad(l, Kind.PAD_SPEED, 640, 120);
+                return l;
+            }
+            default: {
+                LevelDef l = base(4, 6, "Dschungel", "Drei Wege durchs Dickicht – Titanen alle fünf Wellen", 1300);
+                l.paths.add(rounded(90, 30, 80, 600, 80, 600, 300, 1250, 300));
+                l.paths.add(wave(30, 1250, 360, 50, 3, 0, 40));
+                l.paths.add(rounded(90, 30, 640, 600, 640, 600, 420, 1250, 420));
+                rock(l, 300, 200, 40);
+                rock(l, 300, 520, 40);
+                rock(l, 980, 200, 40);
+                rock(l, 980, 520, 40);
+                pad(l, Kind.PAD_RANGE, 760, 200);
+                pad(l, Kind.PAD_RANGE, 760, 520);
+                return l;
+            }
         }
     }
 
-    private static void genChaos(LevelDef l, int v) {
-        Lcg r = new Lcg(v);
-        int legs = 5 + (v >= 8 ? 1 : 0);
-        double[] a = new double[legs * 4 + 4];
-        double[] b = new double[legs * 4 + 4];
-        for (int i = 0; i <= legs; i++) {
-            double x = 30 + i * 1220.0 / legs;
-            boolean high = i % 2 == 0;
-            double ya = high ? r.range(60, 260) : r.range(440, 660);
-            double yb = high ? r.range(440, 660) : r.range(60, 260);
-            double xj = i == 0 || i == legs ? 0 : r.range(-70, 70);
-            a[i * 2] = x + xj;
-            a[i * 2 + 1] = ya;
-            b[i * 2] = 1250 - (x + xj);
-            b[i * 2 + 1] = yb;
+    // ------------------------------------------------------------------------------------ Welt 5: Raumhafen
+
+    private static LevelDef hafen(int n) {
+        switch (n) {
+            case 1: {
+                LevelDef l = base(5, 1, "Docking", "Lange Pisten, enge Wenden", 580);
+                l.paths.add(rounded(70, 30, 100, 1100, 100, 1100, 260, 180, 260, 180, 420, 1100, 420, 1100, 580,
+                        30, 580));
+                pad(l, Kind.PAD_SPEED, 1200, 180);
+                pad(l, Kind.PAD_DAMAGE, 80, 340);
+                pad(l, Kind.PAD_SPEED, 1200, 500);
+                block(l, 640, 180, 200, 50);
+                block(l, 640, 500, 200, 50);
+                return l;
+            }
+            case 2: {
+                LevelDef l = base(5, 2, "Orbit", "Zwei Umlaufbahnen bis zum Kern", 640);
+                l.paths.add(join(pts(30, 660, 340, 680), loop(640, 360, 290), pts(880, 640, 760, 580),
+                        arc(640, 360, 150, 90, 360), pts(640, 360)));
+                rock(l, 920, 130, 40);
+                rock(l, 360, 590, 40);
+                pad(l, Kind.PAD_RANGE, 1130, 600);
+                pad(l, Kind.PAD_DAMAGE, 200, 300);
+                return l;
+            }
+            case 3: {
+                LevelDef l = base(5, 3, "Schleuse", "Zwei Schleusen, ein Kern", 920);
+                l.paths.add(rounded(90, 30, 120, 300, 120, 300, 560, 520, 560, 520, 360, 640, 360));
+                l.paths.add(rounded(90, 1250, 120, 980, 120, 980, 560, 760, 560, 760, 360, 640, 360));
+                pad(l, Kind.PAD_RANGE, 640, 180);
+                rock(l, 640, 540, 45);
+                return l;
+            }
+            case 4: {
+                LevelDef l = base(5, 4, "Asteroiden", "Brocken überall – finde die Lücken", 540);
+                l.paths.add(rounded(110, 30, 560, 360, 560, 360, 160, 700, 160, 700, 560, 1040, 560, 1040, 160,
+                        1250, 160));
+                rock(l, 190, 300, 52);
+                rock(l, 530, 360, 56);
+                rock(l, 870, 360, 56);
+                rock(l, 1150, 400, 46);
+                rock(l, 530, 640, 40);
+                rock(l, 870, 80, 40);
+                return l;
+            }
+            case 5: {
+                LevelDef l = base(5, 5, "Warp", "Zwei Bahnen von oben und rechts – ein Knoten unten", 900);
+                l.paths.add(rounded(90, 240, 30, 240, 250, 1040, 250, 1040, 690));
+                l.paths.add(rounded(90, 1250, 470, 460, 470, 460, 690));
+                pad(l, Kind.PAD_DAMAGE, 1150, 360);
+                pad(l, Kind.PAD_SPEED, 640, 360);
+                rock(l, 120, 400, 50);
+                return l;
+            }
+            default: {
+                LevelDef l = base(5, 6, "Mutterschiff", "Drei Landebahnen zum Kern – Titanen alle fünf Wellen", 1300);
+                l.paths.add(rounded(90, 640, 30, 640, 120, 200, 120, 200, 260, 520, 300, 640, 360));
+                l.paths.add(rounded(90, 30, 600, 300, 600, 300, 420, 640, 360));
+                l.paths.add(rounded(90, 1250, 600, 980, 600, 980, 420, 640, 360));
+                rock(l, 640, 520, 40);
+                pad(l, Kind.PAD_DAMAGE, 1000, 200);
+                pad(l, Kind.PAD_RANGE, 100, 400);
+                return l;
+            }
         }
-        l.paths.add(rounded(60, java.util.Arrays.copyOf(a, (legs + 1) * 2)));
-        l.paths.add(rounded(60, java.util.Arrays.copyOf(b, (legs + 1) * 2)));
-        if (v >= 4) {
-            double x0 = r.range(500, 800);
-            l.paths.add(rounded(60, x0, 30, x0 + r.range(-300, 300), 240, 1250 - x0, 420, 640, 690));
+    }
+
+    // ---------------------------------------------------------------------------------- Welt 6: Kathedrale
+
+    private static LevelDef kathedrale(int n) {
+        switch (n) {
+            case 1: {
+                LevelDef l = base(6, 1, "Schiff", "Zwei Seitenschiffe, ein Altar", 880);
+                l.paths.add(rounded(90, 30, 200, 1100, 200, 1100, 320, 640, 360));
+                l.paths.add(rounded(90, 30, 520, 1100, 520, 1100, 400, 640, 360));
+                rock(l, 300, 360, 40);
+                rock(l, 980, 360, 40);
+                pad(l, Kind.PAD_RANGE, 640, 100);
+                pad(l, Kind.PAD_RANGE, 640, 620);
+                return l;
+            }
+            case 2: {
+                LevelDef l = base(6, 2, "Rosette", "Drei Blütenblätter laufen in der Mitte zusammen", 1200);
+                l.paths.add(pts(640, 30, 610, 130, 430, 150, 360, 300, 480, 390, 640, 360));
+                l.paths.add(pts(30, 420, 230, 440, 370, 560, 540, 470, 640, 360));
+                l.paths.add(pts(1250, 420, 1050, 440, 910, 560, 740, 470, 640, 360));
+                rock(l, 640, 560, 40);
+                pad(l, Kind.PAD_DAMAGE, 900, 120);
+                pad(l, Kind.PAD_DAMAGE, 200, 240);
+                return l;
+            }
+            case 3: {
+                LevelDef l = base(6, 3, "Klosterhof", "Einmal um den Hof – die Säulen stehen im Weg", 640);
+                l.paths.add(rounded(100, 30, 160, 1100, 160, 1100, 560, 180, 560, 180, 300, 30, 300));
+                rock(l, 450, 360, 40);
+                rock(l, 830, 360, 40);
+                rock(l, 640, 260, 40);
+                rock(l, 640, 460, 40);
+                pad(l, Kind.PAD_RANGE, 640, 360);
+                return l;
+            }
+            case 4: {
+                LevelDef l = base(6, 4, "Chor", "Von oben und unten in den Chorraum", 900);
+                l.paths.add(rounded(90, 640, 30, 640, 140, 200, 140, 200, 360, 640, 360));
+                l.paths.add(rounded(90, 640, 690, 640, 580, 1080, 580, 1080, 360, 640, 360));
+                block(l, 420, 250, 120, 60);
+                block(l, 860, 470, 120, 60);
+                pad(l, Kind.PAD_DAMAGE, 1000, 200);
+                pad(l, Kind.PAD_DAMAGE, 280, 520);
+                return l;
+            }
+            case 5: {
+                LevelDef l = base(6, 5, "Glockenturm", "Senkrechte Gänge, steile Wenden", 620);
+                l.paths.add(rounded(70, 160, 30, 160, 600, 380, 600, 380, 120, 600, 120, 600, 600, 820, 600,
+                        820, 120, 1040, 120, 1040, 600, 1250, 600));
+                block(l, 270, 300, 60, 180);
+                block(l, 710, 420, 60, 180);
+                pad(l, Kind.PAD_SPEED, 490, 360);
+                pad(l, Kind.PAD_SPEED, 930, 360);
+                pad(l, Kind.PAD_DAMAGE, 1150, 300);
+                return l;
+            }
+            default: {
+                LevelDef l = base(6, 6, "Prozession", "Drei Züge kreuzen sich – Titanen alle fünf Wellen", 1400);
+                l.paths.add(wave(30, 1250, 220, 110, 2, 0, 36));
+                l.paths.add(wave(30, 1250, 360, 110, 2, Math.PI, 36));
+                l.paths.add(wave(30, 1250, 500, 110, 2, 0, 36));
+                pad(l, Kind.PAD_DAMAGE, 335, 60);
+                pad(l, Kind.PAD_DAMAGE, 945, 660);
+                rock(l, 640, 60, 40);
+                rock(l, 640, 660, 40);
+                return l;
+            }
+        }
+    }
+
+    // ---------------------------------------------------------------------------------- Welt 7: Datenstrom
+
+    private static LevelDef strom(int n) {
+        switch (n) {
+            case 1: {
+                LevelDef l = base(7, 1, "Bus", "Zwei Leitungen teilen sich die Mitte", 900);
+                l.paths.add(rounded(90, 30, 200, 400, 200, 500, 360, 800, 360, 900, 200, 1250, 200));
+                l.paths.add(rounded(90, 30, 520, 400, 520, 500, 360, 800, 360, 900, 520, 1250, 520));
+                pad(l, Kind.PAD_SPEED, 650, 200);
+                pad(l, Kind.PAD_SPEED, 650, 520);
+                rock(l, 200, 360, 40);
+                rock(l, 1080, 360, 40);
+                return l;
+            }
+            case 2: {
+                LevelDef l = base(7, 2, "Doppelspirale", "Zwei Spiralen ineinander", 1000);
+                l.paths.add(rounded(90, 30, 60, 1100, 60, 1100, 500, 380, 500, 380, 260, 640, 360));
+                l.paths.add(rounded(90, 1250, 660, 180, 660, 180, 220, 900, 220, 900, 460, 640, 360));
+                pad(l, Kind.PAD_RANGE, 1180, 360);
+                pad(l, Kind.PAD_RANGE, 100, 400);
+                return l;
+            }
+            case 3: {
+                LevelDef l = base(7, 3, "Netz", "Eine Leitung quer, eine längs – sechs Kreuzungen", 1000);
+                l.paths.add(wave(30, 1250, 360, 170, 1.5, 0, 40));
+                l.paths.add(vwave(640, 30, 690, 230, 1.5, 0, 48));
+                rock(l, 640, 360, 40);
+                pad(l, Kind.PAD_DAMAGE, 200, 600);
+                pad(l, Kind.PAD_DAMAGE, 1080, 120);
+                return l;
+            }
+            case 4: {
+                LevelDef l = base(7, 4, "Puffer", "Drei Spuren, Pads und Blockaden im Wechsel", 620);
+                l.paths.add(rounded(90, 30, 120, 1150, 120, 1150, 340, 130, 340, 130, 580, 1250, 580));
+                block(l, 300, 230, 160, 56);
+                block(l, 980, 230, 160, 56);
+                block(l, 640, 460, 160, 56);
+                pad(l, Kind.PAD_DAMAGE, 640, 230);
+                pad(l, Kind.PAD_SPEED, 300, 460);
+                pad(l, Kind.PAD_SPEED, 980, 460);
+                return l;
+            }
+            case 5: {
+                LevelDef l = base(7, 5, "Rekursion", "Viele kleine Buchten – in jeder zweiten liegt ein Fels", 620);
+                l.paths.add(wave(30, 1250, 360, 130, 3.5, 0, 70));
+                rock(l, 204, 150, 44);
+                rock(l, 553, 150, 44);
+                rock(l, 901, 150, 44);
+                rock(l, 378, 570, 44);
+                rock(l, 727, 570, 44);
+                rock(l, 1076, 570, 44);
+                pad(l, Kind.PAD_RANGE, 640, 620);
+                return l;
+            }
+            default: {
+                LevelDef l = base(7, 6, "Kernschmelze", "Drei Leitungen, ein Chaos – Titanen alle fünf Wellen", 1500);
+                l.paths.add(rounded(80, 30, 80, 900, 80, 900, 300, 250, 300, 250, 520, 1000, 520, 1000, 660,
+                        1250, 660));
+                l.paths.add(rounded(80, 1250, 80, 1100, 80, 1100, 440, 500, 440, 500, 200, 120, 200, 120, 640,
+                        30, 640));
+                l.paths.add(rounded(80, 640, 30, 640, 180, 780, 360, 640, 600, 640, 690));
+                pad(l, Kind.PAD_DAMAGE, 1180, 300);
+                return l;
+            }
+        }
+    }
+
+    // ----------------------------------------------------------------------------- Welt 8: Ereignishorizont
+
+    private static LevelDef horizont(int n) {
+        switch (n) {
+            case 1: {
+                LevelDef l = base(8, 1, "Singularität", "Drei Zufahrten aus drei Richtungen", 1300);
+                l.paths.add(rounded(90, 30, 360, 200, 360, 200, 160, 460, 160, 460, 300, 640, 360));
+                l.paths.add(rounded(90, 640, 30, 640, 110, 960, 110, 960, 330, 640, 360));
+                l.paths.add(pts(1250, 560, 1040, 560, 1000, 420, 820, 480, 640, 360));
+                rock(l, 640, 560, 44);
+                rock(l, 320, 560, 44);
+                pad(l, Kind.PAD_DAMAGE, 1120, 160);
+                return l;
+            }
+            case 2: {
+                LevelDef l = base(8, 2, "Sanduhr", "Zwei Bahnen, ein Knoten in der Mitte", 1100);
+                l.paths.add(rounded(90, 200, 30, 200, 200, 500, 200, 640, 360, 780, 520, 1080, 520, 1080, 690));
+                l.paths.add(rounded(90, 1080, 30, 1080, 200, 780, 200, 640, 360, 500, 520, 200, 520, 200, 690));
+                rock(l, 640, 110, 50);
+                rock(l, 640, 610, 50);
+                pad(l, Kind.PAD_DAMAGE, 360, 360);
+                pad(l, Kind.PAD_DAMAGE, 920, 360);
+                return l;
+            }
+            case 3: {
+                LevelDef l = base(8, 3, "Zeitschleife", "Drei Schleifen auf einer Linie", 700);
+                l.paths.add(join(pts(30, 560, 160, 570), loop(300, 360, 130), pts(470, 560), loop(640, 360, 130),
+                        pts(810, 560), loop(980, 360, 130), pts(1130, 570, 1250, 560)));
+                rock(l, 300, 360, 30);
+                rock(l, 640, 360, 30);
+                rock(l, 980, 360, 30);
+                pad(l, Kind.PAD_DAMAGE, 470, 650);
+                pad(l, Kind.PAD_DAMAGE, 810, 110);
+                return l;
+            }
+            case 4: {
+                LevelDef l = base(8, 4, "Gravitation", "Ein schwarzes Loch in der Mitte – alles kreist darum", 760);
+                l.paths.add(join(pts(30, 150, 330, 150), arc(640, 340, 250, 220, 520), pts(330, 560, 520, 665, 1250, 665)));
+                rock(l, 640, 340, 140);
+                pad(l, Kind.PAD_SPEED, 1150, 160);
+                pad(l, Kind.PAD_SPEED, 130, 600);
+                return l;
+            }
+            case 5: {
+                LevelDef l = base(8, 5, "Sturm", "Drei Wellen gegeneinander", 1500);
+                l.paths.add(wave(30, 1250, 360, 230, 1.5, 0, 40));
+                l.paths.add(wave(30, 1250, 360, 230, 1.5, Math.PI, 40));
+                l.paths.add(wave(1250, 30, 360, 90, 3, Math.PI / 2, 40));
+                pad(l, Kind.PAD_DAMAGE, 640, 360);
+                pad(l, Kind.PAD_SPEED, 640, 660);
+                return l;
+            }
+            default: {
+                LevelDef l = base(8, 6, "Horizont", "Der letzte Weg – Titanen alle fünf Wellen", 1700);
+                l.paths.add(rounded(90, 30, 100, 1000, 100, 1000, 300, 280, 300, 280, 500, 640, 500, 640, 360));
+                l.paths.add(rounded(90, 1250, 200, 1140, 200, 1140, 620, 820, 620, 820, 360, 640, 360));
+                l.paths.add(rounded(90, 30, 650, 420, 650, 420, 420, 640, 360));
+                rock(l, 640, 200, 44);
+                pad(l, Kind.PAD_DAMAGE, 1000, 440);
+                pad(l, Kind.PAD_RANGE, 160, 200);
+                return l;
+            }
         }
     }
 }
