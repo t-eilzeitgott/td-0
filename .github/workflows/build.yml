@@ -3,7 +3,7 @@ on:
   push:
   workflow_dispatch:
 permissions:
-  contents: read
+  contents: write
 jobs:
   deps:
     runs-on: ubuntu-latest
@@ -15,9 +15,18 @@ jobs:
           java-version: '21'
       - name: Alle Abhängigkeiten auflösen (voller Build inkl. Tests)
         run: ./gradlew --no-daemon build -x :desktop:distZip
-      - name: Gradle-Cache packen
-        run: tar czf gradle-modules.tgz -C ~/.gradle caches/modules-2
-      - uses: actions/upload-artifact@v4
-        with:
-          name: gradle-modules
-          path: gradle-modules.tgz
+      - name: Gradle-Cache packen und in Branch deps-blob schieben
+        run: |
+          mkdir -p blob
+          tar czf - -C ~/.gradle caches/modules-2 | split -b 45m - blob/gradle-modules.tgz.part-
+          ls -la blob
+          cd blob
+          git init -q
+          git checkout -q -b deps-blob
+          git config user.name "deps-bot"
+          git config user.email "deps@example.com"
+          git add .
+          git commit -qm "gradle modules cache"
+          git push -f "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" deps-blob
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
