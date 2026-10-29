@@ -4,12 +4,13 @@ import neontd.gfx.Gfx;
 import neontd.math.Mathx;
 
 /**
- * Szenenwechsel als weiche Überblendung: Die alte Szene blendet aus, die neue blendet ein und hebt sich dabei ein
- * paar Pixel an – ruhig und schnell, wie ein Seitenwechsel in einer guten App. Der Wechsel selbst passiert sofort
- * (die neue Szene ist ab dem ersten Bild aktiv), nur die Darstellung mischt noch kurz.
+ * Szenenwechsel als echte Überblendung: Die alte Szene bleibt voll stehen, die neue (sie zeichnet immer zuerst
+ * ihren schwarzen Hintergrund) legt sich mit wachsender Deckkraft darüber. Was in beiden Szenen gleich aussieht –
+ * die Wortmarke, Kopfzeilen, Zurück-Knopf –, bleibt dadurch völlig ruhig: keine Bewegung, kein Flackern, kein
+ * kurzes Abdunkeln. Der Wechsel selbst passiert sofort (die neue Szene ist ab dem ersten Bild aktiv).
  */
 public final class Transition {
-    private static final double DURATION = 0.28;
+    private static final double DURATION = 0.3;
 
     private double t = -1;
 
@@ -39,19 +40,19 @@ public final class Transition {
         return t < 0 ? 1 : Mathx.clamp01(t);
     }
 
-    /** Deckkraft der alten Szene. */
+    /** Deckkraft der alten Szene: bleibt stehen, bis die neue sie ganz verdeckt. */
     public double oldAlpha() {
-        return t < 0 ? 0 : 1 - Easing.outCubic(Mathx.clamp01(t * 1.6));
+        return t < 0 ? 0 : 1;
     }
 
-    /** Deckkraft der neuen Szene. */
+    /** Deckkraft der neuen Szene (weich ein- und auslaufend). */
     public double newAlpha() {
-        return t < 0 ? 1 : Easing.outCubic(Mathx.clamp01(t));
+        return t < 0 ? 1 : Easing.inOutCubic(Mathx.clamp01(t));
     }
 
-    /** Versatz (Pixel nach oben), mit dem die neue Szene hereinkommt. */
+    /** Kein Versatz mehr: Bewegung beim Seitenwechsel ließe gemeinsame Kopfzeilen springen. */
     public double lift(double u) {
-        return t < 0 ? 0 : (1 - Easing.outCubic(Mathx.clamp01(t))) * 14 * u;
+        return 0;
     }
 
     public void render(Gfx g, double w, double h) {

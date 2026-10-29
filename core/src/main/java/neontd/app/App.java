@@ -144,6 +144,28 @@ public final class App {
         return transition.active();
     }
 
+    /**
+     * Die Szene nach dem Intro: auf dem Handy im Browser zuerst „Installieren“ (die installierte App hat auf dem iPhone
+     * einen eigenen Speicher – Name und Fortschritt aus dem Browser wären dort nicht da), dann die Namenswahl, sonst
+     * die Startseite.
+     */
+    public Scene firstScene() {
+        if (neontd.scene.InstallScene.shouldGate(this)) {
+            return new neontd.scene.InstallScene(this, true);
+        }
+        return afterInstall();
+    }
+
+    /** Die Szene nach dem Installations-Hinweis: Namenswahl beim ersten Start, sonst die Startseite. */
+    public Scene afterInstall() {
+        return board.hasName() ? new MenuScene(this) : new neontd.scene.NameScene(this, true);
+    }
+
+    /** Fortschritt der laufenden Überblendung 0..1 (1 = keine Überblendung). */
+    public double transitionProgress() {
+        return transition.progress();
+    }
+
     // ------------------------------------------------------------------------------------ Zeit, Zeichnen
 
     /** Schaltet die Zeit weiter. {@code nowSeconds} ist eine beliebige monotone Uhr. */
@@ -170,7 +192,8 @@ public final class App {
             }
         }
         transition.update(dt);
-        if (!transition.active()) {
+        if (!transition.active() && fading != null) {
+            fading.onHidden();
             fading = null;
         }
         scene.update(dt);

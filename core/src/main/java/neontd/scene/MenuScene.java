@@ -126,7 +126,7 @@ public final class MenuScene extends PanelScene {
     public void render(Gfx g) {
         super.render(g);
         double[] box = wordmarkBox(app.vp);
-        Wordmark.draw(g, box[0], box[1], box[2], 4, null, time);
+        Wordmark.draw(g, box[0], box[1], box[2], 4, null, app.time); // gemeinsame Uhr: Flackern läuft über Szenenwechsel durch
     }
 
     // ---------------------------------------------------------------------------------------- Inhalt

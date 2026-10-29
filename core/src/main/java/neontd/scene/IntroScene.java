@@ -21,6 +21,10 @@ public final class IntroScene extends Scene {
     private static final double FLY = 0.55;
 
     private double time;
+    /** Aufwärmen: Erst wenn die Bilder gleichmäßig kommen, läuft die Uhr – sonst würde das Zünden ruckeln. */
+    private boolean warm;
+    private int smoothFrames;
+    private double waited;
     private boolean skipping;
     private double skipAt;
     private boolean done;
@@ -32,7 +36,18 @@ public final class IntroScene extends Scene {
 
     @Override
     public void update(double dt) {
-        time += dt;
+        if (!warm) {
+            // Die ersten Bilder nach dem Laden sind oft unregelmäßig (Kompilieren, erstes Zeichnen). Gestartet wird
+            // nach sechs gleichmäßigen Bildern in Folge, spätestens nach 0,9 Sekunden.
+            waited += dt;
+            smoothFrames = dt > 0 && dt < 1.0 / 40 ? smoothFrames + 1 : 0;
+            if (smoothFrames >= 6 || waited > 0.9 || skipping) {
+                warm = true;
+            }
+            return;
+        }
+        // Ein einzelnes langsames Bild bremst die Animation kurz, statt sie springen zu lassen.
+        time += Math.min(dt, 1.0 / 30);
         double t = time;
         if (skipping) {
             t = skipAt + (time - skipAt) * 4;
@@ -51,8 +66,8 @@ public final class IntroScene extends Scene {
         }
         if (t >= HOLD_UNTIL + FLY && !done) {
             done = true;
-            // Beim ersten Start (noch kein Spielername) geht es zur Namenswahl, sonst auf die Startseite.
-            app.goTo(app.board.hasName() ? new MenuScene(app) : new NameScene(app, true));
+            // Erster Start im Handy-Browser: erst installieren, dann den Namen wählen; sonst auf die Startseite.
+            app.goTo(app.firstScene());
         }
     }
 
@@ -86,7 +101,16 @@ public final class IntroScene extends Scene {
             g.radialGlow(vp.w / 2, by, bigW * 0.75, Colors.withAlpha(Theme.CYAN, a * 0.5));
             g.restore();
         }
-        Wordmark.draw(g, x, y, h, glow, lit, time);
+        boolean allLit = true;
+        for (double l : lit) {
+            allLit &= l >= 1;
+        }
+        if (fly >= 1 && allLit) {
+            // Am Ziel exakt so wie im Kopf der nächsten Seite (gleicher Satz, gleiche Uhr) – der Wechsel ist unsichtbar.
+            Wordmark.draw(g, x, y, h, 4, null, app.time);
+        } else {
+            Wordmark.draw(g, x, y, h, glow, lit, time);
+        }
         // Untertitel, erscheint nach dem Zünden und blendet beim Flug aus
         double sub = Mathx.clamp01((t - 1.2) / 0.4) * (1 - e);
         if (sub > 0.01) {

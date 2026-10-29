@@ -8,6 +8,7 @@
 //                    zweites Gerät übernimmt den Stand, Export-/Import-Code, Trennen.
 //   5. Shop:         Shop, Missionen, Errungenschaften, Einstellungen öffnen, Kauf und Speichern, Turm-Seiten im Spiel.
 //   6. Arena:        erster Start mit Namenswahl im echten Eingabefeld, Login-Log, Arena-Lauf mit Punkten und Wertung.
+//   7. Installieren: im Handy-Browser zuerst die Installations-Seite (iOS-Anleitung, Android-Knopf mit Dialog).
 //
 // Die Datenbank (Supabase) wird in allen Abschnitten durch einen Nachbau ersetzt – der Test schreibt nie in die echte.
 //
@@ -98,7 +99,11 @@ async function open(ctx, errors, query = '?debug') {
   page.on('console', (m) => { if (m.type() === 'error' && !/status of 401/.test(m.text())) errors.push(m.text()); });
   await page.goto(base + query);
   await page.waitForFunction(() => !document.getElementById('boot'), null, { timeout: 15000 });
-  if (query) await page.waitForFunction(() => window.__ntd, null, { timeout: 5000 });
+  if (query) {
+    await page.waitForFunction(() => window.__ntd, null, { timeout: 5000 });
+    // Intro abwarten: Ein Seitenwechsel per Test darf nicht mit dem Ende des Intros zusammenfallen
+    await page.waitForFunction(() => !/scene=IntroScene/.test(window.__ntd.call('state')), null, { timeout: 8000 }).catch(() => {});
+  }
   await page.waitForTimeout(800);
   return page;
 }
@@ -470,7 +475,6 @@ console.log('6. Erster Start mit Namen, Login-Log, Arena …');
   const ctx = await newContext({ viewport: { width: W, height: H }, deviceScaleFactor: 2, hasTouch: true, isMobile: true });
   const page = await open(ctx, errors);
   const t = touch(page, await ctx.newCDPSession(page));
-  await page.waitForTimeout(2600);                     // Intro
   check((await state(page)).scene === 'NameScene', 'erster Start fragt nach dem Spielernamen');
   check(await page.locator('#ntd-input').count() === 1, 'echtes Eingabefeld über dem Spielbild');
   await page.screenshot({ path: path.join(out, '6a-name.png') });
@@ -526,6 +530,52 @@ console.log('6. Erster Start mit Namen, Login-Log, Arena …');
     'Lauf mit Woche, Punkten und Zwischenständen gesendet');
   await page.waitForTimeout(2200);
   await page.screenshot({ path: path.join(out, '6d-arena-ergebnis.png') });
+  check(errors.length === 0, 'keine Konsolenfehler' + (errors.length ? ': ' + errors.join(' | ') : ''));
+  await ctx.close();
+}
+
+// ----------------------------------------------------------------------------- 7. Installieren zuerst
+
+console.log('7. Handy-Browser: erst installieren (iOS-Anleitung, Android-Knopf) …');
+{
+  const errors = [];
+  const W = 393, H = 852;
+  // iOS: Anleitung, dann ohne Installation weiter zur Namenswahl
+  let ctx = await newContext({ viewport: { width: W, height: H }, deviceScaleFactor: 2, hasTouch: true, isMobile: true });
+  let page = await open(ctx, errors, '?debug&install=ios');
+  let t = touch(page, await ctx.newCDPSession(page));
+  check((await state(page)).scene === 'InstallScene', 'iPhone im Browser: zuerst die Installations-Seite');
+  await page.screenshot({ path: path.join(out, '7a-install-ios.png') });
+  await t.tap(...(await anchor(page, 'skip')));
+  await page.waitForTimeout(1400);
+  check((await state(page)).scene === 'NameScene', '„Ohne Installation weiter“ führt zur Namenswahl');
+  check((await store(page, 'neontd.installSkip')) === '1', 'die Wahl wird gemerkt');
+  await page.reload();
+  await page.waitForFunction(() => window.__ntd, null, { timeout: 15000 });
+  await page.waitForFunction(() => !/scene=IntroScene/.test(window.__ntd.call('state')), null, { timeout: 8000 }).catch(() => {});
+  await page.waitForTimeout(800);
+  check((await state(page)).scene === 'NameScene', 'nach dem Neuladen keine Installations-Seite mehr');
+  await ctx.close();
+  // Android: eigener Knopf öffnet den Installations-Dialog des Browsers
+  ctx = await newContext({ viewport: { width: W, height: H }, deviceScaleFactor: 2, hasTouch: true, isMobile: true });
+  page = await open(ctx, errors, '?debug&install=android');
+  t = touch(page, await ctx.newCDPSession(page));
+  await page.evaluate(() => {
+    const e = new Event('beforeinstallprompt');
+    e.prompt = () => { window.__promptShown = true; return Promise.resolve(); };
+    e.userChoice = Promise.resolve({ outcome: 'accepted' });
+    window.dispatchEvent(e);
+  });
+  await page.waitForTimeout(900);
+  check((await state(page)).scene === 'InstallScene', 'Android im Browser: zuerst die Installations-Seite');
+  const btn = await call(page, 'anchor install');
+  check(btn !== 'null', 'Knopf „App installieren“ ist da');
+  await page.screenshot({ path: path.join(out, '7b-install-android.png') });
+  if (btn !== 'null') await t.tap(...xy(btn));
+  await page.waitForTimeout(800);
+  check(await page.evaluate(() => window.__promptShown === true), 'Installations-Dialog wurde geöffnet');
+  check((await call(page, 'anchor install')) === 'null', 'danach: „Installiert!“ statt Knopf');
+  await page.screenshot({ path: path.join(out, '7c-installiert.png') });
   check(errors.length === 0, 'keine Konsolenfehler' + (errors.length ? ': ' + errors.join(' | ') : ''));
   await ctx.close();
 }

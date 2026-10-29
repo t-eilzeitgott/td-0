@@ -72,6 +72,8 @@ class SceneSmokeTest {
         final boolean touch;
         /** Antwort auf Eingabeaufforderungen (Name, Token, Code); {@code null} = abgebrochen. */
         java.util.function.Function<String, String> promptAnswer = title -> null;
+        /** Nachgestellter Browser für „Installieren“ ({@code null} = keine Web-App). */
+        neontd.platform.InstallInfo install;
 
         Harness(double w, double h, boolean touch, double... insets) {
             this(new MemoryStore(), w, h, touch, insets);
@@ -87,6 +89,7 @@ class SceneSmokeTest {
                 @Override public void prompt(String title, String initial, java.util.function.Consumer<String> result) {
                     result.accept(promptAnswer.apply(title));
                 }
+                @Override public neontd.platform.InstallInfo installInfo() { return install; }
             });
             double[] in = insets.length == 4 ? insets : new double[4];
             resize(w, h, in);
@@ -183,6 +186,27 @@ class SceneSmokeTest {
             h.run(1.5);
             assertEquals("EditorScene", h.scene());
         }
+    }
+
+    @Test
+    void phoneBrowserAsksToInstallFirstThenForTheName() {
+        Harness h = new Harness(393, 852, true, 0, 59, 0, 34);
+        h.install = neontd.platform.InstallInfo.parse("0|ios|0|0|0|0");
+        h.run(3.5);
+        assertEquals("InstallScene", h.scene());
+        double[] skip = ((InstallScene) h.app.scene()).skipAnchor();
+        h.tap(skip[0], skip[1]);
+        h.run(1.0);
+        assertEquals("NameScene", h.scene());
+        assertEquals("1", h.store.get("neontd.installSkip"));
+        // Als installierte App (oder nach dem Überspringen) kommt die Seite nicht mehr
+        Harness app = new Harness(393, 852, true, 0, 59, 0, 34);
+        app.install = neontd.platform.InstallInfo.parse("1|ios|0|0|0|0");
+        app.run(3.5);
+        assertEquals("NameScene", app.scene());
+        // Android mit Dialog: Knopf vorhanden; Desktop: keine Seite
+        assertTrue(neontd.platform.InstallInfo.parse("0|android|0|0|1|0").canPrompt);
+        assertEquals(null, neontd.platform.InstallInfo.parse("kaputt"));
     }
 
     @Test

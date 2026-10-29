@@ -21,6 +21,10 @@ public abstract class Scene {
     public void onExit() {
     }
 
+    /** Die Überblendung ist vorbei und die Szene wird nicht mehr gezeichnet (nach {@link #onExit}). */
+    public void onHidden() {
+    }
+
     /** Die Anwendung wird unsichtbar oder beendet: Zustand sichern, was sonst verloren ginge. */
     public void onSuspend() {
     }

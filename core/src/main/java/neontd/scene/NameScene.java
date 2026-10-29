@@ -34,9 +34,15 @@ public final class NameScene extends Scene {
     private String error;
     private boolean checking;
     private double time;
-    private double appear;
+    /** Zeit seit dem Ende der Überblendung: Erst dann kommt der Inhalt – über einer völlig ruhigen Wortmarke. */
+    private double reveal = -1;
     private double shake;
     private boolean done;
+    /** Die Szene wird gerade ausgeblendet (das echte Eingabefeld blendet mit). */
+    private boolean exiting;
+    /** Höhe, nach der das Layout ausgerichtet ist – ändert sich nicht, wenn die Tastatur aufgeht. */
+    private double layoutW = -1;
+    private double stableH;
 
     // Lage (wird in layout berechnet)
     private double fieldX;
@@ -74,6 +80,15 @@ public final class NameScene extends Scene {
 
     @Override
     public void onExit() {
+        // Das Feld verschwindet nicht schlagartig, sondern blendet mit der Szene aus (siehe render/onHidden).
+        exiting = true;
+        if (input != null) {
+            input.blur();
+        }
+    }
+
+    @Override
+    public void onHidden() {
         if (input != null) {
             input.dispose();
             input = null;
@@ -87,8 +102,16 @@ public final class NameScene extends Scene {
         double m = 16 * u;
         double w = Math.min(vp.safeW() - 2 * m, 440 * u);
         double x = vp.insetL + (vp.safeW() - w) / 2;
+        // Die Höhe zählt nur, solange sie wächst (oder sich die Breite ändert): Geht auf dem iPhone die Tastatur
+        // auf und das Fenster wird niedriger, bleibt alles genau, wo es ist.
+        if (vp.w != layoutW) {
+            layoutW = vp.w;
+            stableH = vp.safeH();
+        } else {
+            stableH = Math.max(stableH, vp.safeH());
+        }
         // Inhalt in der oberen Hälfte: Auf dem iPhone deckt die Tastatur die untere ab.
-        titleY = vp.insetT + Math.max(96 * u, Math.min(vp.safeH() * 0.16, 150 * u));
+        titleY = vp.insetT + Math.max(96 * u, Math.min(stableH * 0.16, 150 * u));
         fieldX = x;
         fieldW = w;
         fieldH = 56 * u;
@@ -99,19 +122,34 @@ public final class NameScene extends Scene {
         placeInput();
     }
 
+    /** Einblend-Fortschritt eines Elements (gestaffelt nach {@code delay} Sekunden). */
+    private double part(double delay) {
+        return reveal < 0 ? 0 : Easing.outCubic(Mathx.clamp01((reveal - delay) / 0.5));
+    }
+
+    private static final double FIELD_DELAY = 0.12;
+
     private void placeInput() {
         if (input == null) {
             return;
         }
-        double a = Easing.outCubic(Mathx.clamp01(appear));
+        double a = part(FIELD_DELAY);
+        if (exiting) {
+            a *= 1 - app.transitionProgress();
+        }
         double u = app.vp.u;
-        input.place(fieldX + 2 * u, fieldY + 2 * u, fieldW - 4 * u - 56 * u, fieldH - 4 * u, 17 * u, done ? 0 : a);
+        double dy = (1 - a) * 10 * u;
+        input.place(fieldX + 2 * u, fieldY + 2 * u + dy, fieldW - 4 * u - 56 * u, fieldH - 4 * u, 17 * u, a);
     }
 
     @Override
     public void update(double dt) {
         time += dt;
-        appear = Math.min(1, appear + dt * 3.2);
+        if (reveal < 0 && !app.transitioning()) {
+            reveal = 0;
+        } else if (reveal >= 0) {
+            reveal += Math.min(dt, 1.0 / 30);
+        }
         shake = Math.max(0, shake - dt * 2.5);
         ui.update(dt);
         if (input != null) {
@@ -204,22 +242,34 @@ public final class NameScene extends Scene {
         double u = vp.u;
         g.fillRect(0, 0, vp.w, vp.h, Theme.BG);
         double[] box = MenuScene.wordmarkBox(vp);
-        Wordmark.draw(g, box[0], box[1], box[2], 4, null, time);
+        Wordmark.draw(g, box[0], box[1], box[2], 4, null, app.time); // gemeinsame Uhr: Flackern läuft über Szenenwechsel durch
 
-        double a = Easing.outCubic(Mathx.clamp01(appear));
-        g.save();
-        g.alpha(a);
-        g.translate(0, (1 - a) * 12 * u);
+        if (exiting) {
+            placeInput(); // beim Ausblenden wird nur noch gezeichnet, nicht mehr aktualisiert
+        }
         double x = fieldX;
         double y = titleY;
+        double r0 = part(0);
+        double r1 = part(0.06);
+        double rf = part(FIELD_DELAY);
+        double r3 = part(0.18);
+        g.save();
+        g.alpha(r0);
+        g.translate(0, (1 - r0) * 10 * u);
         g.text(firstStart ? "WILLKOMMEN" : "PROFIL", x, y, 11 * u, Theme.ACCENT, Gfx.ALIGN_LEFT, true);
-        y += 34 * u;
-        g.text(firstStart ? "Wie heißt du?" : "Neuer Name", x, y, 30 * u, Theme.TEXT, Gfx.ALIGN_LEFT, true);
-        y += 30 * u;
-        Draw.fit(g, "Dein Name steht in der Arena und allen Bestenlisten.", x, y, 14 * u, fieldW, Theme.MUTED,
+        g.text(firstStart ? "Wie heißt du?" : "Neuer Name", x, y + 34 * u, 30 * u, Theme.TEXT, Gfx.ALIGN_LEFT, true);
+        g.restore();
+        g.save();
+        g.alpha(r1);
+        g.translate(0, (1 - r1) * 10 * u);
+        Draw.fit(g, "Dein Name steht in der Arena und allen Bestenlisten.", x, y + 64 * u, 14 * u, fieldW, Theme.MUTED,
                 Gfx.ALIGN_LEFT, false);
+        g.restore();
 
-        // Feld
+        // Feld (das echte Eingabefeld liegt mit genau derselben Bewegung darüber, siehe placeInput)
+        g.save();
+        g.alpha(rf);
+        g.translate(0, (1 - rf) * 10 * u);
         double sx = shake > 0 ? Math.sin(shake * 40) * 6 * u * shake : 0;
         double fx = x + sx;
         boolean valid = problem() == null;
@@ -252,7 +302,12 @@ public final class NameScene extends Scene {
             g.fillCircle(ix, iy, 11 * u, Colors.withAlpha(Theme.POS, 0.18));
             Icons.draw(g, Icon.CHECK, ix, iy, 6 * u, Theme.POS, 0);
         }
-        // Hinweis und Zähler
+        g.restore();
+
+        // Hinweis, Zähler und Taste
+        g.save();
+        g.alpha(r3);
+        g.translate(0, (1 - r3) * 10 * u);
         double hy = fieldY + fieldH + 18 * u;
         String hint = error != null ? error
                 : (text.isEmpty() ? "2–16 Zeichen · Buchstaben, Zahlen, Leerzeichen, . _ -"
@@ -268,8 +323,9 @@ public final class NameScene extends Scene {
         String note = app.board.available() ? "Gespeichert werden nur dein Name und eine zufällige Gerätekennung."
                 : "Ohne Verbindung: Der Name gilt erst einmal nur auf diesem Gerät.";
         g.save();
-        g.alpha(a * 0.9);
-        Draw.fit(g, note, vp.w / 2, vp.h - vp.insetB - 24 * u, 11 * u, fieldW, Theme.MUTED, Gfx.ALIGN_CENTER, false);
+        g.alpha(part(0.3) * 0.9);
+        // feste Lage (nicht vp.h): Geht die Tastatur auf, rutscht nichts nach
+        Draw.fit(g, note, vp.w / 2, vp.insetT + stableH - 24 * u, 11 * u, fieldW, Theme.MUTED, Gfx.ALIGN_CENTER, false);
         g.restore();
     }
 
@@ -288,6 +344,9 @@ public final class NameScene extends Scene {
 
     @Override
     public void pointerDown(double x, double y, boolean touch) {
+        if (reveal < 0.15) {
+            return; // noch nicht eingeblendet
+        }
         ui.pointerDown(x, y);
     }
 

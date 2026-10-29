@@ -60,6 +60,16 @@ public interface Platform {
         return null;
     }
 
+    /** Stand „Zum Home-Bildschirm“ oder {@code null}, wenn die Plattform keine Web-App ist (Desktop, Tests). */
+    default InstallInfo installInfo() {
+        return null;
+    }
+
+    /** Öffnet den Installations-Dialog des Browsers (nur wenn {@link InstallInfo#canPrompt}); {@code done}: installiert? */
+    default void promptInstall(Consumer<Boolean> done) {
+        done.accept(false);
+    }
+
     /** Kurzbeschreibung von Gerät und Umgebung für das Login-Log (z. B. "iPhone · Safari · App"). */
     default String describe() {
         return "";

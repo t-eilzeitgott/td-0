@@ -30,6 +30,9 @@ public final class ScreenshotTool {
     private final Java2DGfx gfx = new Java2DGfx();
     /** Beispieldaten statt echter Datenbank (siehe {@link DemoHttp}). */
     private final DemoHttp demo = new DemoHttp();
+    /** Nachgestellter Browser für „Installieren“: none (kein Browser), ios, android, androidprompt, app. */
+    private String installMode = "none";
+    private boolean installed;
     /** Fester Zeitpunkt (Do, 29.10.2026, 12 Uhr MEZ), damit Arena-Woche und Tages-Challenge reproduzierbar sind. */
     private static final double CLOCK = neontd.progress.Calendar.daysFromCivil(2026, 10, 29) * 86_400_000.0 + 11 * 3_600_000.0;
     private BufferedImage image;
@@ -72,6 +75,29 @@ public final class ScreenshotTool {
             @Override
             public String describe() {
                 return "Screenshot-Werkzeug";
+            }
+
+            @Override
+            public neontd.platform.InstallInfo installInfo() {
+                switch (installMode) {
+                    case "ios":
+                        return new neontd.platform.InstallInfo(false, neontd.platform.InstallInfo.Kind.IOS, false, false, false, false);
+                    case "android":
+                        return new neontd.platform.InstallInfo(false, neontd.platform.InstallInfo.Kind.ANDROID, false, false, false, false);
+                    case "androidprompt":
+                        return new neontd.platform.InstallInfo(false, neontd.platform.InstallInfo.Kind.ANDROID, false, false,
+                                !installed, installed);
+                    case "app":
+                        return new neontd.platform.InstallInfo(true, neontd.platform.InstallInfo.Kind.IOS, false, false, false, false);
+                    default:
+                        return null;
+                }
+            }
+
+            @Override
+            public void promptInstall(java.util.function.Consumer<Boolean> done) {
+                installed = true;
+                done.accept(true);
             }
         });
         resize();
@@ -334,6 +360,20 @@ public final class ScreenshotTool {
                     }
                     break;
                 }
+                case "install":
+                    // install ios|android|androidprompt|app|none – Browser für die Installations-Seite nachstellen
+                    installMode = p[1];
+                    break;
+                case "frames": {
+                    // frames NAME N SEK – N Bilder im Abstand von SEK Sekunden (NAME-00.png …)
+                    int n = Integer.parseInt(p[2]);
+                    double dt = Double.parseDouble(p[3]);
+                    for (int i = 0; i < n; i++) {
+                        shot(p[1] + "-" + (i < 10 ? "0" : "") + i);
+                        advance(dt);
+                    }
+                    break;
+                }
                 case "submitname":
                     ((neontd.scene.NameScene) app.scene()).submitForTest();
                     advance(0.1);
@@ -344,6 +384,17 @@ public final class ScreenshotTool {
                     break;
                 case "anchor": {
                     // anchor click|hold|up NAME  – Bedienelement der Spielszene ansteuern
+                    if (app.scene() instanceof neontd.scene.InstallScene) {
+                        neontd.scene.InstallScene is = (neontd.scene.InstallScene) app.scene();
+                        double[] a = p[2].equals("install") ? is.installAnchor() : is.skipAnchor();
+                        run(p[1] + " " + a[0] + " " + a[1]);
+                        break;
+                    }
+                    if (app.scene() instanceof neontd.scene.NameScene) {
+                        double[] a = ((neontd.scene.NameScene) app.scene()).goAnchor();
+                        run(p[1] + " " + a[0] + " " + a[1]);
+                        break;
+                    }
                     if (app.scene() instanceof neontd.scene.ArenaScene && p[2].equals("play")) {
                         double[] a = ((neontd.scene.ArenaScene) app.scene()).playAnchor();
                         run(p[1] + " " + a[0] + " " + a[1]);

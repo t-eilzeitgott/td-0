@@ -16,8 +16,9 @@ MID="name Neo; level 16; crystals 420; starworld 1 3; starworld 2 2; stars magma
 # Bauplätze in Weltkoordinaten (1280×720) neben der Bahn des Referenzlevels „Serpentine“.
 PLACE="dragto tile0 300 250 0.3; dragto tile3 520 250 0.3; dragto tile2 760 250 0.3; dragto tile4 420 460 0.3; dragto tile1 900 300 0.3; dragto tile0 960 160 0.3"
 
-# Erster Start: Intro, Spielername, Hauptmenü
-shot "$PHONE; wait 1.2; shot intro; wait 1.6; shot name-phone; name Neo; wait 0.4; shot name-phone-filled"
+# Erster Start: Intro, Installieren (im Handy-Browser), Spielername, Hauptmenü
+shot "$PHONE; install ios; wait 1.3; shot intro; wait 2.4; shot install-phone; tap skip; wait 1.6; shot name-phone; name Neo; wait 0.4; shot name-phone-filled"
+shot "$PHONE; install androidprompt; wait 3.7; shot install-android-phone"
 shot "$PHONE; $MID; wait 4.2; shot menu-phone"
 shot "size 1280 720; $MID; wait 4.5; shot menu"
 

@@ -125,6 +125,16 @@ public final class WebMain {
             public String describe() {
                 return Js.platformInfo();
             }
+
+            @Override
+            public neontd.platform.InstallInfo installInfo() {
+                return neontd.platform.InstallInfo.parse(Js.installInfo());
+            }
+
+            @Override
+            public void promptInstall(Consumer<Boolean> done) {
+                Js.promptInstall(ok -> done.accept(ok));
+            }
         });
     }
 

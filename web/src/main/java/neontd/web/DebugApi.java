@@ -36,6 +36,9 @@ final class DebugApi {
                     a = ((MenuScene) s).playAnchor();
                 } else if (s instanceof neontd.scene.ArenaScene && arg.equals("play")) {
                     a = ((neontd.scene.ArenaScene) s).playAnchor();
+                } else if (s instanceof neontd.scene.InstallScene) {
+                    a = arg.equals("install") ? ((neontd.scene.InstallScene) s).installAnchor()
+                            : ((neontd.scene.InstallScene) s).skipAnchor();
                 } else if (s instanceof neontd.scene.NameScene) {
                     a = arg.equals("field") ? ((neontd.scene.NameScene) s).fieldAnchor() : ((neontd.scene.NameScene) s).goAnchor();
                 }
@@ -161,7 +164,8 @@ final class DebugApi {
                 }
                 return "scene=" + (s instanceof ProfileScene ? "ProfileScene" : s instanceof LevelSelectScene
                         ? "LevelSelectScene" : s instanceof EditorScene ? "EditorScene" : s instanceof MenuScene
-                        ? "MenuScene" : s instanceof neontd.scene.NameScene ? "NameScene" : s instanceof neontd.scene.ArenaScene
+                        ? "MenuScene" : s instanceof neontd.scene.NameScene ? "NameScene" : s instanceof neontd.scene.InstallScene
+                        ? "InstallScene" : s instanceof neontd.scene.ArenaScene
                         ? "ArenaScene" : s instanceof neontd.scene.IntroScene ? "IntroScene" : s.getClass().getSimpleName())
                         + " player=" + app.board.playerName() + " pending=" + app.board.arenaPendingCount();
             case "profile":

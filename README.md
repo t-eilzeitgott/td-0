@@ -18,7 +18,9 @@ cleane Oberfläche. Die gesamte Spiellogik ist in **Java** geschrieben und läuf
   immer härter; gezählt werden **Punkte** mit **Serien-Multiplikator** (bis ×3) und **Vorlauf-Bonus**. Live-Platz,
   Zwischenzeiten gegen den Führenden, globale Rangliste mit Versuchen, Verlauf, Ruhmeshalle und Kristalle fürs Podium –
   siehe [Arena](#arena--der-wochen-wettkampf).
-- **Spielername beim ersten Start** (weltweit eindeutig, vom Server geprüft) und ein **Login-Log** in der Datenbank.
+- **Erster Start wie eine App**: Intro mit aufleuchtender Wortmarke, die nahtlos in den Kopf der Seite fliegt; im
+  Handy-Browser zuerst **„App installieren“** (Android: Knopf für den Installations-Dialog, iPhone: Anleitung über
+  „Teilen“), dann der **Spielername** (weltweit eindeutig, vom Server geprüft). Jeder Start landet im **Login-Log**.
 
 - **8 Welten mit 48 handgebauten Strecken**: Neonstadt, Tiefsee, Magmakern, Gewächshaus, Raumhafen, Kathedrale,
   Datenstrom, Ereignishorizont – jede Welt mit eigener Farbe, eigenem Gegner-Rhythmus und eigener Idee (Schleifen,
@@ -51,9 +53,13 @@ cleane Oberfläche. Die gesamte Spiellogik ist in **Java** geschrieben und läuf
 |:--:|:--:|:--:|:--:|
 | <img src="docs/screenshots/phone-portrait.png" width="170"> | <img src="docs/screenshots/phone-portrait-panel.png" width="170"> | <img src="docs/screenshots/ausbau-phone.png" width="170"> | <img src="docs/screenshots/win-phone.png" width="170"> |
 
-| Spielername | Arena | Arena-Lauf | Ergebnis |
-|:--:|:--:|:--:|:--:|
-| <img src="docs/screenshots/name-phone-filled.png" width="170"> | <img src="docs/screenshots/arena-phone.png" width="170"> | <img src="docs/screenshots/arena-run-phone.png" width="170"> | <img src="docs/screenshots/arena-result-phone.png" width="170"> |
+| Installieren (iPhone) | Installieren (Android) | Spielername |
+|:--:|:--:|:--:|
+| <img src="docs/screenshots/install-phone.png" width="170"> | <img src="docs/screenshots/install-android-phone.png" width="170"> | <img src="docs/screenshots/name-phone-filled.png" width="170"> |
+
+| Arena | Arena-Lauf | Ergebnis |
+|:--:|:--:|:--:|
+| <img src="docs/screenshots/arena-phone.png" width="170"> | <img src="docs/screenshots/arena-run-phone.png" width="170"> | <img src="docs/screenshots/arena-result-phone.png" width="170"> |
 
 | Tages-Challenge | Bestenliste | Profil | Shop |
 |:--:|:--:|:--:|:--:|
@@ -391,9 +397,23 @@ wechseln sich ab (Boulevard, Doppelhelix, Schmiede, Kreuzgang, Docking, Glockent
   <sub>Screenshots mit Beispieldaten</sub>
 </p>
 
-## Spielername und Login-Log
+## Erster Start, Installieren, Spielername und Login-Log
 
-Beim **ersten Start** fragt das Spiel nach dem Spielernamen (2–16 Zeichen: Buchstaben, Zahlen, Leerzeichen, `. _ -`).
+**Ruhiger erster Eindruck.** Schon der Ladebildschirm ist reines Schwarz (auch das Startbild der Home-Bildschirm-App
+auf dem iPhone), danach zünden die Buchstaben der Wortmarke wie Leuchtröhren. Das Intro startet erst, wenn die Bilder
+gleichmäßig kommen, damit nichts ruckelt, und die Wortmarke fliegt genau an ihren Platz im Kopf der nächsten Seite.
+Seitenwechsel sind echte Überblendungen ohne Bewegung: Was auf beiden Seiten gleich ist, steht still. Die Inhalte
+der neuen Seite kommen erst danach, leicht gestaffelt; das Namensfeld bewegt sich dabei exakt mit seiner Box, und das
+Layout bleibt stehen, wenn auf dem iPhone die Tastatur aufgeht.
+
+**Erst installieren.** Im Handy-Browser kommt nach dem Intro zuerst „Erst aufs Handy, dann los.“: auf Android ein
+Knopf **App installieren** (öffnet den Installations-Dialog des Browsers, sonst die zwei Handgriffe im Menü), auf dem
+iPhone die Anleitung über **Teilen → Zum Home-Bildschirm**. Das ist wichtig, weil die Home-Bildschirm-App auf dem
+iPhone einen eigenen Speicher hat – Name und Fortschritt aus dem Browser wären dort nicht da. „Ohne Installation im
+Browser weiter“ überspringt das dauerhaft; später geht es über Einstellungen → **Als App installieren**. Als
+installierte App und am PC erscheint die Seite nie. Zum Ausprobieren: `?install=ios` bzw. `?install=android`.
+
+**Spielername.** Beim **ersten Start** fragt das Spiel nach dem Spielernamen (2–16 Zeichen: Buchstaben, Zahlen, Leerzeichen, `. _ -`).
 Auf dem iPhone ist das ein echtes Eingabefeld mit der normalen Tastatur. Der Server prüft, dass der Name noch frei ist
 (ohne Unterschied von Groß- und Kleinschreibung); ohne Netz gilt er vorläufig und wird später bestätigt – ist er dann
 vergeben, fragt das Spiel beim nächsten Start erneut. Ändern: Profil → Name antippen.

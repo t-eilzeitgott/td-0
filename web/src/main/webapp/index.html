@@ -13,36 +13,77 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <link rel="icon" type="image/png" href="icons/favicon.png">
+<!-- Startbild der Home-Bildschirm-App auf dem iPhone: reines Schwarz, damit nichts weiß aufblitzt -->
+<link rel="apple-touch-startup-image" media="screen and (device-width: 440px) and (device-height: 956px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="icons/splash/1320x2868.png">
+<link rel="apple-touch-startup-image" media="screen and (device-width: 440px) and (device-height: 956px) and (-webkit-device-pixel-ratio: 3) and (orientation: landscape)" href="icons/splash/2868x1320.png">
+<link rel="apple-touch-startup-image" media="screen and (device-width: 402px) and (device-height: 874px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="icons/splash/1206x2622.png">
+<link rel="apple-touch-startup-image" media="screen and (device-width: 402px) and (device-height: 874px) and (-webkit-device-pixel-ratio: 3) and (orientation: landscape)" href="icons/splash/2622x1206.png">
+<link rel="apple-touch-startup-image" media="screen and (device-width: 420px) and (device-height: 912px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="icons/splash/1260x2736.png">
+<link rel="apple-touch-startup-image" media="screen and (device-width: 420px) and (device-height: 912px) and (-webkit-device-pixel-ratio: 3) and (orientation: landscape)" href="icons/splash/2736x1260.png">
+<link rel="apple-touch-startup-image" media="screen and (device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="icons/splash/1290x2796.png">
+<link rel="apple-touch-startup-image" media="screen and (device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3) and (orientation: landscape)" href="icons/splash/2796x1290.png">
+<link rel="apple-touch-startup-image" media="screen and (device-width: 393px) and (device-height: 852px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="icons/splash/1179x2556.png">
+<link rel="apple-touch-startup-image" media="screen and (device-width: 393px) and (device-height: 852px) and (-webkit-device-pixel-ratio: 3) and (orientation: landscape)" href="icons/splash/2556x1179.png">
+<link rel="apple-touch-startup-image" media="screen and (device-width: 428px) and (device-height: 926px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="icons/splash/1284x2778.png">
+<link rel="apple-touch-startup-image" media="screen and (device-width: 428px) and (device-height: 926px) and (-webkit-device-pixel-ratio: 3) and (orientation: landscape)" href="icons/splash/2778x1284.png">
+<link rel="apple-touch-startup-image" media="screen and (device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="icons/splash/1170x2532.png">
+<link rel="apple-touch-startup-image" media="screen and (device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3) and (orientation: landscape)" href="icons/splash/2532x1170.png">
+<link rel="apple-touch-startup-image" media="screen and (device-width: 375px) and (device-height: 812px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="icons/splash/1125x2436.png">
+<link rel="apple-touch-startup-image" media="screen and (device-width: 375px) and (device-height: 812px) and (-webkit-device-pixel-ratio: 3) and (orientation: landscape)" href="icons/splash/2436x1125.png">
+<link rel="apple-touch-startup-image" media="screen and (device-width: 360px) and (device-height: 780px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="icons/splash/1080x2340.png">
+<link rel="apple-touch-startup-image" media="screen and (device-width: 360px) and (device-height: 780px) and (-webkit-device-pixel-ratio: 3) and (orientation: landscape)" href="icons/splash/2340x1080.png">
+<link rel="apple-touch-startup-image" media="screen and (device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="icons/splash/1242x2688.png">
+<link rel="apple-touch-startup-image" media="screen and (device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 3) and (orientation: landscape)" href="icons/splash/2688x1242.png">
+<link rel="apple-touch-startup-image" media="screen and (device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="icons/splash/828x1792.png">
+<link rel="apple-touch-startup-image" media="screen and (device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 2) and (orientation: landscape)" href="icons/splash/1792x828.png">
+<link rel="apple-touch-startup-image" media="screen and (device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="icons/splash/750x1334.png">
+<link rel="apple-touch-startup-image" media="screen and (device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2) and (orientation: landscape)" href="icons/splash/1334x750.png">
+<link rel="apple-touch-startup-image" media="screen and (device-width: 414px) and (device-height: 736px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="icons/splash/1242x2208.png">
+<link rel="apple-touch-startup-image" media="screen and (device-width: 414px) and (device-height: 736px) and (-webkit-device-pixel-ratio: 3) and (orientation: landscape)" href="icons/splash/2208x1242.png">
 <style>
   html, body {
     margin: 0; padding: 0; height: 100%; background: #000; overflow: hidden;
     overscroll-behavior: none; touch-action: none;
     -webkit-user-select: none; user-select: none;
     -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent;
+    -webkit-text-size-adjust: 100%; text-size-adjust: 100%;
   }
+  /* Die Seite selbst scrollt nie – auch nicht, wenn auf dem iPhone die Tastatur aufgeht. */
+  body { position: fixed; inset: 0; }
   canvas { position: fixed; left: 0; top: 0; width: 100%; height: 100%; display: block; touch-action: none; outline: none; }
   /* Unsichtbares Messelement: liefert die Sicherheitsränder (Notch, Home-Indikator) an das Spiel. */
   #safe {
     position: fixed; left: 0; top: 0; width: 0; height: 0; visibility: hidden; pointer-events: none;
     padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
   }
-  #boot {
-    position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
-    background: #000; color: #0ff; z-index: 10; transition: opacity .5s ease;
-    font: 700 clamp(28px, 8vw, 64px)/1 ui-monospace, Menlo, Consolas, monospace; letter-spacing: .2em;
-    text-shadow: 0 0 12px #0ff, 0 0 32px #08f;
-  }
+  /* Ladebildschirm: reines Schwarz wie der Startbildschirm des iPhones und der erste Frame des Intros. Nur wenn das
+     Laden ungewöhnlich lange dauert, erscheint nach einer Sekunde ein ruhiger Punkt. */
+  #boot { position: fixed; inset: 0; background: #000; z-index: 10; transition: opacity .35s ease; }
   #boot.done { opacity: 0; pointer-events: none; }
-  #boot small { display: block; margin-top: 1.4em; font-size: 12px; letter-spacing: .3em; color: #f3c; text-shadow: 0 0 8px #f3c; }
+  #boot i {
+    position: absolute; left: 50%; bottom: calc(env(safe-area-inset-bottom) + 56px); width: 6px; height: 6px;
+    margin-left: -3px; border-radius: 50%; background: #00E5FF; opacity: 0;
+    animation: boot-dot 1.6s ease-in-out 1s infinite;
+  }
+  @keyframes boot-dot { 0%, 100% { opacity: 0; transform: scale(.6); } 50% { opacity: .55; transform: scale(1); } }
 </style>
 </head>
 <body>
 <canvas id="game" tabindex="0"></canvas>
 <div id="safe"></div>
-<div id="boot">NEON TD<small>LÄDT …</small></div>
+<div id="boot"><i></i></div>
 <noscript><p style="color:#0ff;font:16px sans-serif;position:fixed;top:40%;width:100%;text-align:center;z-index:11">
 Neon TD braucht JavaScript.</p></noscript>
 <script>
+  // „App installieren“ (Android/Chromium): Das Ereignis kommt oft schon beim Laden – hier abfangen, das Spiel holt es
+  // sich später für seinen eigenen Knopf.
+  window.__ntdInstall = { deferred: null, installed: false };
+  window.addEventListener('beforeinstallprompt', function (e) { e.preventDefault(); window.__ntdInstall.deferred = e; });
+  window.addEventListener('appinstalled', function () { window.__ntdInstall.deferred = null; window.__ntdInstall.installed = true; });
+  // Falls der Browser beim Fokussieren eines Eingabefelds doch scrollt: sofort zurück, das Bild bleibt stehen.
+  function ntdNoScroll() { if (window.scrollX || window.scrollY) { window.scrollTo(0, 0); } }
+  window.addEventListener('scroll', ntdNoScroll, { passive: true });
+  if (window.visualViewport) { window.visualViewport.addEventListener('resize', ntdNoScroll); }
   // iPhone: Pinch-Zoom, Doppeltipp-Zoom und Scroll-Gummiband unterbinden (das Spiel verwaltet die Gesten selbst).
   ['gesturestart', 'gesturechange', 'gestureend'].forEach(function (t) {
     document.addEventListener(t, function (e) { e.preventDefault(); });

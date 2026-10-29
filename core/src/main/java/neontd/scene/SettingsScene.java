@@ -18,6 +18,7 @@ public final class SettingsScene extends PanelScene {
     private static final String RESET_ALL = "resetAll";
     private static final String PROFILE = "profile";
     private static final String CREDITS = "credits";
+    private static final String INSTALL = "install";
 
     public SettingsScene(App app) {
         super(app, "EINSTELLUNGEN", Theme.TEXT_DIM);
@@ -43,6 +44,11 @@ public final class SettingsScene extends PanelScene {
         row(g, x, cy, w, h, u, p.displayName() + "  ·  LEVEL " + p.level(), "Name, Cloud-Speicher und Statistik öffnen",
                 Icon.STAR, Theme.MAGENTA, PROFILE);
         cy += h + 12 * u;
+        if (InstallScene.offered(app)) {
+            row(g, x, cy, w, h, u, "ALS APP INSTALLIEREN", "Auf den Home-Bildschirm: Vollbild und auch offline",
+                    Icon.PLUS, Theme.ACCENT, INSTALL);
+            cy += h + 12 * u;
+        }
 
         g.text("ZURÜCKSETZEN", x, cy + 10 * u, 13 * u, Theme.TEXT_DIM, Gfx.ALIGN_LEFT, true);
         cy += 24 * u;
@@ -74,6 +80,8 @@ public final class SettingsScene extends PanelScene {
     protected void onTap(Object tag) {
         if (PROFILE.equals(tag)) {
             app.goTo(new ProfileScene(app));
+        } else if (INSTALL.equals(tag)) {
+            app.goTo(new InstallScene(app, false));
         } else if (RESET_LEVEL.equals(tag)) {
             Progress p = app.progress;
             confirm("LEVEL ZURÜCKSETZEN?", Theme.ORANGE, new String[] {

@@ -241,6 +241,32 @@ final class Js {
     @JSBody(params = {"el"}, script = "try { el.blur(); if (el.parentNode) { el.parentNode.removeChild(el); } } catch (e) {}")
     static native void removeInput(JSObject el);
 
+    /**
+     * Stand „Zum Home-Bildschirm“ als Kurzform "standalone|ios|noShare|other|canPrompt|installed". Das Ereignis
+     * {@code beforeinstallprompt} fängt schon die Seite ab (index.html), weil es oft vor dem Spiel kommt. Zum
+     * Ausprobieren: {@code ?install=ios} bzw. {@code ?install=android}.
+     */
+    @JSBody(params = {}, script =
+            "var u = navigator.userAgent || ''; var st = false;"
+            + "try { st = window.matchMedia('(display-mode: standalone)').matches || window.matchMedia('(display-mode: fullscreen)').matches"
+            + " || window.navigator.standalone === true; } catch (e) {}"
+            + "var forced = null; try { forced = new URLSearchParams(location.search).get('install'); } catch (e) {}"
+            + "var ios = /iphone|ipad|ipod/i.test(u) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);"
+            + "var kind = forced === 'ios' || forced === 'android' ? forced : (ios ? 'ios' : (/android|mobile/i.test(u) ? 'android' : 'desktop'));"
+            + "var noShare = kind === 'ios' && !forced && /FBAN|FBAV|Instagram|Line\\/|LinkedInApp|Snapchat|TikTok|GSA\\//i.test(u);"
+            + "var other = kind === 'ios' && !forced && /CriOS|FxiOS|EdgiOS|OPiOS|DuckDuckGo/i.test(u);"
+            + "var i = window.__ntdInstall || {};"
+            + "return (st ? '1' : '0') + '|' + kind + '|' + (noShare ? '1' : '0') + '|' + (other ? '1' : '0') + '|'"
+            + " + (i.deferred ? '1' : '0') + '|' + (i.installed ? '1' : '0');")
+    static native String installInfo();
+
+    /** Öffnet den Installations-Dialog (Android/Chromium); {@code cb(true)}, wenn installiert wurde. */
+    @JSBody(params = {"cb"}, script =
+            "var i = window.__ntdInstall || {}; var d = i.deferred; if (!d) { cb(false); return; } i.deferred = null;"
+            + "try { d.prompt(); d.userChoice.then(function (c) { var ok = c && c.outcome === 'accepted';"
+            + " if (ok) { i.installed = true; } cb(ok); }, function () { cb(false); }); } catch (e) { cb(false); }")
+    static native void promptInstall(BoolDone cb);
+
     /** Gerät, Browser und Modus (Home-Bildschirm-App oder Tab) für das Login-Log. */
     @JSBody(params = {}, script =
             "var u = navigator.userAgent || '';"
