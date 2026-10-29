@@ -520,4 +520,9 @@ public final class MenuScene extends PanelScene {
     public double[] playAnchor() {
         return new double[] {contentX + contentW - 60 * app.vp.u, contentTop + 20 * app.vp.u};
     }
+
+    @Override
+    public boolean swipeBack() {
+        return false;
+    }
 }

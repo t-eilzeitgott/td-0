@@ -323,4 +323,39 @@ class SceneSmokeTest {
         h.app.key("Space", false);
         h.run(15);
     }
+
+    @Test
+    void swipingRightLeavesSubmenusButNotTheGame() {
+        Harness h = new Harness(393, 852, true, 0, 59, 0, 34);
+        h.run(4);
+        h.app.goTo(new ShopScene(h.app));
+        h.run(1);
+        // Kurzer Wisch zurückfedern lassen
+        h.drag(60, 400, 110, 404);
+        h.run(0.6);
+        assertEquals("ShopScene", h.scene());
+        // Senkrecht scrollen ist kein Zurück
+        h.drag(200, 600, 230, 300);
+        h.run(0.6);
+        assertEquals("ShopScene", h.scene());
+        // Weit nach rechts: zurück zur Startseite
+        h.drag(60, 400, 300, 420);
+        h.run(1);
+        assertEquals("MenuScene", h.scene());
+        // Welten → Kapitel → Wisch zurück zur Weltübersicht
+        h.app.goTo(new LevelSelectScene(h.app, 2));
+        h.run(1);
+        h.drag(40, 500, 320, 510);
+        h.run(1);
+        assertEquals("LevelSelectScene", h.scene());
+        h.drag(40, 500, 320, 510);
+        h.run(1);
+        assertEquals("MenuScene", h.scene());
+        // Im Spiel bleibt Ziehen ein Ziehen
+        h.app.goTo(new GameScene(h.app, neontd.level.Levels.find("stadt-1")));
+        h.run(1);
+        h.drag(40, 500, 320, 510);
+        h.run(1);
+        assertEquals("GameScene", h.scene());
+    }
 }

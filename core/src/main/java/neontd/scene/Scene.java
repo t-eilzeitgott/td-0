@@ -59,6 +59,14 @@ public abstract class Scene {
         return null;
     }
 
+    /**
+     * Darf man diese Seite mit einem Wisch nach rechts verlassen (wie {@link #back()})? Nur Untermenüs – nicht das
+     * Spielfeld, den Editor oder den ersten Start.
+     */
+    public boolean swipeBack() {
+        return false;
+    }
+
     /** Zurück-Geste / Escape. @return behandelt? */
     public boolean back() {
         return false;

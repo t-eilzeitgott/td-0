@@ -551,6 +551,11 @@ public abstract class PanelScene extends Scene {
     }
 
     @Override
+    public boolean swipeBack() {
+        return !modalOpen;
+    }
+
+    @Override
     public boolean back() {
         if (modalOpen) {
             modalOpen = false;

@@ -139,6 +139,7 @@ Das ZIP enthält `bin/neon-td` (bzw. `neon-td.bat` unter Windows); eine Java-Lau
 | **Turm verbessern** | Turm anklicken → Panel mit *Reichweite / Schaden / Tempo* | Turm antippen |
 | **Verkaufen** | Im Panel „Verkaufen“ (zweimal bestätigen), 70 % Erstattung | dito |
 | **Zielwahl** | Im Panel: Erster · Letzter · Stärkster · Nächster | dito |
+| **Zurück** | Zurück-Pfeil oben links / `Esc` | Zurück-Pfeil oder in Untermenüs nach rechts wischen |
 | **Wellen** | `START` / `Leertaste`; `1×/2×/3×` (im Endlosmodus bis `5×`) = `F`; Schleife = Auto-Start; Pause = `P` / `Esc` | Schaltflächen in der Leiste (quer rechts, hoch unten; Pause hoch oben rechts) |
 | **Leiste ein-/ausklappen** | – (am Laptop immer sichtbar) | Pfeil-Knopf in der Leiste |
 

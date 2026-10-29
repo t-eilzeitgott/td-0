@@ -573,6 +573,11 @@ public final class ProfileScene extends Scene {
     }
 
     @Override
+    public boolean swipeBack() {
+        return true;
+    }
+
+    @Override
     public boolean back() {
         return false;
     }

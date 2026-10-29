@@ -196,23 +196,32 @@ public final class App {
             fading.onHidden();
             fading = null;
         }
+        if (swipeState != SWIPE_ACTIVE) {
+            swipeShown.update(dt);
+            if (swipeScene != null && swipeScene != scene && swipeScene != fading) {
+                swipeScene = null;
+                swipeShown.snap(0);
+            } else if (swipeScene == scene && swipeShown.target == 0 && swipeShown.value < 0.5) {
+                swipeScene = null;
+            }
+        }
         scene.update(dt);
     }
 
     public void render(Gfx g) {
         if (fading != null && transition.active()) {
             g.save();
-            g.alpha(transition.oldAlpha());
-            fading.render(g);
+            g.alpha(transition.oldAlpha() * (fading == swipeScene ? 1 - transition.newAlpha() * 0.6 : 1));
+            renderScene(g, fading);
             g.restore();
             g.save();
             g.alpha(transition.newAlpha());
             g.translate(0, transition.lift(vp.u));
-            scene.render(g);
+            renderScene(g, scene);
             g.restore();
             return;
         }
-        scene.render(g);
+        renderScene(g, scene);
     }
 
     public void frame(double nowSeconds, Gfx g) {
@@ -250,24 +259,140 @@ public final class App {
 
     public void pointerDown(double x, double y, boolean touch) {
         if (!transition.active()) {
+            swipeDown(x, y, touch);
             scene.pointerDown(x, y, touch);
         }
     }
 
     public void pointerMove(double x, double y, boolean pressed, boolean touch) {
         if (!transition.active()) {
+            if (swipeMove(x, y, pressed)) {
+                return;
+            }
             scene.pointerMove(x, y, pressed, touch);
         }
     }
 
     public void pointerUp(double x, double y, boolean touch) {
         if (!transition.active()) {
+            if (swipeUp(x)) {
+                return;
+            }
             scene.pointerUp(x, y, touch);
         }
     }
 
     public void pointerCancel() {
+        swipeState = SWIPE_NONE;
         scene.pointerCancel();
+    }
+
+    // ------------------------------------------------------------------------- Wisch-Geste „zurück“
+
+    private static final int SWIPE_NONE = 0;
+    private static final int SWIPE_MAYBE = 1;
+    private static final int SWIPE_ACTIVE = 2;
+    private int swipeState = SWIPE_NONE;
+    private double swipeX0;
+    private double swipeY0;
+    private double swipeLastX;
+    private double swipeLastT;
+    private double swipeVel;
+    /** Wie weit die Seite gerade mit dem Finger nach rechts gezogen ist (Bildschirmpunkte). */
+    private double swipeDx;
+    /** Angezeigter Versatz (folgt {@link #swipeDx}, gleitet nach dem Loslassen weiter oder zurück). */
+    private final neontd.ui.Smooth swipeShown = new neontd.ui.Smooth(0, 22);
+    /** Die Seite, zu der der Versatz gehört (sie behält ihn, während sie ausgeblendet wird). */
+    private Scene swipeScene;
+
+    private void swipeDown(double x, double y, boolean touch) {
+        swipeState = touch && scene.swipeBack() ? SWIPE_MAYBE : SWIPE_NONE;
+        swipeX0 = x;
+        swipeY0 = y;
+        swipeLastX = x;
+        swipeLastT = time;
+        swipeVel = 0;
+    }
+
+    /** @return true, wenn die Geste die Bewegung übernommen hat (die Seite bekommt sie dann nicht). */
+    private boolean swipeMove(double x, double y, boolean pressed) {
+        if (!pressed || swipeState == SWIPE_NONE) {
+            return false;
+        }
+        double u = vp.u;
+        double dx = x - swipeX0;
+        double dy = y - swipeY0;
+        if (swipeState == SWIPE_MAYBE) {
+            if (Math.abs(dy) > 10 * u && Math.abs(dy) > Math.abs(dx)) {
+                swipeState = SWIPE_NONE;          // senkrecht: die Seite scrollt
+                return false;
+            }
+            if (dx < -10 * u) {
+                swipeState = SWIPE_NONE;
+                return false;
+            }
+            if (dx > 14 * u && dx > Math.abs(dy) * 1.4) {
+                swipeState = SWIPE_ACTIVE;
+                swipeScene = scene;
+                scene.pointerCancel();
+            } else {
+                return false;
+            }
+        }
+        double dt = Math.max(1.0 / 240, time - swipeLastT);
+        swipeVel = Mathx.lerp(swipeVel, (x - swipeLastX) / dt, 0.4);
+        swipeLastX = x;
+        swipeLastT = time;
+        swipeDx = Math.max(0, dx - 14 * u);
+        swipeShown.snap(swipeDx);
+        return true;
+    }
+
+    private boolean swipeUp(double x) {
+        if (swipeState != SWIPE_ACTIVE) {
+            swipeState = SWIPE_NONE;
+            return false;
+        }
+        swipeState = SWIPE_NONE;
+        boolean far = swipeDx > Math.min(110 * vp.u, vp.w * 0.3);
+        boolean flick = swipeDx > 30 * vp.u && swipeVel > 450 * vp.u;
+        if ((far || flick) && swipeVel > -150 * vp.u) {
+            back();
+            // gleitet hinaus, während die nächste Seite einblendet (falls „zurück“ hier nichts auslöst: zurückfedern)
+            swipeShown.target = transition.active() ? vp.w * 0.45 : 0;
+        } else {
+            swipeShown.target = 0;
+        }
+        swipeDx = 0;
+        return true;
+    }
+
+    /** Fortschritt der Geste 0..1 (1 = Loslassen geht zurück). */
+    private double swipeProgress() {
+        return Mathx.clamp01(swipeShown.value / Math.min(110 * vp.u, vp.w * 0.3));
+    }
+
+    private void renderScene(Gfx g, Scene s) {
+        if (s != swipeScene || swipeShown.value < 0.5) {
+            s.render(g);
+            return;
+        }
+        double off = swipeShown.value;
+        g.save();
+        g.translate(off * 0.85, 0);
+        s.render(g);
+        g.restore();
+        // Schatten am linken Rand der weggezogenen Seite und ein Zurück-Pfeil, der sich beim Ziehen füllt
+        double p = swipeProgress();
+        double u = vp.u;
+        double r = 18 * u;
+        double cx = vp.insetL + 10 * u + r + Math.min(off * 0.25, 24 * u) - r * (1 - Math.min(1, off / (40 * u)));
+        double cy = vp.h / 2;
+        g.save();
+        g.alpha(Math.min(1, off / (40 * u)));
+        g.fillCircle(cx, cy, r, neontd.gfx.Colors.lerp(neontd.gfx.Theme.SURFACE2, neontd.gfx.Theme.CYAN, p >= 1 ? 1 : p * 0.25));
+        neontd.ui.Draw.chevron(g, cx - 1 * u, cy, r * 0.32, p >= 1 ? 0x000000 : neontd.gfx.Theme.TEXT, false);
+        g.restore();
     }
 
     public void wheel(double dy) {
