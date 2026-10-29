@@ -13,7 +13,9 @@ import neontd.ui.Viewport;
  *   <li>{@link Mode#COMPACT_LAND}: Handy quer – schmale, einklappbare Leiste (Türme | Steuerung) am rechten Rand;
  *       Kopfzeile schwebt über der Karte; das Upgrade-Panel öffnet sich neben dem Turm.</li>
  *   <li>{@link Mode#COMPACT_PORT}: Handy hoch – die Karte wird um 90° gedreht (Pfad läuft von oben nach unten) und
- *       füllt so die Höhe; unten eine einklappbare Leiste.</li>
+ *       nimmt die volle Breite ein. Darüber die Kopfzeile (mit Pause), darunter die Steuerzeile; reicht der Platz
+ *       nicht, schwebt die Kopfzeile über der Karte. Die Turmleiste schwebt einklappbar über dem unteren Kartenrand,
+ *       das Upgrade-Panel ebenso – oder oben, wenn es sonst den gewählten Turm verdecken würde.</li>
  * </ul>
  */
 final class GameLayout {
@@ -69,6 +71,8 @@ final class GameLayout {
     final Rect pager = new Rect();
     /** Anzahl der Shop-Seiten; vor {@link #compute} setzen. */
     int pages = 1;
+    /** Wie viele Turm-Kacheln die aktuelle Seite zeigt (Arena: nur der Wochen-Pool). */
+    int cards = TOWERS;
     final Rect start = new Rect();
     final Rect speed = new Rect();
     final Rect auto = new Rect();
@@ -76,6 +80,17 @@ final class GameLayout {
     final Rect toggle = new Rect();
     /** Bereich für Upgrade-Panel bzw. Info-Panel. */
     final Rect panel = new Rect();
+    /** Hochformat-Handy: Hintergrund der schwebenden Turmleiste. */
+    final Rect tray = new Rect();
+    /** Hochformat-Handy: Die Kopfzeile schwebt über der Karte (zu wenig Platz darüber). */
+    boolean hudOverlay;
+    /** Hochformat-Handy: Das Upgrade-Panel steht oben, weil es unten den gewählten Turm verdecken würde. */
+    boolean panelAtTop;
+    /** Frei sichtbarer Kartenbereich (ohne Kopfzeile, Turmleiste und Panel) – für Banner, Hinweise, Zwischenzeiten. */
+    double clearTop;
+    double clearBottom;
+    /** Rand des Panel-Hintergrunds um {@link #panel} (nur Hochformat-Handy). */
+    double panelPad;
     /** Hochformat (gestapelt): Info-Bereich unter dem Shop. */
     final Rect info = new Rect();
     /** Sichtbarkeit der Teile (die Kompakt-Leiste klappt ein). */
@@ -116,6 +131,10 @@ final class GameLayout {
             mode = vp.landscape() ? Mode.DOCKED : Mode.STACKED;
         }
         open = Mathx.clamp01(openness);
+        hudOverlay = false;
+        panelAtTop = false;
+        tray.set(0, 0, 0, 0);
+        panelPad = 0;
         switch (mode) {
             case DOCKED:
                 docked(vp, ww, wh);
@@ -127,8 +146,12 @@ final class GameLayout {
                 compactLand(vp, ww, wh, selected, selX, selY);
                 break;
             default:
-                compactPort(vp, ww, wh, selected);
+                compactPort(vp, ww, wh, selected, selX, selY);
                 break;
+        }
+        if (mode != Mode.COMPACT_PORT) {
+            clearTop = mapY;
+            clearBottom = mapY + mapH;
         }
     }
 
@@ -286,7 +309,7 @@ final class GameLayout {
 
     // ------------------------------------------------------------------------------------ Handy, Hochformat
 
-    private void compactPort(Viewport vp, double ww, double wh, boolean selected) {
+    private void compactPort(Viewport vp, double ww, double wh, boolean selected, double selX, double selY) {
         k = Math.max(vp.u, 1.05);
         double m = 5 * k;
         double gap = 4 * k;
@@ -295,43 +318,81 @@ final class GameLayout {
         double sy0 = vp.insetT + m;
         double sy1 = vp.h - vp.insetB - m;
         double w = sx1 - sx0;
-        double ctrlRow = 44 * k;
-        double towerRow = 56 * k;
-        double openH = towerRow + gap + ctrlRow;
-        // Ein gewählter Turm klappt die Leiste immer aus (das Panel braucht den Platz).
-        double eff = selected ? 1 : open;
-        double dockH = Mathx.lerp(ctrlRow, openH, eff);
-        double dockY = sy1 - dockH;
+        double hudH = 30 * k;
+        double ctrlRow = 46 * k;
+        double towerRow = 58 * k;
+        double avail = sy1 - sy0;
 
-        hud.set(sx0, sy0, w, 26 * k);
-        double mapAvY = hud.y + hud.h + m;
-        double mapAvH = dockY - m - mapAvY;
+        // Karte so groß wie möglich: volle Breite, nur die Steuerzeile darunter braucht eigenen Platz.
         // Gedreht: Weltbreite läuft nach unten, Welthöhe nach rechts.
-        fitMap(sx0, mapAvY, w, mapAvH, wh, ww, true);
+        double s = Math.max(0.01, Math.min(w / wh, (avail - ctrlRow - gap) / ww));
+        double mh = ww * s;
+        double spare = avail - ctrlRow - gap - mh;
+        hudOverlay = spare < hudH + gap;
+        double mapTop = hudOverlay ? sy0 : sy0 + hudH + gap + Math.max(0, (spare - hudH - gap) * 0.5);
+        fitMap(sx0, mapTop, w, mh, wh, ww, true);
+        hud.set(sx0 + (hudOverlay ? gap : 0), hudOverlay ? mapY + gap : sy0, w - (hudOverlay ? 2 * gap : 0), hudH);
+        // Pause gehört in die Kopfzeile (rechts) – die Steuerzeile unten bleibt luftig.
+        double ps = hudH;
+        pause.set(hud.x + hud.w - ps, hud.y, ps, ps);
+        hud.w -= ps + gap;
 
-        // Steuerzeile unten
-        double startW = w * 0.32;
-        double rest = (w - startW - gap * 4) / 4;
+        // Steuerzeile ganz unten: Welle starten (breit), Tempo, Auto-Start, Turmleiste ein/aus
         double cy = sy1 - ctrlRow;
+        double startW = w * 0.40;
+        double rest = (w - startW - gap * 3) / 3;
         start.set(sx0, cy, startW, ctrlRow);
         speed.set(sx0 + startW + gap, cy, rest, ctrlRow);
         auto.set(sx0 + startW + gap * 2 + rest, cy, rest, ctrlRow);
-        pause.set(sx0 + startW + gap * 3 + rest * 2, cy, rest, ctrlRow);
-        toggle.set(sx0 + startW + gap * 4 + rest * 3, cy, rest, ctrlRow);
+        toggle.set(sx0 + startW + gap * 3 + rest * 2, cy, rest, ctrlRow);
         showToggle = true;
-        showExtras = true; // Tempo/Auto/Pause bleiben auch eingeklappt erreichbar
+        showExtras = true;
 
+        // Turmleiste: schwebt über dem unteren Kartenrand und gleitet beim Einklappen nach unten weg
+        // Mit weniger Türmen (Arena) wird die Leiste schmaler und steht mittig.
+        double pad = 4 * k;
+        double trayH = towerRow + 2 * pad;
+        double trayY = cy - gap - trayH + (1 - open) * trayH * 0.6;
         double pagerW = pages > 1 ? 26 * k : 0;
-        double tw = (w - gap * (TOWERS - 1) - (pages > 1 ? pagerW + gap : 0)) / TOWERS;
+        double extra = pages > 1 ? pagerW + gap : 0;
+        double inner = w - 2 * pad;
+        int n = Math.max(1, Math.min(TOWERS, cards));
+        double tw = Math.min((inner - gap * (TOWERS - 1) - extra) / TOWERS * 1.3, (inner - gap * (n - 1) - extra) / n);
+        double trayW = n * tw + (n - 1) * gap + extra + 2 * pad;
+        double tx0 = sx0 + (w - trayW) / 2;
+        tray.set(tx0, trayY, trayW, trayH);
         for (int i = 0; i < TOWERS; i++) {
-            tiles[i].set(sx0 + i * (tw + gap), dockY, tw, towerRow);
+            tiles[i].set(tx0 + pad + Math.min(i, n - 1) * (tw + gap), trayY + pad, tw, towerRow);
         }
-        pager.set(sx0 + TOWERS * (tw + gap), dockY, pagerW, towerRow);
-        showTiles = eff > 0.02;
+        pager.set(tx0 + pad + n * (tw + gap), trayY + pad, pagerW, towerRow);
+        showTiles = open > 0.02;
         panelReplacesTiles = selected;
-        // Panel nimmt die ganze Leiste ein (Steuerzeile inbegriffen)
-        panel.set(sx0, dockY, w, dockH);
+
+        // Upgrade-Panel: unten über der Karte (statt Turmleiste und Steuerzeile) – oder oben, wenn es sonst den
+        // gewählten Turm verdeckt. {@code panel} ist die Innenfläche, der Hintergrund steht {@code pad} darüber hinaus.
+        double ph = towerRow + gap + ctrlRow;
+        panelPad = pad;
+        panel.set(sx0 + pad, sy1 - pad - ph, w - 2 * pad, ph);
+        panelAtTop = false;
+        if (selected && screenY(selX, selY) + 34 * mapScale + 10 * k > panel.y - pad) {
+            panel.set(sx0 + pad, hud.y + hudH + gap + pad, w - 2 * pad, ph);
+            panelAtTop = true;
+        }
         info.set(panel.x, panel.y, panel.w, panel.h);
+
+        // Frei sichtbarer Bereich der Karte
+        clearTop = Math.max(mapY, hudOverlay ? hud.y + hudH : mapY);
+        double bottom = mapY + mapH;
+        if (showTiles && !selected) {
+            bottom = Math.min(bottom, trayY);
+        }
+        if (selected && !panelAtTop) {
+            bottom = Math.min(bottom, panel.y - pad);
+        }
+        if (selected && panelAtTop) {
+            clearTop = Math.max(clearTop, panel.y + panel.h + pad);
+        }
+        clearBottom = Math.min(bottom, cy);
     }
 
     // ------------------------------------------------------------------------------------ Abbildung

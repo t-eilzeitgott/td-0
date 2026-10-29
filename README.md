@@ -94,9 +94,10 @@ Actions-Seite herunterladen.
 
 **iPhone:** Adresse in **Safari** öffnen → **Teilen** → **„Zum Home-Bildschirm“**. Danach startet Neon TD im
 Vollbild wie eine App und funktioniert nach dem ersten Laden auch **ohne Internet**. Quer- und Hochformat nutzen den
-Platz jetzt gut: quer sitzt eine schmale Leiste am rechten Rand, hoch liegt die Karte gedreht (Pfad von oben nach
-unten) über einer Leiste am unteren Rand. Der **Pfeil-Knopf** klappt die Leiste ein – dann ist die Karte so groß wie
-möglich – und wieder aus; die Wahl wird gemerkt.
+Platz jetzt gut: quer sitzt eine schmale Leiste am rechten Rand; hoch liegt die Karte gedreht (Pfad von oben nach
+unten) über die volle Breite – oben die Kopfzeile mit Pause, unten die Steuerzeile, dazwischen schweben die Türme über
+dem unteren Kartenrand. Der **Pfeil-Knopf** klappt die Leiste ein – dann ist die ganze Karte frei – und wieder aus; die
+Wahl wird gemerkt. Ein gewählter Turm bekommt sein Upgrade-Panel unten, oder oben, wenn es ihn sonst verdecken würde.
 
 > **Gut zu wissen:** Der Safari-Tab und die Home-Bildschirm-App haben auf dem iPhone **getrennte Speicher**. Wer
 > beides benutzt, sieht dort zunächst verschiedene Profile. Der [Cloud-Speicher](#speichern-fortsetzen-und-cloud)
@@ -138,7 +139,7 @@ Das ZIP enthält `bin/neon-td` (bzw. `neon-td.bat` unter Windows); eine Java-Lau
 | **Turm verbessern** | Turm anklicken → Panel mit *Reichweite / Schaden / Tempo* | Turm antippen |
 | **Verkaufen** | Im Panel „Verkaufen“ (zweimal bestätigen), 70 % Erstattung | dito |
 | **Zielwahl** | Im Panel: Erster · Letzter · Stärkster · Nächster | dito |
-| **Wellen** | `START` / `Leertaste`; `1×/2×/3×` (im Endlosmodus bis `5×`) = `F`; Schleife = Auto-Start; Pause = `P` / `Esc` | Schaltflächen in der Leiste (quer rechts, hoch unten) |
+| **Wellen** | `START` / `Leertaste`; `1×/2×/3×` (im Endlosmodus bis `5×`) = `F`; Schleife = Auto-Start; Pause = `P` / `Esc` | Schaltflächen in der Leiste (quer rechts, hoch unten; Pause hoch oben rechts) |
 | **Leiste ein-/ausklappen** | – (am Laptop immer sichtbar) | Pfeil-Knopf in der Leiste |
 
 Weitere Tasten: `1`–`8` Turm der aktuellen Shop-Seite wählen · `G` Shop-Seite wechseln · `Q` `W` `E` Upgrade Reichweite/Schaden/Tempo · `R` Spezial-Auswahl · `Tab` Zielwahl · `X`/`Entf`

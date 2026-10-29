@@ -181,11 +181,13 @@ public final class WebMain {
 
     // -------------------------------------------------------------------------------------------- Größe
 
-    /** Höhe der Zeichenfläche: Fensterhöhe, in der iPhone-App mindestens die Bildschirmhöhe. */
+    /**
+     * Höhe der Zeichenfläche: immer die sichtbare Fensterhöhe. (Die iPhone-App bekommt von iOS manchmal ein Fenster,
+     * das unten kürzer als der Bildschirm ist – darunter kann keine Webseite zeichnen. Größer zu zeichnen hieße, dass
+     * die unterste Zeile abgeschnitten wird.)
+     */
     private double viewHeight() {
-        double w = Js.innerWidth();
-        double h = Js.innerHeight();
-        return iosApp ? Math.max(h, Js.screenHeight(h >= w)) : h;
+        return Js.innerHeight();
     }
 
     private void resize() {
@@ -195,6 +197,10 @@ public final class WebMain {
         double t = Js.safeInset(1);
         double r = Js.safeInset(2);
         double b = Js.safeInset(3);
+        if (iosApp && Js.screenHeight(h >= w) - h > 20) {
+            // Das verkürzte Fenster endet schon über dem Home-Balken – kein zusätzlicher Rand nötig.
+            b = 0;
+        }
         double area = Math.max(1, w * h);
         double budget = area < 900_000 ? PIXEL_BUDGET_PHONE : PIXEL_BUDGET_LARGE;
         double d = Math.max(1, Math.min(3, Math.min(Js.devicePixelRatio(), Math.sqrt(budget / area))));

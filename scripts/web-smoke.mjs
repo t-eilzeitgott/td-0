@@ -316,14 +316,21 @@ console.log('3. iPhone hoch: gedrehte Karte …');
   await t.tap(...(await anchor(page, 'track1')));
   check(Number((await state(page)).money) < money, 'Upgrade gekauft (Panel auf dem Handy bedienbar)');
   await page.screenshot({ path: path.join(out, '3b-panel.png') });
-  // Leiste einklappen → in der Hochformat-Ansicht wächst die Karte deutlich
+  // Turmleiste schwebt über der Karte und klappt weg; die Karte bleibt groß, die Steuerzeile ganz sichtbar
   await page.keyboard.press('Escape');                 // Auswahl aufheben
   await page.waitForTimeout(400);
   const open0 = parseFloat((await state(page)).mapScale);
+  const vh = page.viewportSize().height;
+  const [, startY] = await anchor(page, 'start');
+  check(startY < vh - 20, `Steuerzeile vollständig sichtbar (Start bei y=${Math.round(startY)} von ${vh})`);
+  check(open0 >= 0.5, `Karte im Hochformat groß: ${open0.toFixed(3)}`);
   await t.tap(...(await anchor(page, 'toggle')));
   await page.waitForTimeout(1000);
-  const closed0 = parseFloat((await state(page)).mapScale);
-  check(closed0 > open0 * 1.05, `Leiste einklappen vergrößert die Karte: ${open0.toFixed(3)} → ${closed0.toFixed(3)}`);
+  s = await state(page);
+  check(parseFloat(s.rail) < 0.05 && parseFloat(s.mapScale) === open0, `Turmleiste klappt weg, Karte bleibt (${s.rail}, ${s.mapScale})`);
+  await t.tap(...(await anchor(page, 'toggle')));
+  await page.waitForTimeout(1000);
+  check(parseFloat((await state(page)).rail) > 0.95, 'und klappt wieder auf');
   check(errors.length === 0, 'keine Konsolenfehler' + (errors.length ? ': ' + errors.join(' | ') : ''));
   await ctx.close();
 }

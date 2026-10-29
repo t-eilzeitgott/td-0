@@ -59,10 +59,12 @@ class GameLayoutTest {
         GameLayout closed = layout(v, 0, false);
         assertEquals(GameLayout.Mode.COMPACT_PORT, open.mode);
         assertTrue(open.rotated);
-        // Vorher (ungedreht, breitenbegrenzt): 0,297.
-        assertTrue(open.mapScale >= 0.43, "offen: " + open.mapScale);
-        assertTrue(closed.mapScale >= 0.50, "eingeklappt: " + closed.mapScale);
-        assertTrue(open.mapScale / 0.297 > 1.4);
+        // Vorher (ungedreht, breitenbegrenzt): 0,297. Die Turmleiste schwebt über der Karte, die Karte bleibt beim
+        // Ein- und Ausklappen gleich groß und nutzt die volle Breite.
+        assertTrue(open.mapScale >= 0.52, "offen: " + open.mapScale);
+        assertEquals(open.mapScale, closed.mapScale, 1e-9);
+        assertTrue(open.mapScale / 0.297 > 1.7);
+        assertTrue(open.mapW >= v.safeW() - 2 * 6 * open.k, "volle Breite: " + open.mapW);
         // Gedrehte Karte ist hochkant.
         assertTrue(open.mapH > open.mapW);
     }
@@ -131,7 +133,19 @@ class GameLayoutTest {
                             && gl.mapX + gl.mapW <= v.w - v.insetR + 0.5 && gl.mapY + gl.mapH <= v.h - v.insetB + 0.5, id);
                     // … und Schalter überdecken sie nur dort, wo es beabsichtigt ist (eingeklappte Kompaktleiste).
                     boolean overlayAllowed = gl.mode == GameLayout.Mode.COMPACT_LAND && open < 0.5;
-                    if (!overlayAllowed) {
+                    if (gl.mode == GameLayout.Mode.COMPACT_PORT) {
+                        // Hochformat-Handy: Turmleiste und (bei wenig Platz) Kopfzeile schweben über der Karte, die
+                        // Steuerzeile darunter nie.
+                        GameLayout.Rect box = new GameLayout.Rect();
+                        box.set(gl.mapX, gl.mapY, gl.mapW, gl.mapH);
+                        for (GameLayout.Rect r : new GameLayout.Rect[] {gl.start, gl.speed, gl.auto, gl.toggle}) {
+                            assertFalse(r.intersects(box), id + ": Steuerzeile auf der Karte");
+                        }
+                        assertTrue(gl.pause.y + gl.pause.h <= gl.mapY + 0.5 || gl.hudOverlay, id + ": Pause auf der Karte");
+                        assertTrue(gl.panel.y - gl.panelPad >= v.insetT - 0.5
+                                && gl.panel.y + gl.panel.h + gl.panelPad <= v.h - v.insetB + 0.5, id + ": Panel");
+                        assertTrue(gl.clearBottom > gl.clearTop + 100, id + ": freie Karte");
+                    } else if (!overlayAllowed) {
                         for (GameLayout.Rect r : rects) {
                             GameLayout.Rect box = new GameLayout.Rect();
                             box.set(gl.mapX, gl.mapY, gl.mapW, gl.mapH);
@@ -157,6 +171,48 @@ class GameLayoutTest {
         GameLayout gl2 = new GameLayout();
         gl2.compute(v, WW, WH, 1, true, 150, 360);
         assertTrue(gl2.panel.x > gl2.mapX + gl2.mapW / 2);
+    }
+
+    @Test
+    void portraitPanelMovesUpWhenItWouldCoverTheSelectedTower() {
+        Viewport v = vp(393, 852, 0, 59, 0, 34);
+        // Turm unten auf dem Bildschirm (Welt-x groß) → Panel oben
+        GameLayout low = new GameLayout();
+        low.compute(v, WW, WH, 1, true, 1200, 360);
+        assertTrue(low.panelAtTop);
+        assertFalse(low.panel.intersectsCircle(low.screenX(1200, 360, WH), low.screenY(1200, 360), 24));
+        // Turm oben → Panel bleibt unten (über der Steuerzeile)
+        GameLayout high = new GameLayout();
+        high.compute(v, WW, WH, 1, true, 200, 360);
+        assertFalse(high.panelAtTop);
+        assertTrue(high.panel.y > high.mapY + high.mapH / 2);
+        assertFalse(high.panel.intersectsCircle(high.screenX(200, 360, WH), high.screenY(200, 360), 24));
+    }
+
+    @Test
+    void portraitHomeScreenAppWithShortWindowFloatsTheHudOverTheMap() {
+        // iPhone-App mit verkürztem Fenster (iOS gibt unten weniger Platz): Die Kopfzeile schwebt über der Karte, die
+        // Steuerzeile bleibt vollständig sichtbar.
+        Viewport v = vp(402, 811, 0, 62, 0, 0);
+        GameLayout gl = layout(v, 1, false);
+        assertEquals(GameLayout.Mode.COMPACT_PORT, gl.mode);
+        assertTrue(gl.hudOverlay);
+        assertTrue(gl.start.y + gl.start.h <= v.h + 0.5);
+        assertTrue(gl.mapScale >= 0.52, "Karte: " + gl.mapScale);
+        assertTrue(gl.hud.y >= gl.mapY && gl.pause.x + gl.pause.w <= gl.mapX + gl.mapW + 0.5);
+    }
+
+    @Test
+    void portraitTrayFoldsAwayDownwards() {
+        Viewport v = vp(393, 852, 0, 59, 0, 34);
+        GameLayout open = layout(v, 1, false);
+        GameLayout half = layout(v, 0.5, false);
+        GameLayout closed = layout(v, 0, false);
+        assertTrue(open.showTiles && half.showTiles);
+        assertFalse(closed.showTiles);
+        assertTrue(half.tray.y > open.tray.y, "gleitet nach unten");
+        assertTrue(open.tray.y + open.tray.h <= open.start.y, "über der Steuerzeile");
+        assertTrue(closed.clearBottom > open.clearBottom, "eingeklappt mehr Karte frei");
     }
 
     @Test

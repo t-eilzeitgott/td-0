@@ -103,11 +103,19 @@ Speicherbereinigung des Browsers. Ein Partikel vom Typ `POP` zerplatzt am Lebens
 | `DOCKED` | Laptop/Tablet quer | Karte links, feste Seitenleiste rechts (Kopf mit Level-Balken, Shop, Panel, Steuerung) |
 | `STACKED` | Tablet hoch | Karte oben, darunter Shop und Panel |
 | `COMPACT_LAND` | kleinste Fensterkante < 480 (Handy quer) | schmale Leiste rechts (Türme │ Steuerung), Kopfzeile schwebt über der Karte, Upgrade-Panel als Popover neben dem Turm (wechselt die Seite, wenn es ihn verdecken würde) |
-| `COMPACT_PORT` | Handy hoch | **Karte um 90° gedreht** (Pfad von oben nach unten), Leiste unten; ein gewählter Turm ersetzt die Turmleiste durch das Panel |
+| `COMPACT_PORT` | Handy hoch | **Karte um 90° gedreht** (Pfad von oben nach unten) in voller Breite; Kopfzeile mit Pause darüber (reicht der Platz nicht, schwebt sie über der Karte: `hudOverlay`), Steuerzeile darunter (START, Tempo, Auto, Pfeil). Die Turmleiste (`tray`) schwebt über dem unteren Kartenrand; ein gewählter Turm bekommt dort das Panel – oder oben unter der Kopfzeile, wenn es ihn sonst verdecken würde (`panelAtTop`) |
 
 In den kompakten Modi klappt der Pfeil-Knopf die Leiste ein (animiert über `railT`, gemerkt unter
-`neontd.ui.rail`): quer bleiben nur START und der Knopf als Überlagerung, hoch nur die Steuerzeile. Das Ergebnis in
-Zahlen steht in `GameLayoutTest` (iPhone 15 quer: Kartenmaßstab 0,41 → 0,49/0,50; hoch: 0,30 → 0,48/0,53).
+`neontd.ui.rail`): quer bleiben nur START und der Knopf als Überlagerung; hoch gleitet die Turmleiste nach unten weg
+und die ganze Karte ist frei (die Karte selbst ändert ihre Größe dabei nicht). `clearTop`/`clearBottom` geben den
+frei sichtbaren Kartenbereich an – dort sitzen Banner, Hinweise und Arena-Zwischenzeiten. Mit weniger Türmen (Arena:
+Wochen-Pool) wird die Leiste schmaler und steht mittig. Das Ergebnis in Zahlen steht in `GameLayoutTest` (iPhone 15
+quer: Kartenmaßstab 0,41 → 0,49/0,50; hoch: 0,30 → 0,53).
+
+**iPhone-App mit verkürztem Fenster:** iOS gibt Web-Apps auf dem Home-Bildschirm manchmal ein Fenster, das unten
+kürzer ist als der Bildschirm (`innerHeight` < `screen.height`); darunter kann keine Seite zeichnen. Die Zeichenfläche
+folgt deshalb immer `innerHeight` – in diesem Fall ohne zusätzlichen Rand unten, die Kopfzeile schwebt dann über der
+Karte (`WebMain.resize`, Test `portraitHomeScreenAppWithShortWindowFloatsTheHudOverTheMap`).
 
 Die **gedrehte Karte** wird beim Zeichnen mit `rotate(π/2)` abgebildet; `GameLayout.worldX/worldY/screenX/screenY`
 rechnen Bildschirm und Welt ineinander um (auch für Ziehen, Antippen, Panel-Platzierung). Damit Zahlen waagerecht

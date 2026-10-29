@@ -379,6 +379,13 @@ public final class GameScene extends Scene {
         double sx = selected != null ? selected.x : 0;
         double sy = selected != null ? selected.y : 0;
         lay.pages = pageCount();
+        int shown = 0;
+        for (int i = 0; i < GameLayout.TOWERS; i++) {
+            if (cardType(i) != null) {
+                shown++;
+            }
+        }
+        lay.cards = pageCount() > 1 ? GameLayout.TOWERS : shown;
         lay.compute(app.vp, world.width, world.height, railT.value, selected != null, sx, sy);
         laidOutRail = railT.value;
         laidOutSelected = selected != null;
@@ -390,11 +397,13 @@ public final class GameScene extends Scene {
         autoBtn.bounds(lay.auto.x, lay.auto.y, lay.auto.w, lay.auto.h);
         pauseBtn.bounds(lay.pause.x, lay.pause.y, lay.pause.w, lay.pause.h);
         toggleBtn.bounds(lay.toggle.x, lay.toggle.y, lay.toggle.w, lay.toggle.h);
-        boolean extras = lay.showExtras && !(lay.mode == GameLayout.Mode.COMPACT_PORT && selected != null);
+        // Hochformat-Handy: Das Upgrade-Panel liegt unten über der Steuerzeile – außer es musste nach oben ausweichen.
+        boolean panelCoversCtrl = lay.mode == GameLayout.Mode.COMPACT_PORT && selected != null && !lay.panelAtTop;
+        boolean extras = lay.showExtras && !panelCoversCtrl;
         speedBtn.visible = extras;
         autoBtn.visible = extras;
-        pauseBtn.visible = extras;
-        boolean startVisible = !(lay.mode == GameLayout.Mode.COMPACT_PORT && selected != null);
+        pauseBtn.visible = lay.mode == GameLayout.Mode.COMPACT_PORT || extras;
+        boolean startVisible = !panelCoversCtrl;
         startBtn.visible = startVisible;
         toggleBtn.visible = lay.showToggle && startVisible;
         // Schmale Kacheln bekommen eigene, kompakte Darstellung.
@@ -1289,6 +1298,16 @@ public final class GameScene extends Scene {
             if (lay.compact()) {
                 g.alpha(Mathx.clamp01(open * 1.4));
             }
+            if (lay.mode == GameLayout.Mode.COMPACT_PORT) {
+                // Schwebende Turmleiste: beim Ziehen eines Turms durchscheinend, damit man darunter bauen kann
+                if (placing != null && (dragging || pending)) {
+                    g.alpha(0.4);
+                }
+                GameLayout.Rect t = lay.tray;
+                double r = 14 * lay.k;
+                g.fillRoundRect(t.x, t.y, t.w, t.h, r, Colors.withAlpha(Theme.SURFACE, 0.8));
+                g.strokeRoundRect(t.x, t.y, t.w, t.h, r, 1, Theme.LINE);
+            }
             for (Button c : cards) {
                 c.render(g);
             }
@@ -1376,9 +1395,10 @@ public final class GameScene extends Scene {
         double sc = 0.94 + 0.06 * Easing.outBack(inT);
         double mw = lay.mapW;
         double cx = lay.mapX + mw / 2;
-        double cy = lay.mapY + (lay.rotated ? 92 * u : Math.min(lay.mapH * 0.2, 70 * u));
         String title = bannerTitle.charAt(0) + bannerTitle.substring(1).toLowerCase();
         boolean hasSub = bannerSub != null && !bannerSub.isEmpty();
+        double cy = lay.rotated ? lay.clearTop + 50 * u + (hasSub ? 28 : 20) * u
+                : lay.mapY + Math.min(lay.mapH * 0.2, 70 * u);
         double ts = Math.min(22 * u, mw * 0.06);
         double ss = Math.max(11, 12.5 * u);
         double w = Math.max(g.textWidth(title, ts, true), hasSub ? g.textWidth(bannerSub, ss, false) : 0) + 44 * u;
@@ -1408,7 +1428,7 @@ public final class GameScene extends Scene {
         double h = 34 * u;
         double w = Math.min(lay.mapW + 10, g.textWidth(toast, fs, true) + 30 * u + h * 0.5);
         double cx = lay.mapX + lay.mapW / 2;
-        double y = lay.mapY + lay.mapH - h - 14 * u;
+        double y = lay.clearBottom - h - 12 * u;
         g.save();
         g.alpha(a);
         g.fillRoundRect(cx - w / 2, y, w, h, h / 2, Colors.withAlpha(Theme.SURFACE3, 0.96));
@@ -1609,7 +1629,7 @@ public final class GameScene extends Scene {
         double h = 30 * u;
         double w = w1 + w2 + 28 * u;
         double cx = lay.mapX + lay.mapW / 2;
-        double y = lay.mapY + 10 * u;
+        double y = lay.clearTop + 8 * u;
         g.save();
         g.alpha(a);
         g.fillRoundRect(cx - w / 2, y, w, h, h / 2, Colors.withAlpha(Theme.SURFACE2, 0.96));
@@ -1749,6 +1769,9 @@ public final class GameScene extends Scene {
             case COMPACT_PORT: {
                 GameLayout.Rect p = lay.panel;
                 double k = lay.k;
+                double pp = lay.panelPad;
+                g.fillRoundRect(p.x - pp, p.y - pp, p.w + 2 * pp, p.h + 2 * pp, 14 * k, Colors.withAlpha(Theme.SURFACE, 0.95));
+                g.strokeRoundRect(p.x - pp, p.y - pp, p.w + 2 * pp, p.h + 2 * pp, 14 * k, 1, Theme.LINE);
                 double rh = modeBtn.h;
                 double bx = p.x;
                 double bw = specialBtn.x - 4 * k - p.x;
@@ -2627,6 +2650,9 @@ public final class GameScene extends Scene {
             cards[ci].press.target = 1;
             return;
         }
+        if (onChrome(x, y)) {
+            return;
+        }
         if (onMap(x, y)) {
             mapPressed = true;
             double wx = toWorldX(x, y);
@@ -2658,7 +2684,25 @@ public final class GameScene extends Scene {
     }
 
     private boolean panelContains(double x, double y) {
-        return lay.panel.contains(x, y);
+        double p = lay.panelPad;
+        GameLayout.Rect r = lay.panel;
+        return x >= r.x - p && y >= r.y - p && x <= r.x + r.w + p && y <= r.y + r.h + p;
+    }
+
+    /** Hochformat-Handy: Tippt der Finger auf schwebende Bedienteile über der Karte (Kopfzeile, Turmleiste, Panel)? */
+    private boolean onChrome(double x, double y) {
+        if (lay.mode != GameLayout.Mode.COMPACT_PORT) {
+            return false;
+        }
+        double pad = 4 * lay.k;
+        GameLayout.Rect h = lay.hud;
+        if (lay.hudOverlay && y >= h.y - pad && y <= h.y + h.h + pad) {
+            return true;
+        }
+        if (selected != null) {
+            return panelContains(x, y);
+        }
+        return placing == null && tilesVisible() && lay.tray.contains(x, y);
     }
 
     private void updateGhost(double sx, double sy, double offsetY) {
