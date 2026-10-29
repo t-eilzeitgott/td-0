@@ -32,6 +32,11 @@ public final class WebMain {
     private boolean firstFrame = true;
     private int frameCounter;
     private int errorCount;
+    /**
+     * Home-Bildschirm-App auf dem iPhone: Dort meldet der Browser eine zu kleine Fensterhöhe (unten fehlt ein Streifen
+     * in Höhe des Home-Indikators). Dann gilt die echte Bildschirmhöhe – so füllt das Spiel den ganzen Bildschirm.
+     */
+    private final boolean iosApp = Js.iosStandalone();
 
     private WebMain(HTMLCanvasElement canvas, boolean touch) {
         this.canvas = canvas;
@@ -176,9 +181,16 @@ public final class WebMain {
 
     // -------------------------------------------------------------------------------------------- Größe
 
-    private void resize() {
+    /** Höhe der Zeichenfläche: Fensterhöhe, in der iPhone-App mindestens die Bildschirmhöhe. */
+    private double viewHeight() {
         double w = Js.innerWidth();
         double h = Js.innerHeight();
+        return iosApp ? Math.max(h, Js.screenHeight(h >= w)) : h;
+    }
+
+    private void resize() {
+        double w = Js.innerWidth();
+        double h = viewHeight();
         double l = Js.safeInset(0);
         double t = Js.safeInset(1);
         double r = Js.safeInset(2);
@@ -329,7 +341,7 @@ public final class WebMain {
         // Größenänderungen ohne Ereignis abfangen (z. B. einklappende Safari-Leisten): Die Fenstergröße prüfen wir
         // jeden Frame (billig), die Sicherheitsränder – dafür muss der Browser Stile auswerten – nur gelegentlich.
         frameCounter++;
-        if (Js.innerWidth() != lastW || Js.innerHeight() != lastH || frameCounter % 30 == 0) {
+        if (Js.innerWidth() != lastW || viewHeight() != lastH || frameCounter % 30 == 0) {
             resize();
         }
         gfx.begin(lastW, lastH, dpr);

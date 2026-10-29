@@ -2382,7 +2382,8 @@ public final class GameScene extends Scene {
         }
         g.text(title, sx + pad, y, 22 * u, overlay == Overlay.PAUSE ? Theme.TEXT : color, Gfx.ALIGN_LEFT, true);
         String sub = level.name + (world.endless ? "  ·  Endlos" : "") + (editorReturn != null ? "  ·  Testspiel" : "");
-        Draw.fit(g, sub, sx + sw - pad, y, 13 * u, sw * 0.5, Theme.MUTED, Gfx.ALIGN_RIGHT, false);
+        double titleW = g.textWidth(title, 22 * u, true);
+        Draw.cut(g, sub, sx + sw - pad, y, 13 * u, sw - 2 * pad - titleW - 14 * u, Theme.MUTED, Gfx.ALIGN_RIGHT, false);
         y += 34 * u;
         if (overlay != Overlay.PAUSE) {
             if (overlay == Overlay.WON && !world.endless && level.builtin && progressOn) {
@@ -2443,9 +2444,11 @@ public final class GameScene extends Scene {
     /** Inhalt des Blatts in der Arena: Pause mit Zwischenstand bzw. Ergebnis mit Platz, Rekord und Abstand. */
     private void drawArenaSheet(Gfx g, double sx, double y, double sw, double pad, double u) {
         boolean pause = overlay == Overlay.PAUSE;
-        g.text(pause ? "Pause" : "Lauf beendet", sx + pad, y, 22 * u, pause ? Theme.TEXT : Theme.ACCENT, Gfx.ALIGN_LEFT, true);
-        Draw.fit(g, "Arena " + arena.label() + "  ·  " + level.name, sx + sw - pad, y, 13 * u, sw * 0.5, Theme.MUTED,
-                Gfx.ALIGN_RIGHT, false);
+        String head = pause ? "Pause" : "Lauf beendet";
+        g.text(head, sx + pad, y, 22 * u, pause ? Theme.TEXT : Theme.ACCENT, Gfx.ALIGN_LEFT, true);
+        double headW = g.textWidth(head, 22 * u, true);
+        Draw.cut(g, "Arena " + arena.label() + "  ·  " + level.name, sx + sw - pad, y, 13 * u,
+                sw - 2 * pad - headW - 14 * u, Theme.MUTED, Gfx.ALIGN_RIGHT, false);
         y += 34 * u;
         if (pause) {
             String line = Fmt.points(world.score) + " Punkte  ·  ×" + Fmt.one(world.multiplier()) + "  ·  Welle "

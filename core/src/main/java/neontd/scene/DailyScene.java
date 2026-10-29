@@ -97,10 +97,10 @@ public final class DailyScene extends PanelScene {
         double rh = 60 * u;
         Draw.card(g, x, y, w, rh, 16 * u, 0);
         Draw.iconBadge(g, x + 30 * u, y + rh / 2, 16 * u, Icon.WAVES, Theme.ACCENT);
-        g.text(best > 0 ? "Deine beste Welle heute: " + best : "Noch nicht gespielt", x + 58 * u, y + rh / 2 - 8 * u, 14 * u,
-                Theme.TEXT, Gfx.ALIGN_LEFT, true);
-        g.text("Ab Welle " + Daily.REWARD_WAVE + ": +" + Daily.REWARD + " Kristalle  ·  Endlosmodus, zählt die weiteste Welle",
-                x + 58 * u, y + rh / 2 + 10 * u, 11 * u, Theme.MUTED, Gfx.ALIGN_LEFT, false);
+        Draw.fit(g, best > 0 ? "Deine beste Welle heute: " + best : "Noch nicht gespielt", x + 58 * u, y + rh / 2 - 8 * u,
+                14 * u, w - 72 * u, Theme.TEXT, Gfx.ALIGN_LEFT, true);
+        Draw.cut(g, "Ab Welle " + Daily.REWARD_WAVE + ": +" + Daily.REWARD + " Kristalle  ·  Endlos, die weiteste Welle zählt",
+                x + 58 * u, y + rh / 2 + 10 * u, 11 * u, w - 72 * u, Theme.MUTED, Gfx.ALIGN_LEFT, false);
         y += rh + 12 * u;
 
         // Bestenliste des Tages

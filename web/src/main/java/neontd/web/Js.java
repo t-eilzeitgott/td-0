@@ -74,6 +74,18 @@ final class Js {
     @JSBody(params = {}, script = "return window.innerHeight;")
     static native double innerHeight();
 
+    /** Läuft die Seite als Home-Bildschirm-App auf iPhone/iPad? */
+    @JSBody(params = {}, script = "var u = navigator.userAgent || '';"
+            + "var ios = /iphone|ipad|ipod/i.test(u) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);"
+            + "var st = false; try { st = navigator.standalone === true || window.matchMedia('(display-mode: standalone)').matches; } catch (e) {}"
+            + "return ios && st;")
+    static native boolean iosStandalone();
+
+    /** Bildschirmhöhe in der aktuellen Ausrichtung (CSS-Pixel). */
+    @JSBody(params = {"portrait"}, script = "var a = screen.width, b = screen.height;"
+            + "return portrait ? Math.max(a, b) : Math.min(a, b);")
+    static native double screenHeight(boolean portrait);
+
     @JSBody(params = {}, script = "return window.devicePixelRatio || 1;")
     static native double devicePixelRatio();
 

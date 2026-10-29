@@ -91,7 +91,7 @@ async function newContext(opts) {
 
 // ------------------------------------------------------------------------------------------------ Hilfen
 
-const uOf = (w, h) => Math.min(2, Math.max(0.86, Math.min(w, h) / 560));
+const uOf = (w, h) => { const m = Math.min(w, h); return Math.min(2, Math.max(0.86, Math.max(m / 560, Math.min(1.05, m / 380)))); };
 
 async function open(ctx, errors, query = '?debug') {
   const page = await ctx.newPage();

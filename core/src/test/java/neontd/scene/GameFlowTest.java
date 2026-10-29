@@ -443,7 +443,8 @@ class GameFlowTest {
         h.app.goTo(new ProfileScene(h.app));
         h.run(1.5);
         // Name liegt oben in der Kopfkarte: antippen öffnet die Namensseite
-        h.tap(250, 130);
+        double[] nameAt = ((ProfileScene) h.app.scene()).anchor("name");
+        h.tap(nameAt[0], nameAt[1]);
         h.run(1.0);
         assertEquals("NameScene", h.scene());
         NameScene ns = (NameScene) h.app.scene();
