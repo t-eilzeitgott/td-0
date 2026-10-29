@@ -52,6 +52,7 @@ public final class App {
         this.progress = saves.loadProgress();
         this.cloud = new GistSync(platform.http(), saves, levels, progress);
         this.board = new neontd.save.Leaderboard(platform.http(), platform.store());
+        board.setPlatformInfo(platform.describe());
         if (progress.grantLegacyCrystals()) {
             commitProgress();
         }
@@ -155,7 +156,13 @@ public final class App {
         if (cloudTick >= 1) {
             cloudTick = 0;
             cloud.tick();
-            board.flush(progress.displayName());
+            board.flush();
+            // Der Spielername der Bestenliste ist auch der Profilname (z. B. nach dem Bestätigen durch den Server)
+            String n = board.playerName();
+            if (n != null && !n.equals(progress.name)) {
+                progress.name = n;
+                commitProgress();
+            }
             periodTick++;
             if (periodTick >= 5) {
                 periodTick = 0;

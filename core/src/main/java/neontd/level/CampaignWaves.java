@@ -37,9 +37,10 @@ public final class CampaignWaves {
     /** Welle {@code wave} (1-basiert; auch über 20 hinaus für den Endlosmodus) des Levels. */
     public static WaveDef wave(LevelDef level, int wave) {
         WaveStyle style = level.style;
+        double hpMul = level.hpMulAt(wave);
         if (wave <= 2) {
             // Aufwärmen: die ersten beiden Wellen jedes Levels sind schlichte Blöcke (wie die Standardkurve).
-            return WaveFactory.wave(wave, level.hpMul);
+            return WaveFactory.wave(wave, hpMul);
         }
         double t = Math.min(1.0, (wave - 1) / 19.0);
         int chapter = level.enemyTier();
@@ -100,14 +101,14 @@ public final class CampaignWaves {
             total += count;
             // Der Abstand schrumpft mit dem Wellenverlauf wie bei der Standardkurve (aber nicht unter ein Minimum)
             double gap = Math.max(GAP[i] * 0.4, GAP[i] * (1.1 - 0.025 * Math.min(wave, 30)) * pace);
-            d.groups.add(new WaveDef.Group(type, count, gap, delay, WaveFactory.clamped(baseHp * level.hpMul), -1,
+            d.groups.add(new WaveDef.Group(type, count, gap, delay, WaveFactory.clamped(baseHp * hpMul), -1,
                     WaveFactory.reward(type, wave)));
             delay += stagger;
         }
         if (boss) {
             int n = bossCount(level, wave);
             d.groups.add(new WaveDef.Group(EnemyType.BOSS, n, 6.0, delay + 1.0,
-                    WaveFactory.clamped(WaveFactory.hp(EnemyType.BOSS, wave) * level.hpMul), -1,
+                    WaveFactory.clamped(WaveFactory.hp(EnemyType.BOSS, wave) * hpMul), -1,
                     WaveFactory.reward(EnemyType.BOSS, wave)));
         }
         return d;

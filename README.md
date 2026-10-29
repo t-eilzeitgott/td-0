@@ -13,6 +13,13 @@ cleane Oberfläche. Die gesamte Spiellogik ist in **Java** geschrieben und läuf
 
 ## Was drin ist
 
+- **Arena – der Wochen-Wettkampf**: Jede Woche eine neue Arena, in der alle mit exakt denselben Regeln antreten
+  (gleiche Karte, gleicher Turm-Pool, zwei Joker, 10 Leben, keine Boni aus Shop oder Spielerlevel). Die Wellen werden
+  immer härter; gezählt werden **Punkte** mit **Serien-Multiplikator** (bis ×3) und **Vorlauf-Bonus**. Live-Platz,
+  Zwischenzeiten gegen den Führenden, globale Rangliste mit Versuchen, Verlauf, Ruhmeshalle und Kristalle fürs Podium –
+  siehe [Arena](#arena--der-wochen-wettkampf).
+- **Spielername beim ersten Start** (weltweit eindeutig, vom Server geprüft) und ein **Login-Log** in der Datenbank.
+
 - **8 Welten mit 48 handgebauten Strecken**: Neonstadt, Tiefsee, Magmakern, Gewächshaus, Raumhafen, Kathedrale,
   Datenstrom, Ereignishorizont – jede Welt mit eigener Farbe, eigenem Gegner-Rhythmus und eigener Idee (Schleifen,
   Spiralen, Doppelhelix, Loopings, Kreuzungen, drei Bahnen auf eine Basis …). Siehe [Welten und Sterne](#welten-und-sterne).
@@ -43,6 +50,10 @@ cleane Oberfläche. Die gesamte Spiellogik ist in **Java** geschrieben und läuf
 | Gefecht | Turm gewählt | Ausbaupfade | Sieg mit Sternen |
 |:--:|:--:|:--:|:--:|
 | <img src="docs/screenshots/phone-portrait.png" width="170"> | <img src="docs/screenshots/phone-portrait-panel.png" width="170"> | <img src="docs/screenshots/ausbau-phone.png" width="170"> | <img src="docs/screenshots/win-phone.png" width="170"> |
+
+| Spielername | Arena | Arena-Lauf | Ergebnis |
+|:--:|:--:|:--:|:--:|
+| <img src="docs/screenshots/name-phone-filled.png" width="170"> | <img src="docs/screenshots/arena-phone.png" width="170"> | <img src="docs/screenshots/arena-run-phone.png" width="170"> | <img src="docs/screenshots/arena-result-phone.png" width="170"> |
 
 | Tages-Challenge | Bestenliste | Profil | Shop |
 |:--:|:--:|:--:|:--:|
@@ -329,6 +340,74 @@ Kristalle). Jede erreichte Stufe schreibt sofort Kristalle gut und erscheint als
   <img src="docs/screenshots/missions.png" width="290"> <img src="docs/screenshots/season.png" width="290"> <img src="docs/screenshots/achievements.png" width="290">
 </p>
 
+## Arena – der Wochen-Wettkampf
+
+Die Arena ist der kompetitive Modus: **eine Woche lang denselben Highscore jagen**, dann kommt eine neue Arena.
+Hauptmenü → Karte **Arena** (gleich unter „Weiter“) oder direkt **Antreten**.
+
+**Gleiche Bedingungen für alle.** Jede Arena legt Karte (samt Pads und Sperrzonen), Gegnermischung, **fünf Türme**,
+**zwei Joker-Spezials**, Startgeld und **10 Leben** fest. Spielerlevel, gekaufte Türme, Spezials und Forschung zählen
+hier nicht – wer gestern angefangen hat, kämpft mit denselben Mitteln wie jemand mit Level 60. Ausbaupfade stehen allen
+offen; Upgrades enden bei Stufe 5 (keine Meisterstufen), verlorene Leben kommen nicht zurück. Die Simulation ist
+deterministisch: gleiche Züge, gleiches Ergebnis.
+
+**Nicht zu einfach.** Die Lebenspunkte wachsen zusätzlich um 4 % je Welle. Die Härte ist mit dem Test-Bot kalibriert:
+Er kommt je nach Arena bis etwa Welle 21–30 (`ArenaProbe`, abgesichert in `ArenaTest`). Wer Pads, Ausbaupfade, Joker und
+den Vorlauf geschickt nutzt, kommt weiter – ein Titan, der durchkommt, beendet den Lauf aber sofort.
+
+**Punkte.**
+
+| | |
+|---|---|
+| Abschuss | Prämie der Gegnerart × Wellennummer × Multiplikator |
+| Welle besiegt | 100 × Wellennummer × Multiplikator, mit **Vorlauf ×2** |
+| Serie | jede Welle ohne durchgelassenen Gegner +0,1 auf den Multiplikator (bis **×3,0** nach 20 Wellen) |
+| Durchbruch | ein einziger Gegner im Ziel setzt den Multiplikator auf ×1,0 zurück |
+| Vorlauf | die nächste Welle starten, solange noch Gegner laufen (die Taste zeigt dann „VORLAUF ×2“) |
+
+So entscheidet nicht nur, wie weit man kommt, sondern auch wie sauber und wie mutig: Ohne Durchbruch spielen, früh
+nachlegen, aber nicht so früh, dass etwas durchrutscht.
+
+**Im Lauf** zeigt das HUD Punkte, Multiplikator (grau → cyan → gold), Welle und den **Live-Platz**; der Balken unter dem
+HUD füllt sich mit der Serie. Nach jeder Welle erscheint die **Zwischenzeit** gegen den Führenden der Woche und gegen den
+eigenen Bestlauf („+1,2K vs Mia · −300 Bestwert“), beim Überholen meldet das Spiel „Platz 2 – an Tobi vorbei!“.
+Am Ende: Punkte, Welle, beste Serie, **Platz von allen**, „Neuer Rekord“ und der Abstand zum Nächsten.
+
+**Fair bleiben.** In der Arena wird nicht automatisch zwischengespeichert – ein Neustart der App spult also nicht
+zurück. Nur wenn die App in den Hintergrund geht (Anruf, Wechsel), wird der Stand gesichert und kann fortgesetzt werden;
+sobald es weitergeht, wird er verworfen. Der Server nimmt Läufe nur von angemeldeten Namen an, prüft Woche,
+Plausibilität (Punkte zur Welle, Spielzeit) und lässt höchstens einen Lauf alle 10 Sekunden zu.
+
+**Die Arena-Seite** hat drei Reiter: **Rangliste** (bester Lauf je Spieler mit Welle, Serie und Anzahl der Läufe),
+**Verlauf** (die letzten Läufe der Woche, Rekorde markiert) und **Ruhmeshalle** (Wochensieger mit Titelzahl). Dazu
+Restzeit, Regeln, der eigene Stand und **Herausfordern** (kopiert einen Text mit Punkten und Link zum Weiterschicken).
+Wer in der Vorwoche dabei war, holt sich oben die Belohnung ab: **300 / 200 / 120 Kristalle** für Platz 1–3,
+**40** fürs Mitmachen. Eine neue Arena beginnt **Montag 0 Uhr** (Kalenderwoche nach ISO, deutsche Zeit); acht Arenen
+wechseln sich ab (Boulevard, Doppelhelix, Schmiede, Kreuzgang, Docking, Glockenturm, Netz, Gravitation).
+
+<p align="center">
+  <img src="docs/screenshots/arena-feed-phone.png" width="170"> <img src="docs/screenshots/arena-hall-phone.png" width="170">
+  <img src="docs/screenshots/arena.png" width="420"><br>
+  <sub>Screenshots mit Beispieldaten</sub>
+</p>
+
+## Spielername und Login-Log
+
+Beim **ersten Start** fragt das Spiel nach dem Spielernamen (2–16 Zeichen: Buchstaben, Zahlen, Leerzeichen, `. _ -`).
+Auf dem iPhone ist das ein echtes Eingabefeld mit der normalen Tastatur. Der Server prüft, dass der Name noch frei ist
+(ohne Unterschied von Groß- und Kleinschreibung); ohne Netz gilt er vorläufig und wird später bestätigt – ist er dann
+vergeben, fragt das Spiel beim nächsten Start erneut. Ändern: Profil → Name antippen.
+
+Jeder App-Start landet im **Login-Log** (Tabelle `neontd_login_log`: Zeit, Name, Gerätekennung, Version, Gerät/Browser/
+Modus, z. B. „iPhone · Safari · App“), Namensänderungen als eigenes Ereignis. Die Ansicht `neontd_login_uebersicht`
+fasst je Gerät erste und letzte Anmeldung und die Zahl der Starts zusammen. Beides ist nur im Supabase-Dashboard lesbar,
+nicht über die App.
+
+**Datenbank.** Alles liegt in einer kleinen Supabase-Datenbank (Tabellen `neontd_spieler`, `neontd_login_log`,
+`neontd_arena`, `neontd_bestenliste`). Der öffentliche Schlüssel im Spiel kann die Tabellen weder lesen noch schreiben,
+nur die Funktionen `rpc/neontd_*` aufrufen; die zufällige Gerätekennung bleibt privat, öffentlich sichtbar ist nur eine
+daraus abgeleitete Kennung, an der das Spiel den eigenen Eintrag erkennt.
+
 ## Tages-Challenge, Serie und Bestenliste
 
 **Tages-Challenge:** Jeden Tag (Ortszeit) wählt das Spiel aus dem Datum ein Level und einen **Modifikator** – alle
@@ -454,11 +533,11 @@ web/       TeaVM-Brücke: Java → JavaScript, Canvas2D, Zeiger-Ereignisse, PWA 
 ```
 
 ```bash
-./gradlew test                  # 180+ Tests: Physik, Simulation, Elite-Gegner/-Türme/Spezials/Ausbaupfade, Welten/Sterne, Endlos, Fortschritt, Shop, Aufgaben, Speichern/Cloud-Abgleich, Layouts, Szenen
+./gradlew test                  # 190+ Tests: Physik, Simulation, Elite-Gegner/-Türme/Spezials/Ausbaupfade, Welten/Sterne, Arena, Bestenliste, Endlos, Fortschritt, Shop, Aufgaben, Speichern/Cloud-Abgleich, Layouts, Szenen
 ./gradlew build                 # alles bauen: Tests, Web (build/dist), Desktop-Paket
 ./gradlew :web:assembleWeb -PdebugJs      # Web-Version unminifiziert, zum Debuggen
 ./scripts/screenshots.sh        # Screenshots der Doku neu erzeugen (läuft ohne Fenster)
-node scripts/web-smoke.mjs      # Browser-Test der echten Web-Version in Chromium (Handy-Layouts, Speichern, Cloud mit Mock-GitHub)
+node scripts/web-smoke.mjs      # Browser-Test der echten Web-Version in Chromium (Handy-Layouts, Speichern, Cloud mit Mock-GitHub, Name und Arena mit Mock-Datenbank)
 ```
 
 Wie die Physik, die Simulation und die Darstellung zusammenhängen und wie man neue Türme, Gegner, Level oder eine
@@ -466,7 +545,8 @@ Fortschritts-Schicht ergänzt, steht in **[docs/ENTWICKLUNG.md](docs/ENTWICKLUNG
 
 ## Ausblick
 
-Naheliegende nächste Schritte: Ton, Wiederholungen aus aufgezeichneten Befehlen (die Simulation ist deterministisch),
-Wochen-Challenges mit eigenen Bestenlisten, weitere Welten und Elite-Pfade. Der Spielstand-Mechanismus (`neontd.save`),
+Naheliegende nächste Schritte: Ton, Wiederholungen aus aufgezeichneten Befehlen (die Simulation ist deterministisch –
+damit ließen sich Arena-Läufe auch auf dem Server nachrechnen und der Lauf des Wochensiegers ansehen), weitere Arenen,
+Welten und Elite-Pfade. Der Spielstand-Mechanismus (`neontd.save`),
 das Profil (`neontd.progress`) und die Bestenliste (`neontd.save.Leaderboard`) sind dafür vorbereitet – siehe
 [docs/ENTWICKLUNG.md](docs/ENTWICKLUNG.md).

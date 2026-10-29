@@ -147,7 +147,18 @@ class SceneSmokeTest {
             h.run(0.5);
             assertEquals("IntroScene", h.scene());
             h.run(3.0);
+            // Erster Start: erst den Spielernamen wählen
+            assertEquals("NameScene", h.scene());
+            ((NameScene) h.app.scene()).typeForTest("Tester");
+            h.app.key("Enter", false);
+            h.run(1.0);
             assertEquals("MenuScene", h.scene());
+            h.app.goTo(new ArenaScene(h.app));
+            h.run(1.5);
+            assertEquals("ArenaScene", h.scene());
+            h.app.goTo(GameScene.arena(h.app, neontd.progress.Arena.of(h.app.today()), null));
+            h.run(1.5);
+            assertEquals("GameScene", h.scene());
             h.app.goTo(new DailyScene(h.app));
             h.run(1.5);
             assertEquals("DailyScene", h.scene());
@@ -191,6 +202,12 @@ class SceneSmokeTest {
         h.run(0.2);
         h.tap(426, 200); // Intro überspringen
         h.run(2.5);
+        assertEquals("NameScene", h.scene());
+        NameScene ns = (NameScene) h.app.scene();
+        ns.typeForTest("Touch Test");
+        double[] go = ns.goAnchor();
+        h.tap(go[0], go[1]);
+        h.run(1.0);
         assertEquals("MenuScene", h.scene());
         MenuScene menu = (MenuScene) h.app.scene();
         double[] play = menu.playAnchor();

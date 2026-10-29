@@ -29,6 +29,12 @@ public interface SimListener {
 
     default void onBranchBought(Tower t, Branch branch, int rank) { }
 
+    /** Arena: Welle besiegt – {@code points} Wellenpunkte, mit Vorlauf {@code early}, Serie danach {@code streak}. */
+    default void onArenaWave(int index, long points, boolean early, int streak) { }
+
+    /** Arena: Ein Gegner kam durch und hat eine Serie von {@code streak} Wellen beendet. */
+    default void onStreakBroken(int streak) { }
+
     /** Eine Münze hat Geld erzeugt. */
     default void onTowerIncome(Tower t, double amount) { }
 

@@ -51,4 +51,17 @@ public interface Platform {
     /** Bittet den Browser, den Speicher dauerhaft zu halten (verhindert das Aufräumen durch das System). */
     default void requestPersistentStorage() {
     }
+
+    /**
+     * Legt ein Texteingabefeld über das Bild an oder liefert {@code null}, wenn die Plattform keines hat (dann nimmt
+     * das Spiel die Eingabe selbst über Tasten bzw. {@link #prompt} entgegen). {@code onSubmit} läuft bei Enter/Fertig.
+     */
+    default TextInput createTextInput(String placeholder, int maxLength, Runnable onSubmit) {
+        return null;
+    }
+
+    /** Kurzbeschreibung von Gerät und Umgebung für das Login-Log (z. B. "iPhone · Safari · App"). */
+    default String describe() {
+        return "";
+    }
 }

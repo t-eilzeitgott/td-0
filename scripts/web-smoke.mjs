@@ -7,6 +7,9 @@
 //   4. Cloud:        Profil, Token-Eingabe, Abgleich mit einem nachgebauten GitHub (api.github.com wird abgefangen),
 //                    zweites Gerät übernimmt den Stand, Export-/Import-Code, Trennen.
 //   5. Shop:         Shop, Missionen, Errungenschaften, Einstellungen öffnen, Kauf und Speichern, Turm-Seiten im Spiel.
+//   6. Arena:        erster Start mit Namenswahl im echten Eingabefeld, Login-Log, Arena-Lauf mit Punkten und Wertung.
+//
+// Die Datenbank (Supabase) wird in allen Abschnitten durch einen Nachbau ersetzt – der Test schreibt nie in die echte.
 //
 // Die Seite wird mit ?debug geladen: Dann bietet sie window.__ntd.call(...) für Bildschirmpositionen und Zustände.
 //
@@ -42,6 +45,48 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 await new Promise((r) => server.listen(0, r));
 const base = `http://localhost:${server.address().port}/`;
 const browser = await chromium.launch();
+
+/** Nachgebaute Datenbank-Funktionen (rpc/neontd_*): Namen, Login-Log, Bestenlisten, Arena. */
+class FakeSupabase {
+  constructor() { this.calls = []; this.names = new Map(); this.runs = []; }
+  async handle(route) {
+    const req = route.request();
+    const cors = { 'access-control-allow-origin': '*', 'access-control-allow-headers': '*', 'access-control-allow-methods': '*' };
+    if (req.method() === 'OPTIONS') { await route.fulfill({ status: 204, headers: cors }); return; }
+    const fn = new URL(req.url()).pathname.split('/').pop();
+    const b = req.postData() ? JSON.parse(req.postData()) : {};
+    this.calls.push(fn);
+    const json = (body) => route.fulfill({ status: 200, headers: { ...cors, 'content-type': 'application/json' }, body: JSON.stringify(body) });
+    const k = 'k' + String(b.p_geraet || '').slice(-6);
+    if (fn === 'neontd_anmelden') {
+      const taken = [...this.names.entries()].some(([g, n]) => n.toLowerCase() === b.p_name.toLowerCase() && g !== b.p_geraet);
+      if (taken || b.p_name.toLowerCase() === 'vergeben') { await json({ ok: false, fehler: 'vergeben' }); return; }
+      this.names.set(b.p_geraet, b.p_name);
+      await json({ ok: true, kennung: k, name: b.p_name });
+      return;
+    }
+    if (fn === 'neontd_login') { await json({ ok: true, kennung: k, name: this.names.get(b.p_geraet) ?? null, woche: '' }); return; }
+    if (fn === 'neontd_arena_lauf') {
+      this.runs.push(b);
+      await json({ ok: true, best: b.p_punkte, rang: 1, spieler: 1, rekord: true });
+      return;
+    }
+    if (fn === 'neontd_arena_liste') {
+      await json(this.runs.map((r, i) => ({ rang: i + 1, kennung: 'k' + String(r.p_geraet).slice(-6), name: this.names.get(r.p_geraet),
+        punkte: r.p_punkte, welle: r.p_welle, serie: r.p_serie, versuche: 1, splits: r.p_splits, erstellt: '2026-10-29T10:00:00+00:00' })));
+      return;
+    }
+    if (fn.startsWith('neontd_arena') || fn === 'neontd_liste') { await json([]); return; }
+    await json({ ok: true });
+  }
+}
+const supa = new FakeSupabase();
+/** Wie browser.newContext, aber mit nachgebauter Datenbank. */
+async function newContext(opts) {
+  const ctx = await browser.newContext(opts);
+  await ctx.route('https://*.supabase.co/**', (r) => supa.handle(r));
+  return ctx;
+}
 
 // ------------------------------------------------------------------------------------------------ Hilfen
 
@@ -118,7 +163,7 @@ class FakeGitHub {
 console.log('1. Desktop: Laden, Service Worker, Offline …');
 {
   const errors = [];
-  const ctx = await browser.newContext({ viewport: { width: 1280, height: 720 } });
+  const ctx = await newContext({ viewport: { width: 1280, height: 720 } });
   const page = await open(ctx, errors, '');
   await page.screenshot({ path: path.join(out, '1-menue.png') });
   const sw = await page.evaluate(async () => {
@@ -144,7 +189,7 @@ console.log('2. iPhone quer: kompaktes Layout, Spielen, Speichern, Fortsetzen �
 {
   const errors = [];
   const W = 852, H = 393, u = uOf(W, H);
-  const ctx = await browser.newContext({ viewport: { width: W, height: H }, deviceScaleFactor: 2, hasTouch: true, isMobile: true });
+  const ctx = await newContext({ viewport: { width: W, height: H }, deviceScaleFactor: 2, hasTouch: true, isMobile: true });
   let page = await open(ctx, errors);
   let t = touch(page, await ctx.newCDPSession(page));
 
@@ -231,7 +276,7 @@ console.log('3. iPhone hoch: gedrehte Karte …');
 {
   const errors = [];
   const W = 393, H = 852, u = uOf(W, H);
-  const ctx = await browser.newContext({ viewport: { width: W, height: H }, deviceScaleFactor: 2, hasTouch: true, isMobile: true });
+  const ctx = await newContext({ viewport: { width: W, height: H }, deviceScaleFactor: 2, hasTouch: true, isMobile: true });
   const page = await open(ctx, errors);
   const t = touch(page, await ctx.newCDPSession(page));
   // Notch und Home-Indikator nachstellen (die Seite liest env(safe-area-inset-*) über das Element #safe)
@@ -287,7 +332,7 @@ console.log('4. Cloud: Profil, Token, Abgleich zwischen zwei Geräten, Code …'
   const gh = new FakeGitHub(TOKEN);
   const W = 393, H = 852;
   const device = async (answers) => {
-    const ctx = await browser.newContext({ viewport: { width: W, height: H }, deviceScaleFactor: 2, hasTouch: true, isMobile: true });
+    const ctx = await newContext({ viewport: { width: W, height: H }, deviceScaleFactor: 2, hasTouch: true, isMobile: true });
     await ctx.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: base.replace(/\/$/, '') }).catch(() => {});
     await ctx.route('https://api.github.com/**', (r) => gh.handle(r));
     const page = await open(ctx, errors);
@@ -306,11 +351,15 @@ console.log('4. Cloud: Profil, Token, Abgleich zwischen zwei Geräten, Code …'
   await call(A.page, 'level 3');
   await call(A.page, 'go profile');
   await A.page.waitForTimeout(1200);
-  A.answers.next = 'Tester';
   await A.page.evaluate(() => window.scrollTo(0, 0));
   await A.t.tap(...(await anchor(A.page, 'name')));
-  await A.page.waitForTimeout(400);
+  await A.page.waitForTimeout(1200);
+  check((await state(A.page)).scene === 'NameScene', 'Name antippen öffnet die Namensseite');
+  await A.page.fill('#ntd-input', 'Tester');
+  await A.page.press('#ntd-input', 'Enter');
+  await A.page.waitForTimeout(1500);
   check((await profile(A.page)).name === 'Tester', 'Name über das Eingabefeld geändert');
+  check((await state(A.page)).scene === 'ProfileScene', 'zurück im Profil');
   check((await store(A.page, 'neontd.profile')).includes('"Tester"'), 'Name gespeichert');
 
   A.answers.next = TOKEN;
@@ -379,7 +428,7 @@ console.log('5. Shop, Missionen, Errungenschaften, Einstellungen, Elite-Türme �
 {
   const errors = [];
   const W = 393, H = 852;
-  const ctx = await browser.newContext({ viewport: { width: W, height: H }, deviceScaleFactor: 2, hasTouch: true, isMobile: true });
+  const ctx = await newContext({ viewport: { width: W, height: H }, deviceScaleFactor: 2, hasTouch: true, isMobile: true });
   const page = await open(ctx, errors);
   const t = touch(page, await ctx.newCDPSession(page));
   await call(page, 'level 20');
@@ -408,6 +457,75 @@ console.log('5. Shop, Missionen, Errungenschaften, Einstellungen, Elite-Türme �
     await page.waitForTimeout(500);
     await page.screenshot({ path: path.join(out, '5-spiel-seite2.png') });
   }
+  check(errors.length === 0, 'keine Konsolenfehler' + (errors.length ? ': ' + errors.join(' | ') : ''));
+  await ctx.close();
+}
+
+// ------------------------------------------------------------------------------- 6. Name und Arena
+
+console.log('6. Erster Start mit Namen, Login-Log, Arena …');
+{
+  const errors = [];
+  const W = 393, H = 852;
+  const ctx = await newContext({ viewport: { width: W, height: H }, deviceScaleFactor: 2, hasTouch: true, isMobile: true });
+  const page = await open(ctx, errors);
+  const t = touch(page, await ctx.newCDPSession(page));
+  await page.waitForTimeout(2600);                     // Intro
+  check((await state(page)).scene === 'NameScene', 'erster Start fragt nach dem Spielernamen');
+  check(await page.locator('#ntd-input').count() === 1, 'echtes Eingabefeld über dem Spielbild');
+  await page.screenshot({ path: path.join(out, '6a-name.png') });
+  // schon vergeben → Hinweis, bleibt auf der Seite
+  await page.fill('#ntd-input', 'vergeben');
+  await page.press('#ntd-input', 'Enter');
+  await page.waitForTimeout(800);
+  check((await state(page)).scene === 'NameScene', 'vergebener Name wird abgelehnt');
+  await page.fill('#ntd-input', 'Smoke Test');
+  await t.tap(...(await anchor(page, 'go')));
+  await page.waitForTimeout(1800);
+  let st = await state(page);
+  check(st.scene === 'MenuScene' && st.player === 'Smoke', 'Name bestätigt, weiter zur Startseite (' + st.scene + ')');
+  check(await page.locator('#ntd-input').count() === 0, 'Eingabefeld ist wieder weg');
+  check(supa.calls.includes('neontd_anmelden') && supa.calls.includes('neontd_login'), 'Anmeldung und Login-Log beim Server');
+  check((await store(page, 'neontd.player.name')) === 'Smoke Test', 'Name im Speicher');
+
+  // Arena: Seite, Antreten, Punkte, Lauf beenden, Wertung
+  await call(page, 'go arena');
+  await page.waitForTimeout(1600);
+  check((await state(page)).scene === 'ArenaScene', 'Arena-Seite öffnet');
+  await page.screenshot({ path: path.join(out, '6b-arena.png') });
+  await t.tap(...(await anchor(page, 'play')));
+  await page.waitForTimeout(2200);
+  st = await state(page);
+  check(st.arena === 'true' && st.lives === '10', 'Arena-Lauf startet mit 10 Leben');
+  let built = 0;
+  for (const [wx, wy, tile] of [[400, 250, 0], [700, 330, 3], [250, 500, 0]]) {
+    const [sx, sy] = xy(await call(page, `spot ${wx},${wy}`));
+    const [px, py] = xy(await call(page, `world ${sx},${sy}`));
+    const [fx, fy] = await anchor(page, 'tile' + tile);
+    await t.drag(fx, fy, px, py + 34 * uOf(W, H));
+    const c = await call(page, 'anchor confirm');
+    if (c !== 'null') { await t.tap(...xy(c)); built++; }
+  }
+  check(Number((await state(page)).towers) >= 1, 'Türme aus dem Arena-Pool gebaut');
+  await t.tap(...(await anchor(page, 'start')));
+  await t.tap(...(await anchor(page, 'speed'))); await t.tap(...(await anchor(page, 'speed')));
+  await page.waitForFunction(() => /cleared=[1-9]/.test(window.__ntd.call('state')), null, { timeout: 120000 }).catch(() => {});
+  st = await state(page);
+  check(Number(st.score) > 0, 'Punkte in der Arena: ' + st.score);
+  await page.waitForTimeout(3500);
+  const arenaSaves = await page.evaluate(() => Object.keys(localStorage).filter((k) => k.startsWith('neontd.run.arena-')).length);
+  check(arenaSaves === 0, 'kein Zwischenspeichern in der Arena (kein Zurückspulen)');
+  await page.screenshot({ path: path.join(out, '6c-arena-lauf.png') });
+  await t.tap(...(await anchor(page, 'pause')));
+  await page.waitForTimeout(700);
+  await t.tap(...(await anchor(page, 'ov2')));         // Lauf beenden und werten
+  await page.waitForFunction(() => /result=rank/.test(window.__ntd.call('state')), null, { timeout: 15000 }).catch(() => {});
+  st = await state(page);
+  check(st.result === 'rank1', 'Lauf gewertet: Platz 1 (' + st.result + ')');
+  check(supa.runs.length === 1 && supa.runs[0].p_punkte > 0 && /^\d{4}-W\d{2}$/.test(supa.runs[0].p_woche),
+    'Lauf mit Woche, Punkten und Zwischenständen gesendet');
+  await page.waitForTimeout(2200);
+  await page.screenshot({ path: path.join(out, '6d-arena-ergebnis.png') });
   check(errors.length === 0, 'keine Konsolenfehler' + (errors.length ? ': ' + errors.join(' | ') : ''));
   await ctx.close();
 }

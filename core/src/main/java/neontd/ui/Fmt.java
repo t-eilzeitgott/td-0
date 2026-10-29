@@ -77,4 +77,27 @@ public final class Fmt {
         }
         return compact(v);
     }
+
+    /** Eine Nachkommastelle mit deutschem Komma: 1.6 → "1,6". */
+    public static String one(double v) {
+        long t = Math.round(v * 10);
+        long a = Math.abs(t);
+        return (t < 0 ? "-" : "") + (a / 10) + "," + (a % 10);
+    }
+
+    /** Punkte mit Tausenderpunkten: 248310 → "248.310". */
+    public static String points(long v) {
+        if (v < 0) {
+            return "-" + points(-v);
+        }
+        String d = Long.toString(v);
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < d.length(); i++) {
+            if (i > 0 && (d.length() - i) % 3 == 0) {
+                sb.append('.');
+            }
+            sb.append(d.charAt(i));
+        }
+        return sb.toString();
+    }
 }

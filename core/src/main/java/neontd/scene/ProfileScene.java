@@ -97,14 +97,8 @@ public final class ProfileScene extends Scene {
     }
 
     private void editName() {
-        app.platform.prompt("Dein Name (höchstens " + Progress.MAX_NAME + " Zeichen)", app.progress.name, text -> {
-            if (text == null) {
-                return;
-            }
-            app.progress.name = Progress.cleanName(text);
-            app.commitProgress();
-            say(app.progress.name.isEmpty() ? "Name entfernt" : "Name gespeichert", Theme.GREEN);
-        });
+        // Der Name ist weltweit eindeutig (Arena, Bestenlisten) – geprüft wird auf der eigenen Seite.
+        app.goTo(new NameScene(app, false));
     }
 
     private void connect() {

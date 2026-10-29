@@ -38,6 +38,8 @@ public final class MenuScene extends PanelScene {
     private RunSave nextRun;
     private String otherRunId;
     private RunSave otherRun;
+    private neontd.progress.Arena arena;
+    private List<neontd.save.Leaderboard.ArenaEntry> arenaList;
 
     public MenuScene(App app) {
         super(app, "", Theme.ACCENT);
@@ -86,6 +88,13 @@ public final class MenuScene extends PanelScene {
     @Override
     public void onEnter() {
         refresh();
+        arena = neontd.progress.Arena.of(app.today());
+        arenaList = app.board.cachedArena(arena.id);
+        app.board.arenaList(arena.id, false, l -> {
+            if (l != null) {
+                arenaList = l;
+            }
+        });
     }
 
     @Override
@@ -133,6 +142,7 @@ public final class MenuScene extends PanelScene {
         g.translate(0, (1 - a) * 10 * u);
 
         y += heroCard(g, x, y, w, u) + gap;
+        y += arenaCard(g, x, y, w, u) + gap;
         if (otherRun != null) {
             y += resumeRow(g, x, y, w, u) + gap;
         }
@@ -140,7 +150,7 @@ public final class MenuScene extends PanelScene {
         y += todayCard(g, x, y, w, u) + gap;
         y += worldsCard(g, x, y, w, u) + gap;
         y += tiles(g, x, y, w, u) + gap;
-        g.text("v2.0", x + w, y + 6 * u, 11 * u, Theme.MUTED, Gfx.ALIGN_RIGHT, false);
+        g.text("v" + neontd.app.Version.NAME, x + w, y + 6 * u, 11 * u, Theme.MUTED, Gfx.ALIGN_RIGHT, false);
         y += 24 * u;
         g.restore();
         return y - y0;
@@ -190,6 +200,65 @@ public final class MenuScene extends PanelScene {
         g.fillRoundRect(bx, ty, bw, bh, 16 * u, Colors.lerp(accent, 0xFFFFFF, 0.15 * lift));
         Icons.draw(g, Icon.PLAY, bx + 22 * u, ty + bh / 2, 8 * u, 0x000000, 0);
         g.text(resume ? "Fortsetzen" : "Spielen", bx + 36 * u, ty + bh / 2, 17 * u, 0x000000, Gfx.ALIGN_LEFT, true);
+        return h;
+    }
+
+    /** Die Arena der Woche: Restzeit, eigener Platz, wer führt – und Antreten. */
+    private double arenaCard(Gfx g, double x, double y, double w, double u) {
+        if (arena == null) {
+            arena = neontd.progress.Arena.of(app.today());
+        }
+        double pad = 16 * u;
+        double h = 112 * u;
+        double lift = pressed("arena") ? 1 : (hovered("arena") ? 0.5 : 0);
+        Draw.accentCard(g, x, y, w, h, 20 * u, Theme.ACCENT, lift * 0.5);
+        hit(x, y, w, h, "arena");
+        double tx = x + pad;
+        double ty = y + pad + 8 * u;
+        String left = neontd.progress.Arena.remainingText(arena.remainingMillis(app.platform.nowMillis(),
+                app.platform.localOffsetMillis()));
+        g.text("ARENA  ·  " + arena.label() + "  ·  noch " + left, tx, ty, 11 * u, Colors.lighten(Theme.ACCENT, 0.15),
+                Gfx.ALIGN_LEFT, true);
+        ty += 26 * u;
+        double bw = Math.min(w * 0.36, 150 * u);
+        double bx = x + w - pad - bw;
+        Draw.fit(g, arena.def.name, tx, ty, 22 * u, bx - tx - 10 * u, Theme.TEXT, Gfx.ALIGN_LEFT, true);
+        ty += 24 * u;
+        // Stand
+        neontd.save.Leaderboard.ArenaEntry mine = null;
+        neontd.save.Leaderboard.ArenaEntry lead = null;
+        if (arenaList != null) {
+            for (neontd.save.Leaderboard.ArenaEntry e : arenaList) {
+                if (e.mine) {
+                    mine = e;
+                }
+                if (lead == null || e.score > lead.score) {
+                    lead = e;
+                }
+            }
+        }
+        long best = app.board.arenaBest(arena.id);
+        String line1;
+        String line2;
+        if (mine != null) {
+            line1 = "Platz " + mine.rank + " von " + arenaList.size() + "  ·  " + Fmt.points(mine.score);
+            line2 = lead != null && !lead.mine ? "Es führt " + lead.name + " mit " + Fmt.points(lead.score) : "Du führst!";
+        } else if (best > 0) {
+            line1 = "Dein Bestwert: " + Fmt.points(best);
+            line2 = lead != null ? "Es führt " + lead.name + " mit " + Fmt.points(lead.score) : "Wöchentlicher Highscore";
+        } else {
+            line1 = "Noch kein Lauf diese Woche";
+            line2 = lead != null ? "Es führt " + lead.name + " mit " + Fmt.points(lead.score)
+                    : "Gleiche Regeln für alle – wer holt die Woche?";
+        }
+        Draw.fit(g, line1, tx, ty, 14 * u, bx - tx - 10 * u, mine != null && mine.rank == 1 ? Theme.STAR : Theme.TEXT,
+                Gfx.ALIGN_LEFT, true);
+        Draw.cut(g, line2, tx, ty + 19 * u, 12 * u, bx - tx - 10 * u, Theme.MUTED, Gfx.ALIGN_LEFT, false);
+        double bh = 44 * u;
+        double by = y + h - pad - bh;
+        g.fillRoundRect(bx, by, bw, bh, 14 * u, Colors.lerp(Theme.ACCENT, 0xFFFFFF, 0.15 * lift));
+        Icons.draw(g, Icon.TROPHY, bx + 22 * u, by + bh / 2, 7 * u, 0x000000, 0);
+        g.text("Antreten", bx + 36 * u, by + bh / 2, 16 * u, 0x000000, Gfx.ALIGN_LEFT, true);
         return h;
     }
 
@@ -388,6 +457,8 @@ public final class MenuScene extends PanelScene {
             if (l != null && otherRun != null) {
                 app.goTo(GameScene.resume(app, l, otherRun));
             }
+        } else if (t.equals("arena")) {
+            app.goTo(new ArenaScene(app));
         } else if (t.equals("profile")) {
             app.goTo(new ProfileScene(app));
         } else if (t.equals("daily")) {

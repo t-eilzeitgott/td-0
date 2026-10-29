@@ -270,6 +270,37 @@ Die Simulation selbst ist billig (≈0,01 ms pro Schritt); teuer sind Effekte un
 
 **Ausbaupfade** (`sim.Branch`): zwei Pfade je Grundturm, `side()` 1/2, `cost(type, rank)`, `needLevels(rank)` (3/7 Upgrade-Stufen). `World.buyBranch` setzt `tower.branch`/`rank` und ruft `onBranchBought`; die Wirkungen stecken in `World` (Mehrfachkugeln, `fireSniper`/`nearestBehind`, Splitterbomben, Brand, Einfrieren, Verwundbarkeit, Kettensprünge, Betäubung, Kondensator, Rückstoß, Panzerungsdurchdringung) und `Tower.recompute()` (Reichweite, Schaden, Feuerrate, Slow). `BranchTest` deckt Freischaltung, Ausschluss, Wirkung und Speichern ab.
 
+## Arena, Spielername, Login-Log
+
+**Arena** (`progress.Arena`): `Arena.of(tag)` liefert die Arena der Kalenderwoche (Montag-basiert, `id` nach ISO 8601 wie
+`2026-W44` – identisch mit `to_char(…, 'IYYY-"W"IW')` auf dem Server in Europe/Berlin). `ROTATION` sind acht
+handgepflegte `Def`s (Vorlage-Level, Stile, Pool, Joker, Startgeld, `hpMul`, `hpRamp`, Tempo). `build()` macht daraus ein
+Level mit 10 Leben, `tier` 9 und `hpRamp` (zusätzliches Wachstum je Welle, `LevelDef.hpMulAt`). Härte nachkalibrieren:
+`java -cp core/build/classes/java/main:core/build/classes/java/test neontd.sim.ArenaProbe` (Bot-Welle je Arena;
+`ArenaTest` verlangt 15–45).
+
+**Punkte** (`World.arena`): `killPoints` = Prämie × Welle × `multiplier()`; beim Besiegen einer Welle
+`WAVE_POINTS` × Welle × (2 bei Vorlauf) × Multiplikator, danach `streak++` (bis `STREAK_MAX`), falls kein Gegner dieser
+Welle durchkam. Ein Durchbruch setzt `streak` auf 0 (`onStreakBroken`). Vorlauf = beim Start lief noch eine Welle
+(`wouldBeEarly`). `splits` hält den Punktestand nach jeder besiegten Welle (Vergleich mit anderen Läufen). Arena heißt
+außerdem: `maxLevel` ohne Meisterstufen, keine zurückgewonnenen Leben. Alles steht im Snapshot und in `RunSave`.
+
+**Spielszene**: `GameScene.arena(app, arena, resume)` – Pool statt Shop-Liste, Joker statt eigener Spezials, keine
+Perks/Startboni, kein Autosave (nur `onSuspend`, verworfen sobald es weitergeht), Pause mit „Lauf beenden und werten“,
+Ergebnis-Blatt mit Rang, Live-Platz und Zwischenzeiten aus `Leaderboard.arenaList`.
+
+**Online** (`save.Leaderboard`): nur Funktionen `rpc/neontd_*` (security definer): `neontd_anmelden` (eindeutiger Name),
+`neontd_login` (Login-Log), `neontd_eintragen`/`neontd_liste` (Tages-Challenge, Endlos, Sterne),
+`neontd_arena_lauf` (prüft Name, Woche, Plausibilität, Takt; antwortet mit Rang), `neontd_arena_liste`,
+`neontd_arena_verlauf`, `neontd_arena_ruhm`. Ausstehendes (Name, Einträge, Arena-Läufe) wird gespeichert und in
+`flush()` (jede Sekunde) nachgeschickt. Die Gerätekennung verlässt das Gerät nur in diese Funktionen; zurück kommt eine
+abgeleitete `kennung` (`isMine`).
+
+**Namensseite** (`NameScene`): `Platform.createTextInput` legt im Browser ein echtes `<input>` über die gezeichnete Box
+(iPhone-Tastatur, Einfügen); ohne Plattform-Feld nimmt die Szene Tasten bzw. `Platform.prompt` entgegen. Das
+Screenshot-Werkzeug spricht mit `DemoHttp` (Beispieldaten), der Browser-Test mit einer nachgebauten Datenbank – keiner
+von beiden schreibt in die echte.
+
 ## Elite-Gegner, Elite-Türme und Spezial-Upgrades (Simulation)
 
 - **Gegner** (`EnemyType`: `ARMORED`, `SHIELD`, `HEALER`, `GHOST` am Ende des Enums, damit gespeicherte Ordnungszahlen gültig bleiben): Zustände stehen in `Enemy` (Schild, Brennen/Gift als `dotDps`/`dotTimer`, Betäubung, Rüstungsbruch, `lastHitBy`). `World.updateStatus` läuft je Gegner und Schritt (Betäubung, DOT, Schild-Aufladung, Heilung); `Enemy.phased()` macht Phantome unverwundbar (`targetable()` ist falsch). `WaveFactory.wave` fügt sie ab Welle 7/10/12/15 ein und **zieht dafür Blöcke ab**, damit die Last gleich bleibt (der Bot erreicht danach weiter Welle 300+; die `LIMIT`-Tabelle wurde neu kalibriert).

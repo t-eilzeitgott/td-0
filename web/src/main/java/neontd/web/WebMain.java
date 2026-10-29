@@ -84,6 +84,47 @@ public final class WebMain {
             public void requestPersistentStorage() {
                 Js.persistStorage();
             }
+
+            @Override
+            public neontd.platform.TextInput createTextInput(String placeholder, int maxLength, Runnable onSubmit) {
+                final org.teavm.jso.JSObject el = Js.createInput(placeholder, maxLength, onSubmit::run);
+                return new neontd.platform.TextInput() {
+                    @Override
+                    public void place(double x, double y, double w, double h, double fontSize, double alpha) {
+                        Js.placeInput(el, x, y, w, h, fontSize, alpha);
+                    }
+
+                    @Override
+                    public String text() {
+                        return Js.inputValue(el);
+                    }
+
+                    @Override
+                    public void setText(String text) {
+                        Js.setInputValue(el, text == null ? "" : text);
+                    }
+
+                    @Override
+                    public void focus() {
+                        Js.focusInput(el);
+                    }
+
+                    @Override
+                    public void blur() {
+                        Js.blurInput(el);
+                    }
+
+                    @Override
+                    public void dispose() {
+                        Js.removeInput(el);
+                    }
+                };
+            }
+
+            @Override
+            public String describe() {
+                return Js.platformInfo();
+            }
         });
     }
 

@@ -34,6 +34,10 @@ final class DebugApi {
                     a = ((neontd.scene.PanelScene) s).modalAnchor(arg.charAt(5) - '0');
                 } else if (s instanceof MenuScene && arg.equals("play")) {
                     a = ((MenuScene) s).playAnchor();
+                } else if (s instanceof neontd.scene.ArenaScene && arg.equals("play")) {
+                    a = ((neontd.scene.ArenaScene) s).playAnchor();
+                } else if (s instanceof neontd.scene.NameScene) {
+                    a = arg.equals("field") ? ((neontd.scene.NameScene) s).fieldAnchor() : ((neontd.scene.NameScene) s).goAnchor();
                 }
                 return a == null ? "null" : a[0] + "," + a[1];
             }
@@ -82,6 +86,12 @@ final class DebugApi {
                         break;
                     case "board":
                         app.goTo(new neontd.scene.LeaderboardScene(app));
+                        break;
+                    case "arena":
+                        app.goTo(new neontd.scene.ArenaScene(app));
+                        break;
+                    case "arenagame":
+                        app.goTo(GameScene.arena(app, neontd.progress.Arena.of(app.today()), null));
                         break;
                     default:
                         return "unknown scene";
@@ -151,7 +161,9 @@ final class DebugApi {
                 }
                 return "scene=" + (s instanceof ProfileScene ? "ProfileScene" : s instanceof LevelSelectScene
                         ? "LevelSelectScene" : s instanceof EditorScene ? "EditorScene" : s instanceof MenuScene
-                        ? "MenuScene" : s.getClass().getSimpleName());
+                        ? "MenuScene" : s instanceof neontd.scene.NameScene ? "NameScene" : s instanceof neontd.scene.ArenaScene
+                        ? "ArenaScene" : s instanceof neontd.scene.IntroScene ? "IntroScene" : s.getClass().getSimpleName())
+                        + " player=" + app.board.playerName() + " pending=" + app.board.arenaPendingCount();
             case "profile":
                 return "level=" + app.progress.level() + " xp=" + app.progress.xp + " name=" + app.progress.name
                         + " kills=" + app.progress.kills + " waves=" + app.progress.wavesCleared + " won="

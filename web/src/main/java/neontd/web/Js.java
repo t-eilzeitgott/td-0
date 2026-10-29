@@ -195,4 +195,60 @@ final class Js {
 
     @JSBody(params = {}, script = "return document.hidden === true;")
     static native boolean documentHidden();
+
+    // ---------------------------------------------------------------------------------- Texteingabe
+
+    @JSFunctor
+    interface VoidFn extends JSObject {
+        void call();
+    }
+
+    /** Ein Texteingabefeld über dem Canvas (Tasten gehen nicht ans Spiel; Enter ruft {@code onSubmit}). */
+    @JSBody(params = {"placeholder", "maxLen", "onSubmit"}, script =
+            "if (!document.getElementById('ntd-input-style')) { var st = document.createElement('style'); st.id = 'ntd-input-style';"
+            + "st.textContent = '.ntd-input::placeholder{color:#6B6B73;opacity:1}'; document.head.appendChild(st); }"
+            + "var el = document.createElement('input'); el.type = 'text'; el.className = 'ntd-input'; el.id = 'ntd-input';"
+            + "el.placeholder = placeholder; el.maxLength = maxLen; el.autocomplete = 'off'; el.spellcheck = false;"
+            + "el.setAttribute('autocapitalize', 'words'); el.setAttribute('autocorrect', 'off'); el.setAttribute('enterkeyhint', 'done');"
+            + "el.style.cssText = 'position:fixed;left:0;top:0;width:10px;height:10px;z-index:5;background:transparent;border:0;"
+            + "outline:none;margin:0;padding:0 16px;box-sizing:border-box;color:#F5F5F7;caret-color:#22D3EE;"
+            + "font-family:-apple-system,BlinkMacSystemFont,\"SF Pro Text\",\"Segoe UI\",Roboto,Helvetica,Arial,sans-serif;"
+            + "font-weight:600;font-size:17px;-webkit-user-select:text;user-select:text;touch-action:manipulation;"
+            + "-webkit-appearance:none;appearance:none;border-radius:0;opacity:0;';"
+            + "el.addEventListener('keydown', function (e) { e.stopPropagation();"
+            + " if (e.key === 'Enter') { e.preventDefault(); onSubmit(); } });"
+            + "el.addEventListener('keyup', function (e) { e.stopPropagation(); });"
+            + "document.body.appendChild(el); return el;")
+    static native JSObject createInput(String placeholder, int maxLen, VoidFn onSubmit);
+
+    @JSBody(params = {"el", "x", "y", "w", "h", "fs", "a"}, script =
+            "var s = el.style; s.left = x + 'px'; s.top = y + 'px'; s.width = w + 'px'; s.height = h + 'px';"
+            + "s.fontSize = Math.max(16, fs) + 'px'; s.opacity = String(a); s.pointerEvents = a > 0.5 ? 'auto' : 'none';")
+    static native void placeInput(JSObject el, double x, double y, double w, double h, double fs, double a);
+
+    @JSBody(params = {"el"}, script = "return String(el.value || '');")
+    static native String inputValue(JSObject el);
+
+    @JSBody(params = {"el", "v"}, script = "el.value = v;")
+    static native void setInputValue(JSObject el, String v);
+
+    @JSBody(params = {"el"}, script = "try { el.focus({preventScroll: true}); } catch (e) { try { el.focus(); } catch (e2) {} }")
+    static native void focusInput(JSObject el);
+
+    @JSBody(params = {"el"}, script = "try { el.blur(); } catch (e) {}")
+    static native void blurInput(JSObject el);
+
+    @JSBody(params = {"el"}, script = "try { el.blur(); if (el.parentNode) { el.parentNode.removeChild(el); } } catch (e) {}")
+    static native void removeInput(JSObject el);
+
+    /** Gerät, Browser und Modus (Home-Bildschirm-App oder Tab) für das Login-Log. */
+    @JSBody(params = {}, script =
+            "var u = navigator.userAgent || '';"
+            + "var d = /iPhone/.test(u) ? 'iPhone' : /iPad/.test(u) ? 'iPad' : /Android/.test(u) ? 'Android'"
+            + " : /Macintosh/.test(u) ? 'Mac' : /Windows/.test(u) ? 'Windows' : /Linux/.test(u) ? 'Linux' : 'Gerät';"
+            + "var b = /Edg\\//.test(u) ? 'Edge' : /CriOS|Chrome/.test(u) ? 'Chrome' : /FxiOS|Firefox/.test(u) ? 'Firefox'"
+            + " : /Safari/.test(u) ? 'Safari' : 'Browser';"
+            + "var app = false; try { app = window.navigator.standalone === true || window.matchMedia('(display-mode: standalone)').matches; } catch (e) {}"
+            + "return d + ' · ' + b + ' · ' + (app ? 'App' : 'Web') + ' · ' + Math.round(window.innerWidth) + 'x' + Math.round(window.innerHeight);")
+    static native String platformInfo();
 }

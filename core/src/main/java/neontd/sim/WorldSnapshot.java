@@ -45,6 +45,14 @@ public final class WorldSnapshot {
     public double time;
     public boolean endless;
     public boolean autoStart;
+    /** Arena: Punkte, Serie, Zwischenstände und die Vorlauf-/Durchbruch-Markierungen der offenen Wellen. */
+    public boolean arena;
+    public long score;
+    public int streak;
+    public int bestStreak;
+    public String splits = "";
+    public final ArrayList<Integer> earlyWaves = new ArrayList<>();
+    public final ArrayList<Integer> leakWaves = new ArrayList<>();
     public final ArrayList<TowerData> towers = new ArrayList<>();
     public final ArrayList<EnemyData> enemies = new ArrayList<>();
 }

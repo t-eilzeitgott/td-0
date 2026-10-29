@@ -55,6 +55,15 @@ public final class RunSave {
         m.put("wave", s.waveIndex);
         m.put("cleared", s.clearedWaves);
         m.put("time", s.time);
+        if (s.arena) {
+            m.put("arena", Boolean.TRUE);
+            m.put("score", (double) s.score);
+            m.put("streak", s.streak);
+            m.put("bstreak", s.bestStreak);
+            m.put("splits", s.splits == null ? "" : s.splits);
+            m.put("early", new ArrayList<Object>(s.earlyWaves));
+            m.put("leak", new ArrayList<Object>(s.leakWaves));
+        }
         List<Object> towers = new ArrayList<>();
         for (WorldSnapshot.TowerData d : s.towers) {
             List<Object> a = new ArrayList<>();
@@ -116,6 +125,29 @@ public final class RunSave {
         s.waveIndex = Json.integer(m, "wave", 0);
         s.clearedWaves = Json.integer(m, "cleared", 0);
         s.time = Json.num(m, "time", 0);
+        if (Json.bool(m, "arena", false)) {
+            s.arena = true;
+            s.score = (long) Math.max(0, Json.num(m, "score", 0));
+            s.streak = Json.integer(m, "streak", 0);
+            s.bestStreak = Json.integer(m, "bstreak", 0);
+            s.splits = Json.str(m, "splits", "");
+            List<Object> early = Json.list(m, "early");
+            if (early != null) {
+                for (Object o : early) {
+                    if (o instanceof Number) {
+                        s.earlyWaves.add(((Number) o).intValue());
+                    }
+                }
+            }
+            List<Object> leak = Json.list(m, "leak");
+            if (leak != null) {
+                for (Object o : leak) {
+                    if (o instanceof Number) {
+                        s.leakWaves.add(((Number) o).intValue());
+                    }
+                }
+            }
+        }
         for (Object o : towers) {
             List<Object> a = Json.asList(o);
             if (a == null || a.size() < 8) {

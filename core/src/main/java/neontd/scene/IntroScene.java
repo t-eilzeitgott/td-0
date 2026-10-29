@@ -51,7 +51,8 @@ public final class IntroScene extends Scene {
         }
         if (t >= HOLD_UNTIL + FLY && !done) {
             done = true;
-            app.goTo(new MenuScene(app));
+            // Beim ersten Start (noch kein Spielername) geht es zur Namenswahl, sonst auf die Startseite.
+            app.goTo(app.board.hasName() ? new MenuScene(app) : new NameScene(app, true));
         }
     }
 

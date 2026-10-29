@@ -442,12 +442,28 @@ class GameFlowTest {
         Harness h = new Harness(393, 852, true, 0, 47, 0, 34);
         h.app.goTo(new ProfileScene(h.app));
         h.run(1.5);
-        h.promptAnswer = title -> "  Anna  <b>  ";
-        // Name liegt oben in der Kopfkarte
+        // Name liegt oben in der Kopfkarte: antippen öffnet die Namensseite
         h.tap(250, 130);
-        h.run(0.5);
-        assertEquals("Anna  b", h.app.progress.name);
-        assertEquals("Anna  b", h.app.saves.loadProgress().name);
+        h.run(1.0);
+        assertEquals("NameScene", h.scene());
+        NameScene ns = (NameScene) h.app.scene();
+        // Ohne Plattform-Feld fragt ein Tipp aufs Feld per Dialog; ungültige Zeichen werden abgelehnt
+        h.promptAnswer = title -> "  Anna  <b>  ";
+        double[] f = ns.fieldAnchor();
+        h.tap(f[0], f[1]);
+        h.run(0.2);
+        double[] go = ns.goAnchor();
+        h.tap(go[0], go[1]);
+        h.run(0.2);
+        assertEquals("NameScene", h.scene());
+        assertNotNull(ns.errorForTest());
+        ns.typeForTest("Anna B");
+        h.tap(go[0], go[1]);
+        h.run(1.0);
+        assertEquals("ProfileScene", h.scene());
+        assertEquals("Anna B", h.app.progress.name);
+        assertEquals("Anna B", h.app.saves.loadProgress().name);
+        assertEquals("Anna B", h.app.board.playerName());
         // Scrollen bis ans Ende rendert ohne Fehler
         for (int i = 0; i < 20; i++) {
             h.app.wheel(120);

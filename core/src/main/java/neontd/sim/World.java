@@ -71,6 +71,29 @@ public final class World {
     /** Endlosmodus: Nach der letzten festen Welle kommen immer weitere, es gibt keinen Sieg mehr. */
     public boolean endless;
 
+    // ------------------------------------------------------------------------------- Arena (Wettkampf)
+    /** Serie: so viele Wellen in Folge ohne durchgelassenen Gegner erhöhen den Multiplikator. */
+    public static final int STREAK_MAX = 20;
+    public static final double STREAK_STEP = 0.1;
+    /** Punkte je besiegter Welle: Wellennummer × dieser Wert (× 2 mit Vorlauf). */
+    public static final int WAVE_POINTS = 100;
+    /**
+     * Arena: Es zählen Punkte (Abschüsse und Wellen × Serien-Multiplikator, Vorlauf verdoppelt den Wellenbonus),
+     * Upgrades enden bei Stufe 5 und verlorene Leben kommen nicht zurück. Vor der ersten Welle setzen.
+     */
+    public boolean arena;
+    /** Punkte des Laufs (nur Arena). */
+    public long score;
+    /** Aktuelle Serie besiegter Wellen ohne Durchbruch (nur Arena). */
+    public int streak;
+    /** Längste Serie des Laufs. */
+    public int bestStreak;
+    /** Je Welle: mit Vorlauf gestartet / ein Gegner kam durch. */
+    private boolean[] earlyWave;
+    private boolean[] leakWave;
+    /** Punktestand nach der k-ten besiegten Welle (Zwischenzeiten für den Vergleich mit anderen Läufen). */
+    private long[] splits = new long[64];
+
     private final SimListener listener;
     private final SpatialHash hash;
     private final int[] query = new int[QUERY_CAP];
@@ -125,6 +148,41 @@ public final class World {
         this.aliveByWave = new int[cap];
         this.spawnsLeft = new int[cap];
         this.cleared = new boolean[cap];
+        this.earlyWave = new boolean[cap];
+        this.leakWave = new boolean[cap];
+    }
+
+    /** Serien-Multiplikator der Arena: 1,0 bis 3,0. */
+    public double multiplier() {
+        return 1 + STREAK_STEP * Math.min(STREAK_MAX, streak);
+    }
+
+    /** Würde die nächste Welle jetzt mit Vorlauf (doppelter Wellenbonus) starten? */
+    public boolean wouldBeEarly() {
+        return arena && activeWaves > 0;
+    }
+
+    /** Punktestand nach {@code k} besiegten Wellen (1-basiert) oder -1, wenn es so weit noch nicht ging. */
+    public long splitAt(int k) {
+        return k >= 1 && k <= clearedCount && k <= splits.length ? splits[k - 1] : -1;
+    }
+
+    /** Alle Zwischenstände als Liste "s1,s2,…" (für Bestenliste und Speicherstand). */
+    public String splitsText() {
+        StringBuilder sb = new StringBuilder();
+        int n = Math.min(clearedCount, splits.length);
+        for (int i = 0; i < n; i++) {
+            if (i > 0) {
+                sb.append(',');
+            }
+            sb.append(splits[i]);
+        }
+        return sb.toString();
+    }
+
+    /** Punkte für einen Abschuss in der Arena: Prämie der Art × Wellennummer × Multiplikator. */
+    public long killPoints(Enemy e) {
+        return Math.round(e.type.reward * (double) (e.wave + 1) * multiplier());
     }
 
     /** Nur für Werkzeuge und Tests: beendet das Spiel sofort als Sieg oder Niederlage. */
@@ -173,6 +231,7 @@ public final class World {
         }
         int w = waveIndex++;
         ensureWaveCapacity(w + 1);
+        earlyWave[w] = arena && activeWaves > 0;
         WaveDef def = waveAt(w);
         int total = 0;
         for (WaveDef.Group g : def.groups) {
@@ -199,6 +258,8 @@ public final class World {
             aliveByWave = Arrays.copyOf(aliveByWave, cap);
             spawnsLeft = Arrays.copyOf(spawnsLeft, cap);
             cleared = Arrays.copyOf(cleared, cap);
+            earlyWave = Arrays.copyOf(earlyWave, cap);
+            leakWave = Arrays.copyOf(leakWave, cap);
         }
     }
 
@@ -344,7 +405,7 @@ public final class World {
 
     /** Höchste Stufe einer Kategorie: im Endlosmodus mit Meisterstufen. */
     public int maxLevel(UpgradeTrack track) {
-        return track.maxLevel(endless);
+        return track.maxLevel(endless && !arena);
     }
 
     public boolean upgrade(Tower t, UpgradeTrack track) {
@@ -445,6 +506,21 @@ public final class World {
         s.time = time;
         s.endless = endless;
         s.autoStart = autoStart;
+        if (arena) {
+            s.arena = true;
+            s.score = score;
+            s.streak = streak;
+            s.bestStreak = bestStreak;
+            s.splits = splitsText();
+            for (int w = firstOpen; w < waveIndex; w++) {
+                if (!cleared[w] && earlyWave[w]) {
+                    s.earlyWaves.add(w);
+                }
+                if (!cleared[w] && leakWave[w]) {
+                    s.leakWaves.add(w);
+                }
+            }
+        }
         for (int i = 0; i < towers.size(); i++) {
             Tower t = towers.get(i);
             WorldSnapshot.TowerData d = new WorldSnapshot.TowerData();
@@ -505,7 +581,7 @@ public final class World {
                 t.special = specials[d.special - 1];
             }
             for (int k = 0; k < 3; k++) {
-                t.level[k] = Mathx.clamp(d.level[k], 0, UpgradeTrack.values()[k].maxLevel(endless));
+                t.level[k] = Mathx.clamp(d.level[k], 0, maxLevel(UpgradeTrack.values()[k]));
             }
             t.invested = Mathx.clamp(d.invested, t.type.cost, MAX_MONEY);
             t.mode = modes[Mathx.clamp(d.mode, 0, modes.length - 1)];
@@ -555,6 +631,31 @@ public final class World {
                 }
             } else {
                 clearedCount++;
+            }
+        }
+        if (s.arena) {
+            arena = true;
+            score = Math.max(0, s.score);
+            streak = Mathx.clamp(s.streak, 0, STREAK_MAX);
+            bestStreak = Math.max(streak, s.bestStreak);
+            String[] parts = s.splits == null || s.splits.isEmpty() ? new String[0] : s.splits.split(",");
+            splits = new long[Math.max(64, parts.length * 2)];
+            for (int i = 0; i < parts.length; i++) {
+                try {
+                    splits[i] = Long.parseLong(parts[i].trim());
+                } catch (NumberFormatException ex) {
+                    splits[i] = i > 0 ? splits[i - 1] : 0;
+                }
+            }
+            for (int w : s.earlyWaves) {
+                if (w >= 0 && w < wi) {
+                    earlyWave[w] = true;
+                }
+            }
+            for (int w : s.leakWaves) {
+                if (w >= 0 && w < wi) {
+                    leakWave[w] = true;
+                }
             }
         }
         state = State.RUNNING;
@@ -671,6 +772,14 @@ public final class World {
                 e.leaked = true;
                 aliveByWave[e.wave]--;
                 lives = Math.max(0, lives - e.type.leakDamage);
+                if (arena) {
+                    leakWave[e.wave] = true;
+                    if (streak > 0) {
+                        int before = streak;
+                        streak = 0;
+                        listener.onStreakBroken(before);
+                    }
+                }
                 listener.onEnemyLeaked(e, e.type.leakDamage);
                 continue;
             }
@@ -1582,6 +1691,9 @@ public final class World {
             }
             int paid = Math.max(1, Mathx.roundToInt(reward));
             addMoney(paid);
+            if (arena) {
+                score += killPoints(e);
+            }
             aliveByWave[e.wave]--;
             listener.onEnemyKilled(e, paid);
             if (killer != null && killer.special == Special.AFTERSHOCK) {
@@ -1634,8 +1746,21 @@ public final class World {
                         addMoney(Math.floor(t.invested * Special.INTEREST_RATE));
                     }
                 }
-                if (endless && (w + 1) % LIFE_EVERY == 0 && lives > 0 && lives < level.startLives) {
+                if (endless && !arena && (w + 1) % LIFE_EVERY == 0 && lives > 0 && lives < level.startLives) {
                     lives++;
+                }
+                if (arena) {
+                    long pts = Math.round(WAVE_POINTS * (double) (w + 1) * (earlyWave[w] ? 2 : 1) * multiplier());
+                    score += pts;
+                    if (!leakWave[w]) {
+                        streak = Math.min(STREAK_MAX, streak + 1);
+                        bestStreak = Math.max(bestStreak, streak);
+                    }
+                    if (clearedCount > splits.length) {
+                        splits = Arrays.copyOf(splits, Math.max(clearedCount, splits.length * 2));
+                    }
+                    splits[clearedCount - 1] = score;
+                    listener.onArenaWave(w, pts, earlyWave[w], streak);
                 }
                 listener.onWaveCleared(w, bonus);
             }

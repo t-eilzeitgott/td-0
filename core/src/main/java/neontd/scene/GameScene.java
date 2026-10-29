@@ -16,6 +16,7 @@ import neontd.level.Levels;
 import neontd.level.Worlds;
 import neontd.math.Mathx;
 import neontd.physics.FixedTimestep;
+import neontd.progress.Arena;
 import neontd.progress.Medals;
 import neontd.progress.Metric;
 import neontd.progress.Progress;
@@ -24,6 +25,7 @@ import neontd.render.GameFx;
 import neontd.render.HpLabel;
 import neontd.render.TowerArt;
 import neontd.render.WorldView;
+import neontd.save.Leaderboard;
 import neontd.save.RunSave;
 import neontd.sim.EnemyType;
 import neontd.sim.Special;
@@ -154,6 +156,33 @@ public final class GameScene extends Scene {
     /** Sterne dieses Siegs (0–3). */
     private int starsRun;
 
+    // Arena (Wettkampf der Woche)
+    /** Die Arena dieses Laufs oder {@code null} im normalen Spiel. */
+    private final Arena arena;
+    /** Antwort des Servers auf den beendeten Lauf ({@code null}, solange sie aussteht). */
+    private Leaderboard.ArenaResult arenaResult;
+    private boolean arenaSubmitted;
+    /** Rangliste der Woche (für Live-Platz und Zwischenzeiten) und der eigene Bestlauf. */
+    private List<Leaderboard.ArenaEntry> arenaList;
+    private long[] pbSplits = new long[0];
+    private long pbScore;
+    /** Live-Platz (1-basiert, 0 = unbekannt) und wie viele Spieler es gibt. */
+    private int liveRank;
+    private int livePlayers;
+    private double rankCheck;
+    /** Zwischenzeit nach der letzten Welle (z. B. "+1,2K vs Mia"). */
+    private String splitText;
+    private String splitText2;
+    private int splitColor;
+    private int splitColor2;
+    private double splitTime;
+    private final Smooth scoreShown = new Smooth(0, 9);
+    private double scorePulse;
+    /** Ein Speicherstand existiert nur, weil die App in den Hintergrund ging; beim Weiterspielen wird er verworfen. */
+    private boolean arenaSaveOpen;
+    private boolean suspending;
+    private boolean lastEarly;
+
     // Anzeige
     private final Smooth moneyShown = new Smooth(0, 9);
     private final Smooth livesPulse = new Smooth(0, 6);
@@ -186,8 +215,18 @@ public final class GameScene extends Scene {
         return new GameScene(app, level, null, false, run);
     }
 
+    /** Ein Arena-Lauf (neu oder – nach dem Wegwischen der App – fortgesetzt). */
+    public static GameScene arena(App app, Arena a, RunSave resume) {
+        return new GameScene(app, a.build(), null, false, resume, a);
+    }
+
     private GameScene(App app, LevelDef level, LevelDef editorReturn, boolean endless, RunSave resume) {
+        this(app, level, editorReturn, endless, resume, null);
+    }
+
+    private GameScene(App app, LevelDef level, LevelDef editorReturn, boolean endless, RunSave resume, Arena arena) {
         super(app);
+        this.arena = arena;
         this.level = level;
         this.editorReturn = editorReturn;
         this.progressOn = editorReturn == null;
@@ -196,7 +235,10 @@ public final class GameScene extends Scene {
         this.startedEndless = endless;
         this.levelAtStart = progress.level();
         LevelDef run = level;
-        if (progressOn && resume == null) {
+        if (arena != null) {
+            // Arena: für alle gleich – keine Startboni, keine Forschung
+            run = level;
+        } else if (progressOn && resume == null) {
             // Dauerhafter Startbonus aus dem Spielerlevel (Geld und Leben).
             run = level.copy();
             run.startMoney += progress.startMoneyBonus();
@@ -206,20 +248,39 @@ public final class GameScene extends Scene {
             run.startLives += progress.startLivesBonus();
         }
         this.world = new World(run, listener);
+        world.arena = arena != null;
         if (progressOn) {
-            world.setPerks(progress.perks());
+            if (arena == null) {
+                world.setPerks(progress.perks());
+            }
             crystalsAtStart = progress.crystalsEarned;
             if (resume == null) {
                 progress.addMetric(Metric.PLAYS, 1);
             }
         }
         refreshShopList();
-        if (endless) {
+        if (endless || arena != null) {
             world.enableEndless();
         }
         if (resume != null && resume.snapshot != null) {
             world.restore(resume.snapshot);
             killsCommitted = world.kills;
+            arenaSaveOpen = arena != null;
+        }
+        if (arena != null) {
+            pbScore = app.board.arenaBest(arena.id);
+            pbSplits = app.board.arenaBestSplits(arena.id);
+            scoreShown.snap(world.score);
+            List<Leaderboard.ArenaEntry> cached = app.board.cachedArena(arena.id);
+            if (cached != null) {
+                arenaList = cached;
+            }
+            app.board.arenaList(arena.id, false, l -> {
+                if (l != null) {
+                    arenaList = l;
+                    updateLiveRank(false);
+                }
+            });
         }
         String saved = app.platform.store().get(RAIL_KEY);
         railWanted = !"0".equals(saved);
@@ -285,6 +346,9 @@ public final class GameScene extends Scene {
         if (resumeFrom != null) {
             showBanner(level.name.toUpperCase(), "Gespeicherter Lauf – Welle " + (world.waveIndex + 1), Theme.CYAN, 3.2);
             setOverlay(Overlay.PAUSE);
+        } else if (arena != null) {
+            showBanner("ARENA · " + arena.label(), level.name + " – " + arena.def.rule, Theme.ACCENT, 3.4);
+            introBanner = true;
         } else if (world.endless) {
             showBanner("ENDLOS", "Wie weit kommst du?", Theme.MAGENTA, 3.2);
             introBanner = true;
@@ -349,6 +413,13 @@ public final class GameScene extends Scene {
     /** Baut die Liste der Turm-Kacheln neu: Grundtürme immer, Elite-Türme nur, wenn sie gekauft sind (im Editor-Test alle). */
     private void refreshShopList() {
         shopList.clear();
+        if (arena != null) {
+            for (TowerType t : arena.def.pool) {
+                shopList.add(t);
+            }
+            shopPage = 0;
+            return;
+        }
         for (TowerType t : TowerType.values()) {
             if (t.tier == 1 || !progressOn || progress.ownedTowers.contains(t.name())) {
                 shopList.add(t);
@@ -473,6 +544,9 @@ public final class GameScene extends Scene {
         double sw = Math.min(vp.safeW() - 20 * u, 440 * u);
         double bh = Math.min(50 * u, Math.max(38 * u, (vp.safeH() - 260 * u) / Math.max(1, n) - 10 * u));
         double stats = overlay == Overlay.PAUSE ? 30 * u : (overlay == Overlay.WON ? 150 * u : 96 * u);
+        if (arena != null) {
+            stats = overlay == Overlay.PAUSE ? 40 * u : 168 * u;
+        }
         double sh = 22 * u + 34 * u + stats + n * (bh + 10 * u) + 12 * u;
         double sy = vp.h - vp.insetB - 12 * u - sh;
         double minTop = vp.insetT + 10 * u;
@@ -523,8 +597,11 @@ public final class GameScene extends Scene {
             return;
         }
         dismissIntroBanner();
+        boolean early = world.wouldBeEarly();
         if (!world.startNextWave()) {
             showToast("Keine weitere Welle", Theme.TEXT_DIM);
+        } else if (early) {
+            showToast("Vorlauf: doppelter Wellenbonus – wenn nichts durchkommt", Theme.ACCENT);
         }
     }
 
@@ -542,6 +619,9 @@ public final class GameScene extends Scene {
     }
 
     private boolean canBuild(TowerType t) {
+        if (arena != null) {
+            return arena.allows(t);
+        }
         return !progressOn || progress.isUnlocked(t);
     }
 
@@ -576,8 +656,12 @@ public final class GameScene extends Scene {
             buildSpecialButtons();
             return;
         }
-        if (o == Overlay.PAUSE) {
+        if (o == Overlay.PAUSE && arena == null) {
             trySaveRun();
+        }
+        if (arena != null) {
+            buildArenaOverlay(o);
+            return;
         }
         String back = editorReturn != null ? "Zurück zum Editor" : "Startseite";
         Runnable leave = () -> {
@@ -626,6 +710,160 @@ public final class GameScene extends Scene {
             overlayUi.add(c).appearAfter(delay + 0.16);
         }
         layoutOverlay();
+    }
+
+    /** Schaltflächen der Einblendungen in der Arena: Pause (Weiter, Neu starten, Lauf beenden) und Ergebnis. */
+    private void buildArenaOverlay(Overlay o) {
+        Runnable again = () -> {
+            endArenaRun();
+            app.saves.endRun(level.id);
+            app.goTo(GameScene.arena(app, Arena.of(app.today()), null));
+        };
+        Button a;
+        Button b;
+        Button c;
+        if (o == Overlay.PAUSE) {
+            a = new Button("Weiter", Icon.PLAY, Theme.GREEN, () -> setOverlay(Overlay.NONE));
+            b = new Button("Neu starten", Icon.LOOP, Theme.YELLOW, again);
+            c = new Button("Lauf beenden und werten", Icon.FLAG, Theme.TEXT, () -> {
+                setOverlay(Overlay.NONE);
+                world.forceEnd(false);
+            });
+        } else {
+            a = new Button("Nochmal", Icon.LOOP, Theme.ACCENT, again);
+            b = new Button("Rangliste", Icon.BOARD, Theme.TEXT, () -> app.goTo(new ArenaScene(app)));
+            c = new Button("Startseite", Icon.HOME, Theme.TEXT, () -> app.goTo(new MenuScene(app)));
+        }
+        a.style = Button.Style.PRIMARY;
+        overlayUi.add(a).appearAfter(0.2);
+        overlayUi.add(b).appearAfter(0.28);
+        overlayUi.add(c).appearAfter(0.36);
+        layoutOverlay();
+    }
+
+    /** Wertet den Arena-Lauf (einmal): an die Bestenliste schicken, Rang abwarten. */
+    private void endArenaRun() {
+        if (arena == null || arenaSubmitted) {
+            return;
+        }
+        arenaSubmitted = true;
+        app.saves.endRun(level.id);
+        arenaSaveOpen = false;
+        if (world.clearedWaves() < 1) {
+            arenaResult = new Leaderboard.ArenaResult(false, "leer", 0, 0, 0, false);
+            return;
+        }
+        Leaderboard.ArenaRun run = new Leaderboard.ArenaRun(arena.id, world.score, world.clearedWaves(),
+                (int) Math.floor(world.time), world.bestStreak, world.splitsText(), buildSummary());
+        boolean pb = world.score > pbScore;
+        app.board.submitArena(run, r -> {
+            arenaResult = r;
+            if (r.ok) {
+                app.board.arenaList(arena.id, true, l -> {
+                    if (l != null) {
+                        arenaList = l;
+                    }
+                });
+            }
+        });
+        if (pb) {
+            newRecord = true;
+        }
+    }
+
+    /** Kurzbeschreibung des Aufbaus für die Bestenliste ("PULS 4 · MÖRSER 2 · …"). */
+    private String buildSummary() {
+        StringBuilder sb = new StringBuilder();
+        for (TowerType t : arena.def.pool) {
+            int n = 0;
+            for (Tower tw : world.towers) {
+                if (tw.type == t) {
+                    n++;
+                }
+            }
+            if (n > 0) {
+                if (sb.length() > 0) {
+                    sb.append(" · ");
+                }
+                sb.append(t.label).append(' ').append(n);
+            }
+        }
+        return sb.length() > 78 ? sb.substring(0, 78) : sb.toString();
+    }
+
+    /** Live-Platz aus der geladenen Rangliste; meldet Überholmanöver, wenn {@code announce}. */
+    private void updateLiveRank(boolean announce) {
+        if (arenaList == null || arena == null) {
+            return;
+        }
+        long me = Math.max(world.score, 0);
+        int rank = 1;
+        int players = 1;
+        Leaderboard.ArenaEntry passed = null;
+        for (Leaderboard.ArenaEntry e : arenaList) {
+            if (e.mine) {
+                continue;
+            }
+            players++;
+            if (e.score >= me) {
+                rank++;
+            } else if (passed == null || e.score > passed.score) {
+                passed = e;
+            }
+        }
+        if (announce && liveRank > 0 && rank < liveRank && passed != null && world.score > 0) {
+            showToast("Platz " + rank + " – an " + passed.name + " vorbei!", Theme.STAR);
+            scorePulse = 1;
+        }
+        liveRank = rank;
+        livePlayers = players;
+    }
+
+    /** Der Lauf, mit dem verglichen wird: Platz 1 – oder, wenn man selbst vorn liegt, der Zweite. */
+    private Leaderboard.ArenaEntry rival() {
+        if (arenaList == null) {
+            return null;
+        }
+        Leaderboard.ArenaEntry best = null;
+        for (Leaderboard.ArenaEntry e : arenaList) {
+            if (!e.mine && (best == null || e.score > best.score)) {
+                best = e;
+            }
+        }
+        return best;
+    }
+
+    /** Zwischenzeit nach einer Arena-Welle gegen den Rivalen und den eigenen Bestlauf. */
+    private void showSplit() {
+        int k = world.clearedWaves();
+        long me = world.score;
+        splitText = null;
+        splitText2 = null;
+        Leaderboard.ArenaEntry r = rival();
+        if (r != null) {
+            long other = r.splitAt(k);
+            if (other < 0) {
+                other = r.score; // der Rivale war hier schon am Ende
+            }
+            long d = me - other;
+            splitText = (d >= 0 ? "+" : "−") + Fmt.compact(Math.abs(d)) + " vs " + r.name;
+            splitColor = d >= 0 ? Theme.POS : Theme.NEG;
+        }
+        if (pbSplits.length > 0) {
+            long other = k <= pbSplits.length ? pbSplits[k - 1] : pbScore;
+            long d = me - other;
+            String t = (d >= 0 ? "+" : "−") + Fmt.compact(Math.abs(d)) + " Bestwert";
+            if (splitText == null) {
+                splitText = t;
+                splitColor = d >= 0 ? Theme.POS : Theme.NEG;
+            } else {
+                splitText2 = t;
+                splitColor2 = d >= 0 ? Theme.POS : Theme.NEG;
+            }
+        }
+        if (splitText != null) {
+            splitTime = 3.6;
+        }
     }
 
     /** Das Level, das nach diesem kommt, wenn es eingebaut und schon spielbar ist (sonst {@code null}). */
@@ -737,6 +975,11 @@ public final class GameScene extends Scene {
             progress.addMetric(Metric.KILLS, dk);
             killsCommitted = world.kills;
         }
+        if (arena != null) {
+            announceAchievements();
+            app.commitProgress();
+            return;
+        }
         int before = progress.best(level.id, world.endless);
         int medalBefore = progress.medal(level.id);
         int levelBefore = progress.level();
@@ -783,6 +1026,9 @@ public final class GameScene extends Scene {
         if (!progressOn || ended || world.state != World.State.RUNNING) {
             return;
         }
+        if (arena != null && !suspending) {
+            return; // Arena: kein Zwischenspeichern zum Zurückspulen – nur wenn die App in den Hintergrund geht
+        }
         if (world.waveIndex == 0 && world.towers.isEmpty()) {
             return;
         }
@@ -797,7 +1043,12 @@ public final class GameScene extends Scene {
 
     @Override
     public void onSuspend() {
+        suspending = true;
         trySaveRun();
+        suspending = false;
+        if (arena != null && world.state == World.State.RUNNING && app.saves.resumable(level.id) != null) {
+            arenaSaveOpen = true;
+        }
         if (overlay == Overlay.NONE && world.state == World.State.RUNNING) {
             setOverlay(Overlay.PAUSE);
         }
@@ -861,6 +1112,12 @@ public final class GameScene extends Scene {
                 for (int i = 0; i < steps; i++) {
                     world.step();
                 }
+                if (arenaSaveOpen && steps > 0) {
+                    // Es geht weiter: Der Stand vom Wegwischen darf nicht zum Zurückspulen taugen
+                    app.saves.endRun(level.id);
+                    app.cloud.markDirty();
+                    arenaSaveOpen = false;
+                }
                 saveTimer += dt;
                 if (saveTimer >= AUTOSAVE || saveSoon) {
                     saveTimer = 0;
@@ -905,6 +1162,17 @@ public final class GameScene extends Scene {
         // Anzeigen
         moneyShown.target = world.money;
         moneyShown.update(dt);
+        if (arena != null) {
+            scoreShown.target = world.score;
+            scoreShown.update(dt);
+            scorePulse = Math.max(0, scorePulse - dt * 2);
+            splitTime = Math.max(0, splitTime - dt);
+            rankCheck += dt;
+            if (rankCheck > 0.5) {
+                rankCheck = 0;
+                updateLiveRank(true);
+            }
+        }
         livesPulse.target = 0;
         livesPulse.update(dt);
         moneyDeny = Math.max(0, moneyDeny - dt * 2.5);
@@ -921,10 +1189,12 @@ public final class GameScene extends Scene {
             select(null);
         }
         startBtn.enabled = world.canStartWave() && overlay == Overlay.NONE;
-        if (labelWave != world.waveIndex || labelEndless != world.endless) {
+        boolean early = world.wouldBeEarly();
+        if (labelWave != world.waveIndex || labelEndless != world.endless || early != lastEarly) {
             labelWave = world.waveIndex;
             labelEndless = world.endless;
-            startBtn.label = world.waveIndex == 0 ? "START" : "WELLE " + (world.waveIndex + 1);
+            lastEarly = early;
+            startBtn.label = world.waveIndex == 0 ? "START" : (early ? "VORLAUF ×2" : "WELLE " + (world.waveIndex + 1));
             if (speedIndex >= speeds().length) {
                 speedIndex = 0;
             }
@@ -1001,8 +1271,9 @@ public final class GameScene extends Scene {
         g.restore();
         TowerArt.uprightAngle = 0;
 
-        // Wellen-Banner über der Karte
+        // Wellen-Banner und Zwischenzeit über der Karte
         drawBanner(g);
+        drawSplit(g, u);
         if (pending && placing != null && ghostOnMap && !mapPressed) {
             drawConfirm(g);
         }
@@ -1189,33 +1460,59 @@ public final class GameScene extends Scene {
                 g.text(waveText(false), h.x + chipH * 0.4, y2 + chipH / 2, chipH * 0.44, Theme.TEXT, Gfx.ALIGN_LEFT, true);
                 g.text(world.enemiesRemaining() + " Gegner", h.x + h.w - chipH * 0.4, y2 + chipH / 2, chipH * 0.36,
                         Theme.MUTED, Gfx.ALIGN_RIGHT, false);
-                drawLevelBar(g, h.x, y2 + chipH + gap, h.w, chipH, u);
+                if (arena != null) {
+                    drawScoreBar(g, h.x, y2 + chipH + gap, h.w, chipH * 1.3, u);
+                } else {
+                    drawLevelBar(g, h.x, y2 + chipH + gap, h.w, chipH, u);
+                }
                 break;
             }
             case STACKED:
             case COMPACT_PORT: {
                 double gap = lay.mode == GameLayout.Mode.STACKED ? 6 * u : 4 * lay.k;
-                double w1 = h.w * 0.20;
-                double w2 = h.w * 0.27;
-                double w3 = h.w * 0.15;
+                boolean ar = arena != null;
+                double w1 = h.w * (ar ? 0.16 : 0.20);
+                double w2 = h.w * (ar ? 0.23 : 0.27);
+                double w3 = h.w * (ar ? 0.36 : 0.15);
                 double w4 = h.w - w1 - w2 - w3 - gap * 3;
                 double x = h.x;
                 chip(g, x, h.y, w1, h.h, Icon.HEART, lives, Theme.LIFE, livesPulse.value);
                 x += w1 + gap;
                 chip(g, x, h.y, w2, h.h, Icon.GEM, money, Theme.MONEY, moneyDeny);
                 x += w2 + gap;
-                chip(g, x, h.y, w3, h.h, Icon.STAR, Integer.toString(progress.level()), Theme.MAGENTA, 0);
+                if (ar) {
+                    scoreChip(g, x, h.y, w3, h.h);
+                } else {
+                    chip(g, x, h.y, w3, h.h, Icon.STAR, Integer.toString(progress.level()), Theme.MAGENTA, 0);
+                }
                 x += w3 + gap;
                 g.fillRoundRect(x, h.y, w4, h.h, h.h * 0.36, Colors.withAlpha(Theme.SURFACE, 0.94));
                 boolean small = h.h < 34 * u;
-                if (small) {
+                if (ar) {
+                    // Welle und Live-Platz in einer Zeile
+                    String wv = "W" + world.waveIndex;
+                    String rk = liveRank > 0 ? "#" + liveRank : "";
+                    double fs = Math.min(h.h * 0.42, w4 / Math.max(1, (wv.length() + rk.length() + 1) * 0.62));
+                    double tw = g.textWidth(wv, fs, true) + (rk.isEmpty() ? 0 : g.textWidth(rk, fs, true) + fs * 0.4);
+                    double tx = x + w4 / 2 - tw / 2;
+                    g.text(wv, tx, h.y + h.h / 2, fs, Theme.TEXT, Gfx.ALIGN_LEFT, true);
+                    if (!rk.isEmpty()) {
+                        g.text(rk, tx + tw, h.y + h.h / 2, fs, liveRank == 1 ? Theme.STAR : Theme.ACCENT, Gfx.ALIGN_RIGHT, true);
+                    }
+                } else if (small) {
                     g.text(waveText(true), x + w4 / 2, h.y + h.h * 0.5, h.h * 0.42, Theme.TEXT, Gfx.ALIGN_CENTER, true);
                 } else {
                     g.text(waveText(false), x + w4 / 2, h.y + h.h * 0.36, h.h * 0.36, Theme.TEXT, Gfx.ALIGN_CENTER, true);
                     g.text(world.enemiesRemaining() + " Gegner", x + w4 / 2, h.y + h.h * 0.74, h.h * 0.26,
                             Theme.MUTED, Gfx.ALIGN_CENTER, false);
                 }
-                if (progressOn) {
+                if (arena != null) {
+                    // Serie bis zum Höchst-Multiplikator
+                    double bw = h.w;
+                    double f = Math.min(1, world.streak / (double) World.STREAK_MAX);
+                    g.fillRect(h.x, h.y + h.h + 1, bw, 2, Colors.withAlpha(Theme.STAR, 0.18));
+                    g.fillRect(h.x, h.y + h.h + 1, bw * f, 2, Colors.withAlpha(Theme.STAR, 0.9));
+                } else if (progressOn) {
                     double bw = h.w;
                     g.fillRect(h.x, h.y + h.h + 1, bw, 2, Colors.withAlpha(Theme.MAGENTA, 0.2));
                     g.fillRect(h.x, h.y + h.h + 1, bw * progress.levelFraction(), 2, Colors.withAlpha(Theme.MAGENTA, 0.9));
@@ -1242,14 +1539,87 @@ public final class GameScene extends Scene {
                 String w = waveText(true);
                 g.text(w, x, cy, fs, Theme.CYAN, Gfx.ALIGN_LEFT, true);
                 x += g.textWidth(w, fs, true) + 10 * k;
-                String lv = "LV " + progress.level();
+                String lv = arena != null ? Fmt.tight(scoreShown.value) + " ×" + Fmt.one(world.multiplier())
+                        : "LV " + progress.level();
                 if (x + g.textWidth(lv, fs, true) < h.x + h.w - 4 * k) {
-                    g.text(lv, x, cy, fs, Theme.MAGENTA, Gfx.ALIGN_LEFT, true);
+                    g.text(lv, x, cy, fs, arena != null ? Theme.STAR : Theme.MAGENTA, Gfx.ALIGN_LEFT, true);
                 }
                 g.restore();
                 break;
             }
         }
+    }
+
+    /** Farbe des Multiplikators: grau bei ×1, dann über Cyan zu Gold bei der vollen Serie. */
+    private int multColor() {
+        if (world.streak <= 0) {
+            return Theme.MUTED;
+        }
+        double f = Math.min(1, world.streak / (double) World.STREAK_MAX);
+        return Colors.lerp(Theme.ACCENT, Theme.STAR, f);
+    }
+
+    /** Arena: Punkte mit Multiplikator als HUD-Chip. */
+    private void scoreChip(Gfx g, double x, double y, double w, double h) {
+        g.fillRoundRect(x, y, w, h, h * 0.36, Colors.withAlpha(Theme.SURFACE, 0.94));
+        if (scorePulse > 0.01) {
+            g.fillRoundRect(x, y, w, h, h * 0.36, Colors.withAlpha(Theme.STAR, 0.12 * scorePulse));
+        }
+        String m = "×" + Fmt.one(world.multiplier());
+        double ms = h * 0.34;
+        double mw = g.textWidth(m, ms, true) + h * 0.36;
+        double mx = x + w - mw - h * 0.14;
+        int mc = multColor();
+        g.fillRoundRect(mx, y + h * 0.2, mw, h * 0.6, h * 0.3, Colors.withAlpha(mc, 0.16));
+        g.text(m, mx + mw / 2, y + h / 2, ms, mc, Gfx.ALIGN_CENTER, true);
+        String sc = Fmt.tight(scoreShown.value);
+        double avail = mx - x - h * 0.3;
+        double size = Math.min(h * 0.46, avail / Math.max(1, sc.length() * 0.6));
+        double pop = 1 + 0.08 * scorePulse;
+        g.text(sc, x + h * 0.28, y + h / 2, Math.max(8, size * pop), Theme.TEXT, Gfx.ALIGN_LEFT, true);
+    }
+
+    /** Arena auf dem PC: Punkte, Multiplikator, Serie und Live-Platz in der Seitenleiste. */
+    private void drawScoreBar(Gfx g, double x, double y, double w, double h, double u) {
+        g.fillRoundRect(x, y, w, h, h * 0.3, Colors.withAlpha(Theme.SURFACE, 0.94));
+        if (scorePulse > 0.01) {
+            g.fillRoundRect(x, y, w, h, h * 0.3, Colors.withAlpha(Theme.STAR, 0.1 * scorePulse));
+        }
+        double pad = h * 0.28;
+        g.text(Fmt.points((long) scoreShown.value), x + pad, y + h * 0.36, h * 0.34 * (1 + 0.06 * scorePulse), Theme.TEXT,
+                Gfx.ALIGN_LEFT, true);
+        String m = "×" + Fmt.one(world.multiplier());
+        g.text(m, x + w - pad, y + h * 0.36, h * 0.28, multColor(), Gfx.ALIGN_RIGHT, true);
+        String rk = liveRank > 0 ? "Platz " + liveRank + " von " + livePlayers : "Arena " + arena.label();
+        g.text(rk + "  ·  Serie " + world.streak, x + pad, y + h * 0.72, h * 0.2, Theme.MUTED, Gfx.ALIGN_LEFT, false);
+        double f = Math.min(1, world.streak / (double) World.STREAK_MAX);
+        Draw.bar(g, x + w - pad - w * 0.3, y + h * 0.72 - 2, w * 0.3, 4, f, Theme.STAR);
+    }
+
+    /** Zwischenzeit nach einer Arena-Welle, als Pille oben auf der Karte. */
+    private void drawSplit(Gfx g, double u) {
+        if (splitTime <= 0 || splitText == null) {
+            return;
+        }
+        double a = Math.min(Mathx.clamp01(splitTime / 0.4), Mathx.clamp01((3.6 - splitTime) / 0.2));
+        double fs = Math.max(11, 13 * u);
+        double gap = 14 * u;
+        double w1 = g.textWidth(splitText, fs, true);
+        double w2 = splitText2 == null ? 0 : g.textWidth(splitText2, fs, true) + gap;
+        double h = 30 * u;
+        double w = w1 + w2 + 28 * u;
+        double cx = lay.mapX + lay.mapW / 2;
+        double y = lay.mapY + 10 * u;
+        g.save();
+        g.alpha(a);
+        g.fillRoundRect(cx - w / 2, y, w, h, h / 2, Colors.withAlpha(Theme.SURFACE2, 0.96));
+        double tx = cx - w / 2 + 14 * u;
+        g.text(splitText, tx, y + h / 2, fs, splitColor, Gfx.ALIGN_LEFT, true);
+        if (splitText2 != null) {
+            g.fillCircle(tx + w1 + gap / 2, y + h / 2, 1.6 * u, Theme.MUTED);
+            g.text(splitText2, tx + w1 + gap, y + h / 2, fs, splitColor2, Gfx.ALIGN_LEFT, true);
+        }
+        g.restore();
     }
 
     /** Dritte Zeile der Seitenleiste: Spielerlevel mit Titel und Fortschrittsbalken. */
@@ -1691,9 +2061,18 @@ public final class GameScene extends Scene {
         for (neontd.sim.Branch b : neontd.sim.Branch.of(selected.type)) {
             branchOptions.add(b);
         }
-        for (Special sp : Special.values()) {
-            if (sp.allowedFor(selected.type) && (!progressOn || progress.owns(sp))) {
-                specialOptions.add(sp);
+        if (arena != null) {
+            // Arena: nur die beiden Joker der Woche – für alle gleich
+            for (Special sp : arena.def.jokers) {
+                if (sp.allowedFor(selected.type)) {
+                    specialOptions.add(sp);
+                }
+            }
+        } else {
+            for (Special sp : Special.values()) {
+                if (sp.allowedFor(selected.type) && (!progressOn || progress.owns(sp))) {
+                    specialOptions.add(sp);
+                }
             }
         }
         specialPage = 0;
@@ -1995,6 +2374,12 @@ public final class GameScene extends Scene {
         }
         double pad = 20 * u;
         double y = sy + 22 * u + 10 * u;
+        if (arena != null) {
+            drawArenaSheet(g, sx, y, sw, pad, u);
+            overlayUi.render(g);
+            g.restore();
+            return;
+        }
         g.text(title, sx + pad, y, 22 * u, overlay == Overlay.PAUSE ? Theme.TEXT : color, Gfx.ALIGN_LEFT, true);
         String sub = level.name + (world.endless ? "  ·  Endlos" : "") + (editorReturn != null ? "  ·  Testspiel" : "");
         Draw.fit(g, sub, sx + sw - pad, y, 13 * u, sw * 0.5, Theme.MUTED, Gfx.ALIGN_RIGHT, false);
@@ -2053,6 +2438,124 @@ public final class GameScene extends Scene {
         }
         overlayUi.render(g);
         g.restore();
+    }
+
+    /** Inhalt des Blatts in der Arena: Pause mit Zwischenstand bzw. Ergebnis mit Platz, Rekord und Abstand. */
+    private void drawArenaSheet(Gfx g, double sx, double y, double sw, double pad, double u) {
+        boolean pause = overlay == Overlay.PAUSE;
+        g.text(pause ? "Pause" : "Lauf beendet", sx + pad, y, 22 * u, pause ? Theme.TEXT : Theme.ACCENT, Gfx.ALIGN_LEFT, true);
+        Draw.fit(g, "Arena " + arena.label() + "  ·  " + level.name, sx + sw - pad, y, 13 * u, sw * 0.5, Theme.MUTED,
+                Gfx.ALIGN_RIGHT, false);
+        y += 34 * u;
+        if (pause) {
+            String line = Fmt.points(world.score) + " Punkte  ·  ×" + Fmt.one(world.multiplier()) + "  ·  Welle "
+                    + world.clearedWaves() + (liveRank > 0 ? "  ·  live Platz " + liveRank : "");
+            Draw.fit(g, line, sx + pad, y + 4 * u, 14 * u, sw - 2 * pad, Theme.TEXT, Gfx.ALIGN_LEFT, true);
+            return;
+        }
+        // Punkte groß, daneben Welle und Serie
+        double count = Easing.outCubic(Mathx.clamp01(overlayIn * 1.3));
+        String pts = Fmt.points(Math.round(world.score * count));
+        double ps = 36 * u;
+        g.text(pts, sx + pad, y + 14 * u, ps, Theme.TEXT, Gfx.ALIGN_LEFT, true);
+        double pw = g.textWidth(pts, ps, true);
+        g.text("Punkte", sx + pad + pw + 8 * u, y + 22 * u, 13 * u, Theme.MUTED, Gfx.ALIGN_LEFT, false);
+        g.text("Welle " + world.clearedWaves(), sx + sw - pad, y + 4 * u, 13 * u, Theme.TEXT, Gfx.ALIGN_RIGHT, true);
+        g.text("beste Serie " + world.bestStreak, sx + sw - pad, y + 24 * u, 12 * u, Theme.MUTED, Gfx.ALIGN_RIGHT, false);
+        y += 50 * u;
+        Draw.divider(g, sx + pad, y, sw - 2 * pad);
+        y += 22 * u;
+        // Wertung
+        Leaderboard.ArenaResult r = arenaResult;
+        if (r == null) {
+            double ang = time * 7;
+            g.beginPath();
+            g.arc(sx + pad + 8 * u, y, 7 * u, ang, ang + Math.PI * 1.4);
+            g.stroke(2 * u, Theme.ACCENT);
+            g.text("Wird gewertet …", sx + pad + 24 * u, y, 14 * u, Theme.MUTED, Gfx.ALIGN_LEFT, true);
+        } else if (r.ok) {
+            int c = r.rank == 1 ? Theme.STAR : Theme.TEXT;
+            String rank = "Platz " + r.rank + " von " + r.players;
+            g.text(rank, sx + pad, y, 18 * u, c, Gfx.ALIGN_LEFT, true);
+            double rw = g.textWidth(rank, 18 * u, true);
+            if (r.record) {
+                Draw.chip(g, sx + pad + rw + 10 * u, y - 12 * u, 24 * u, null, "Neuer Rekord", Theme.POS, true);
+            } else {
+                Draw.fit(g, "Dein Bestwert: " + Fmt.points(r.best), sx + sw - pad, y, 12 * u, sw - 2 * pad - rw - 16 * u,
+                        Theme.MUTED, Gfx.ALIGN_RIGHT, false);
+            }
+            String gap = arenaGapText();
+            if (gap != null) {
+                Draw.fit(g, gap, sx + pad, y + 24 * u, 13 * u, sw - 2 * pad, Theme.MUTED, Gfx.ALIGN_LEFT, false);
+            }
+        } else {
+            String msg;
+            if ("offline".equals(r.error)) {
+                msg = "Offline – der Lauf wird gesendet, sobald du online bist";
+            } else if ("leer".equals(r.error)) {
+                msg = "Keine Welle geschafft – dieser Lauf zählt nicht";
+            } else if ("unbekannt".equals(r.error)) {
+                msg = "Ohne Spielernamen keine Wertung (Profil → Name)";
+            } else if ("woche".equals(r.error)) {
+                msg = "Die Woche ist vorbei – die neue Arena wartet";
+            } else {
+                msg = "Die Wertung hat nicht geklappt";
+            }
+            Draw.fit(g, msg, sx + pad, y, 13 * u, sw - 2 * pad, Theme.MUTED, Gfx.ALIGN_LEFT, false);
+            if (newRecord) {
+                Draw.fit(g, "Neuer persönlicher Bestwert", sx + pad, y + 22 * u, 13 * u, sw - 2 * pad, Theme.POS,
+                        Gfx.ALIGN_LEFT, true);
+            }
+        }
+        y += 50 * u;
+        if (progressOn && xpRun > 0) {
+            StringBuilder xp = new StringBuilder("+" + xpRun + " XP");
+            if (progress.level() > levelAtStart) {
+                xp.append("  ·  Level ").append(levelAtStart).append(" → ").append(progress.level());
+            }
+            int cr = (int) (progress.crystalsEarned - crystalsAtStart);
+            if (cr > 0) {
+                xp.append("  ·  +").append(cr).append(" ◆");
+            }
+            Draw.fit(g, xp.toString(), sx + pad, y, 12 * u, sw - 2 * pad, Theme.MAGENTA, Gfx.ALIGN_LEFT, true);
+        }
+    }
+
+    /** "Noch 12.400 bis Platz 2 · Mia" bzw. "Vorsprung 4.200 auf Mia" aus der frisch geladenen Rangliste. */
+    private String arenaGapText() {
+        if (arenaList == null || arenaList.isEmpty()) {
+            return null;
+        }
+        Leaderboard.ArenaEntry mine = null;
+        for (Leaderboard.ArenaEntry e : arenaList) {
+            if (e.mine) {
+                mine = e;
+                break;
+            }
+        }
+        if (mine == null) {
+            return null;
+        }
+        Leaderboard.ArenaEntry above = null;
+        Leaderboard.ArenaEntry below = null;
+        for (Leaderboard.ArenaEntry e : arenaList) {
+            if (e.mine) {
+                continue;
+            }
+            if (e.score >= mine.score && (above == null || e.score < above.score)) {
+                above = e;
+            }
+            if (e.score < mine.score && (below == null || e.score > below.score)) {
+                below = e;
+            }
+        }
+        if (above != null) {
+            return "Noch " + Fmt.points(above.score - mine.score + 1) + " bis Platz " + above.rank + " · " + above.name;
+        }
+        if (below != null) {
+            return "Vorsprung " + Fmt.points(mine.score - below.score) + " auf " + below.name;
+        }
+        return "Noch niemand sonst in dieser Woche – fordere jemanden heraus!";
     }
 
     // ----------------------------------------------------------------------------------------- Eingabe
@@ -2415,7 +2918,9 @@ public final class GameScene extends Scene {
                 + world.clearedWaves() + " towers=" + world.towers.size() + " kills=" + world.kills + " endless="
                 + world.endless + " state=" + world.state + " overlay=" + overlay + " mapScale="
                 + Mathx.round1(lay.mapScale * 1000) / 1000 + " rail=" + Mathx.round1(railT.value * 10) / 10 + " mode="
-                + lay.mode + " rotated=" + lay.rotated + " selected=" + (selected != null);
+                + lay.mode + " rotated=" + lay.rotated + " selected=" + (selected != null) + " arena=" + (arena != null)
+                + " score=" + world.score + " streak=" + world.streak + " result="
+                + (arenaResult == null ? "none" : (arenaResult.ok ? "rank" + arenaResult.rank : arenaResult.error));
     }
 
     /** Die Spielwelt – für Screenshot-Werkzeug und Tests (z. B. Türme direkt setzen). */
@@ -2548,7 +3053,9 @@ public final class GameScene extends Scene {
                         showToast("Serie: " + streak + " Tage in Folge!", Theme.ORANGE);
                     }
                 }
-                if (neontd.progress.Daily.isDaily(level.id)) {
+                if (arena != null) {
+                    // Arena: keine anderen Bestenlisten
+                } else if (neontd.progress.Daily.isDaily(level.id)) {
                     String key = "dailyreward-" + level.id;
                     if (index + 1 >= neontd.progress.Daily.REWARD_WAVE && progress.stat(key) == 0) {
                         progress.stats.put(key, 1.0);
@@ -2618,8 +3125,29 @@ public final class GameScene extends Scene {
         }
 
         @Override
+        public void onArenaWave(int index, long points, boolean early, int streak) {
+            scorePulse = 1;
+            showSplit();
+            updateLiveRank(true);
+            if (streak > 0 && streak % 5 == 0 && streak <= World.STREAK_MAX) {
+                showBanner("SERIE " + streak, "Multiplikator ×" + Fmt.one(world.multiplier())
+                        + (streak == World.STREAK_MAX ? " – Maximum!" : ""), Theme.STAR, 2.2);
+            }
+        }
+
+        @Override
+        public void onStreakBroken(int streak) {
+            if (streak >= 3) {
+                showToast("Serie gerissen – ×" + Fmt.one(1 + World.STREAK_STEP * Math.min(World.STREAK_MAX, streak))
+                        + " → ×1,0", Theme.NEG);
+                fx.shake = Math.max(fx.shake, 6);
+            }
+        }
+
+        @Override
         public void onGameEnded(boolean won) {
             endDelay = 0;
+            endArenaRun();
             if (!won) {
                 fx.shake = 14;
             }

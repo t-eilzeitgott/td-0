@@ -51,6 +51,13 @@ public final class LevelDef {
     public double speedMul = 1;
     /** Gegner-Stufe für die Wellen (welche Arten vorkommen); 0 = wie die Welt ({@link #chapter}). */
     public int tier;
+    /** Zusätzliches Wachstum der Lebenspunkte je Welle (Arena): Faktor (1 + hpRamp)^(Welle − 1). */
+    public double hpRamp;
+
+    /** Lebenspunkte-Faktor der Welle {@code wave} (1-basiert): {@link #hpMul} samt {@link #hpRamp}. */
+    public double hpMulAt(int wave) {
+        return hpRamp <= 0 ? hpMul : hpMul * Math.pow(1 + hpRamp, Math.max(0, wave - 1));
+    }
 
     public LevelDef() {
     }
@@ -82,6 +89,7 @@ public final class LevelDef {
         c.bossLevel = bossLevel;
         c.speedMul = speedMul;
         c.tier = tier;
+        c.hpRamp = hpRamp;
         return c;
     }
 

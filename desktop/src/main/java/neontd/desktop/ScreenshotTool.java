@@ -28,6 +28,10 @@ public final class ScreenshotTool {
     private boolean touch;
     private final App app;
     private final Java2DGfx gfx = new Java2DGfx();
+    /** Beispieldaten statt echter Datenbank (siehe {@link DemoHttp}). */
+    private final DemoHttp demo = new DemoHttp();
+    /** Fester Zeitpunkt (Do, 29.10.2026, 12 Uhr MEZ), damit Arena-Woche und Tages-Challenge reproduzierbar sind. */
+    private static final double CLOCK = neontd.progress.Calendar.daysFromCivil(2026, 10, 29) * 86_400_000.0 + 11 * 3_600_000.0;
     private BufferedImage image;
     private double w = 1280;
     private double h = 720;
@@ -48,6 +52,26 @@ public final class ScreenshotTool {
             @Override
             public boolean touchPrimary() {
                 return touch;
+            }
+
+            @Override
+            public double nowMillis() {
+                return CLOCK;
+            }
+
+            @Override
+            public double localOffsetMillis() {
+                return 3_600_000.0;
+            }
+
+            @Override
+            public neontd.save.Http http() {
+                return demo;
+            }
+
+            @Override
+            public String describe() {
+                return "Screenshot-Werkzeug";
             }
         });
         resize();
@@ -134,6 +158,15 @@ public final class ScreenshotTool {
             case "editor":
                 app.goTo(new neontd.scene.EditorScene(app, null));
                 break;
+            case "arena":
+                app.goTo(new neontd.scene.ArenaScene(app));
+                break;
+            case "arenagame":
+                app.goTo(neontd.scene.GameScene.arena(app, neontd.progress.Arena.of(app.today()), null));
+                break;
+            case "name":
+                app.goTo(new neontd.scene.NameScene(app, true));
+                break;
             case "daily":
                 app.goTo(new neontd.scene.DailyScene(app));
                 break;
@@ -152,6 +185,7 @@ public final class ScreenshotTool {
         int n = (int) Math.round(seconds / DT);
         for (int i = 0; i < n; i++) {
             now += DT;
+            demo.deliver();
             app.update(now);
         }
     }
@@ -285,8 +319,36 @@ public final class ScreenshotTool {
                     }
                     break;
                 }
+                case "name": {
+                    // name TEXT  – Spielernamen eintippen und bestätigen (Namensseite) bzw. direkt anmelden
+                    String text = cmd.substring(5).trim();
+                    if (app.scene() instanceof neontd.scene.NameScene) {
+                        neontd.scene.NameScene ns = (neontd.scene.NameScene) app.scene();
+                        ns.typeForTest(text);
+                        if (!text.endsWith("…")) {
+                            advance(0.1);
+                        }
+                    } else {
+                        app.board.register(text, (ok, err) -> { });
+                        advance(0.1);
+                    }
+                    break;
+                }
+                case "submitname":
+                    ((neontd.scene.NameScene) app.scene()).submitForTest();
+                    advance(0.1);
+                    break;
+                case "myscore":
+                    // myscore N  – eigener Bestwert in den Beispieldaten (0 = noch kein Lauf)
+                    demo.myScore = Long.parseLong(p[1]);
+                    break;
                 case "anchor": {
                     // anchor click|hold|up NAME  – Bedienelement der Spielszene ansteuern
+                    if (app.scene() instanceof neontd.scene.ArenaScene && p[2].equals("play")) {
+                        double[] a = ((neontd.scene.ArenaScene) app.scene()).playAnchor();
+                        run(p[1] + " " + a[0] + " " + a[1]);
+                        break;
+                    }
                     double[] a = ((neontd.scene.GameScene) app.scene()).anchor(p[2]);
                     if (a == null) {
                         throw new IllegalArgumentException("Unbekannter Anker: " + p[2]);
