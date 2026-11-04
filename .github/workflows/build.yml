@@ -1,7 +1,8 @@
 name: Build und Veröffentlichung
 
 # Baut bei jedem Push und Pull Request, führt alle Tests (auch einen Browser-Test der Web-Version) aus und legt die
-# Web-Version sowie die Desktop-Version als herunterladbare Artefakte ab. Auf dem Standard-Branch des Repositories (egal wie er heißt) wird die
+# Web-Version sowie die Desktop-Version als herunterladbare Artefakte ab (7 Tage lang; Screenshots und Testberichte
+# nur, wenn etwas schiefgeht). Auf dem Standard-Branch des Repositories (egal wie er heißt) wird die
 # Web-Version zusätzlich auf GitHub Pages veröffentlicht.
 # Einmalig aktivieren: Repository → Settings → Pages → Source: "GitHub Actions"
 # (bis dahin überspringt der Schritt "deploy" die Veröffentlichung mit einer Warnung; nach dem Aktivieren
@@ -41,18 +42,21 @@ jobs:
         with:
           name: testberichte
           path: '**/build/reports/tests/'
+          retention-days: 7
 
       - name: Web-Version als Artefakt
         uses: actions/upload-artifact@v4
         with:
           name: neon-td-web
           path: web/build/dist
+          retention-days: 7
 
       - name: Desktop-Version als Artefakt
         uses: actions/upload-artifact@v4
         with:
           name: neon-td-desktop
           path: desktop/build/distributions/*.zip
+          retention-days: 7
 
       - name: Seite für GitHub Pages vorbereiten
         if: github.ref_name == github.event.repository.default_branch && github.event_name != 'pull_request'
@@ -85,12 +89,13 @@ jobs:
       - name: Browser-Test
         run: node scripts/web-smoke.mjs web-smoke-out
 
-      - name: Screenshots des Browser-Tests hochladen
-        if: always()
+      - name: Screenshots des Browser-Tests hochladen (nur bei Fehlern)
+        if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: browser-test-screenshots
           path: web-smoke-out
+          retention-days: 7
 
   deploy:
     if: github.ref_name == github.event.repository.default_branch && github.event_name != 'pull_request'
