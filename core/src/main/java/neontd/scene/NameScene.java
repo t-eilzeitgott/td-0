@@ -170,6 +170,10 @@ public final class NameScene extends Scene {
         if (checking || done) {
             return;
         }
+        // Feldinhalt direkt übernehmen: Enter kann vor dem nächsten Bild kommen (Autofill, schnelles Tippen)
+        if (input != null) {
+            text = input.text();
+        }
         String p = problem();
         if (p != null) {
             error = p;
