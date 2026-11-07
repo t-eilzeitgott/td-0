@@ -39,6 +39,7 @@ import neontd.ui.Button;
 import neontd.ui.Draw;
 import neontd.ui.Easing;
 import neontd.ui.Fmt;
+import neontd.ui.Kit;
 import neontd.ui.Smooth;
 import neontd.ui.Ui;
 import neontd.ui.Viewport;
@@ -323,6 +324,10 @@ public final class GameScene extends Scene {
         toggleBtn.painter = this::paintToggle;
         startBtn.fontScale = 0.9;
         speedBtn.fontScale = 0.9;
+        startBtn.painter = this::paintPill;
+        speedBtn.painter = this::paintPlain;
+        autoBtn.painter = this::paintPlain;
+        pauseBtn.painter = this::paintPlain;
         for (int i = 0; i < 3; i++) {
             final UpgradeTrack track = UpgradeTrack.values()[i];
             Button b = new Button("", null, track.color, () -> buyUpgrade(track));
@@ -407,7 +412,7 @@ public final class GameScene extends Scene {
         startBtn.visible = startVisible;
         toggleBtn.visible = lay.showToggle && startVisible;
         // Schmale Kacheln bekommen eigene, kompakte Darstellung.
-        Button.Painter startPainter = compact && lay.start.w < lay.start.h * 1.2 ? this::paintStartTile : null;
+        Button.Painter startPainter = compact && lay.start.w < lay.start.h * 1.2 ? this::paintStartTile : this::paintPill;
         startBtn.painter = startPainter;
         for (int i = 0; i < cards.length; i++) {
             cards[i].bounds(lay.tiles[i].x, lay.tiles[i].y, lay.tiles[i].w, lay.tiles[i].h);
@@ -457,7 +462,9 @@ public final class GameScene extends Scene {
         double w = b.w;
         double h = b.h;
         double hv = b.hover.value;
-        g.fillRoundRect(-w / 2, -h / 2, w, h, Math.min(w, h) * 0.3, Colors.lerp(Theme.SURFACE2, Theme.SURFACE3, hv));
+        if (hv > 0.01 || b.press.value > 0.01) {
+            g.fillRoundRect(-w / 2, -h / 2, w, h, Math.min(w, h) * 0.3, Colors.withAlpha(0xFFFFFF, 0.06 * hv + 0.08 * b.press.value));
+        }
         String t = (shopPage + 1) + "/" + pageCount();
         if (h > w * 1.2) {
             Icons.draw(g, Icon.LOOP, 0, -h * 0.17, Math.min(w, h) * 0.24, Theme.MUTED, 0);
@@ -545,25 +552,32 @@ public final class GameScene extends Scene {
         }
     }
 
-    /** Maße des Blatts der Einblendung (Pause, Sieg, Niederlage): {x, y, w, h}. */
+    /** Maße des Blatts der Einblendung (Pause, Sieg, Niederlage): {x, y, w, h, Tastenhöhe, unterer Innenrand}. */
     private double[] sheetBox() {
         Viewport vp = app.vp;
         double u = vp.u;
         int n = overlayUi.buttons.size();
-        double sw = Math.min(vp.safeW() - 20 * u, 440 * u);
-        double bh = Math.min(50 * u, Math.max(38 * u, (vp.safeH() - 260 * u) / Math.max(1, n) - 10 * u));
-        double stats = overlay == Overlay.PAUSE ? 30 * u : (overlay == Overlay.WON ? 150 * u : 96 * u);
+        double sw = Math.min(vp.w, 520 * u);
+        double bottomPad = Math.max(vp.insetB, 8 * u) + 16 * u;
+        boolean tight = sheetTight();
+        double bh = tight ? 40 * u : Math.min(Kit.BUTTON * u, Math.max(40 * u, (vp.safeH() - 300 * u) / Math.max(1, n) - 8 * u));
+        double stats = overlay == Overlay.PAUSE ? 6 * u : (overlay == Overlay.WON ? (tight ? 140 : 172) * u : 70 * u);
         if (arena != null) {
-            stats = overlay == Overlay.PAUSE ? 40 * u : 168 * u;
+            stats = overlay == Overlay.PAUSE ? 44 * u : 172 * u;
         }
-        double sh = 22 * u + 34 * u + stats + n * (bh + 10 * u) + 12 * u;
-        double sy = vp.h - vp.insetB - 12 * u - sh;
+        double sh = (tight ? 18 : 30) * u + (tight ? 36 : 44) * u + stats + 14 * u + n * (bh + (tight ? 4 : 8) * u) + bottomPad;
+        double sy = vp.h - sh;
         double minTop = vp.insetT + 10 * u;
         if (sy < minTop) {
             sy = minTop;
-            sh = vp.h - vp.insetB - 12 * u - sy;
+            sh = vp.h - sy;
         }
-        return new double[] {vp.w / 2 - sw / 2, sy, sw, sh, bh};
+        return new double[] {vp.w / 2 - sw / 2, sy, sw, sh, bh, bottomPad};
+    }
+
+    /** Wenig Höhe (Handy quer): Blatt kompakter. */
+    private boolean sheetTight() {
+        return app.vp.h < 560 * app.vp.u;
     }
 
     private void layoutOverlay() {
@@ -574,11 +588,12 @@ public final class GameScene extends Scene {
         double u = app.vp.u;
         double[] box = sheetBox();
         int n = overlayUi.buttons.size();
-        double bw = box[2] - 32 * u;
+        double bw = Math.min(box[2], app.vp.safeW()) - 2 * Kit.MARGIN * u;
         double bh = box[4];
-        double bottom = box[1] + box[3] - 12 * u;
+        double bottom = box[1] + box[3] - box[5];
+        double bg = (sheetTight() ? 4 : 8) * u;
         for (int i = 0; i < n; i++) {
-            double y = bottom - (n - i) * (bh + 10 * u) + 10 * u;
+            double y = bottom - (n - i) * (bh + bg) + bg;
             overlayUi.buttons.get(i).bounds(app.vp.w / 2 - bw / 2, y, bw, bh);
         }
     }
@@ -653,6 +668,64 @@ public final class GameScene extends Scene {
         return true;
     }
 
+    // ------------------------------------------------------------------------------- Design-Bausteine
+
+    /** Senkrechter Verlauf von {@code a0} (oben) nach {@code a1} (unten) in Schwarz – als Lese-Schleier über der Karte. */
+    private static void scrim(Gfx g, double x, double y, double w, double h, double a0, double a1) {
+        int n = 14;
+        double step = h / n;
+        for (int i = 0; i < n; i++) {
+            double t = (i + 0.5) / n;
+            double a = a0 + (a1 - a0) * t;
+            if (a > 0.004) {
+                g.fillRect(x, y + i * step, w, step + 0.6, Colors.withAlpha(0x000000, a));
+            }
+        }
+    }
+
+    /** Symbol und Text einer Schaltfläche, mittig. */
+    private void buttonLabel(Gfx g, Button b, int iconColor, int textColor, double fs) {
+        double w = b.w;
+        double h = b.h;
+        boolean hasIcon = b.icon != null;
+        boolean hasText = b.label != null && !b.label.isEmpty();
+        double is = hasIcon && !(b.label != null && !b.label.isEmpty()) ? Math.min(Math.min(w, h) * 0.3, 11 * app.vp.u)
+                : Math.min(fs * 0.42, h * 0.2);
+        double tw = hasText ? g.textWidth(b.label, fs, true) : 0;
+        double gap = hasIcon && hasText ? fs * 0.45 : 0;
+        double total = (hasIcon ? is * 2 : 0) + gap + tw;
+        double k = total > w * 0.88 ? w * 0.88 / total : 1;
+        double left = -total * k / 2;
+        if (hasIcon) {
+            Icons.draw(g, b.icon, left + is * k, 0, is * k, iconColor, 0);
+            left += (is * 2 + gap) * k;
+        }
+        if (hasText) {
+            g.text(b.label, left, 0, fs * k, textColor, Gfx.ALIGN_LEFT, true);
+        }
+    }
+
+    /** Haupttaste als Pille in ihrer Farbe (wie {@link neontd.ui.Kit#primary}). */
+    private void paintPill(Gfx g, Button b) {
+        double w = b.w;
+        double h = b.h;
+        int c = Colors.lerp(Colors.lerp(b.color, 0xFFFFFF, 0.12 * b.hover.value), Colors.darken(b.color, 0.18), b.press.value);
+        g.fillRoundRect(-w / 2, -h / 2, w, h, h / 2, c);
+        buttonLabel(g, b, 0x000000, 0x000000, Math.min(h * 0.34, Kit.T_ROW * 1.06 * app.vp.u));
+    }
+
+    /** Nebenaktion ohne Fläche: farbiges Symbol, weißer Text, beim Drücken eine weiche Aufhellung. */
+    private void paintPlain(Gfx g, Button b) {
+        double w = b.w;
+        double h = b.h;
+        double k = Math.max(b.hover.value * 0.6, b.press.value);
+        if (k > 0.01) {
+            g.fillRoundRect(-w / 2, -h / 2, w, h, Math.min(h / 2, 16 * app.vp.u), Colors.withAlpha(0xFFFFFF, 0.08 * k));
+        }
+        buttonLabel(g, b, b.selected ? b.color : (b.label == null || b.label.isEmpty() ? Theme.TEXT : b.color),
+                b.selected ? Colors.lighten(b.color, 0.3) : Theme.TEXT, Math.min(h * 0.36, Kit.T_ROW * app.vp.u));
+    }
+
     private void setOverlay(Overlay o) {
         overlay = o;
         overlayIn = 0;
@@ -718,7 +791,16 @@ public final class GameScene extends Scene {
         if (c != null) {
             overlayUi.add(c).appearAfter(delay + 0.16);
         }
+        styleSheetButtons();
         layoutOverlay();
+    }
+
+    /** Im Blatt: die erste Schaltfläche ist die Pille, alle weiteren sind schlichte Textaktionen. */
+    private void styleSheetButtons() {
+        for (int i = 0; i < overlayUi.buttons.size(); i++) {
+            Button bt = overlayUi.buttons.get(i);
+            bt.painter = i == 0 ? this::paintPill : this::paintPlain;
+        }
     }
 
     /** Schaltflächen der Einblendungen in der Arena: Pause (Weiter, Neu starten, Lauf beenden) und Ergebnis. */
@@ -747,6 +829,7 @@ public final class GameScene extends Scene {
         overlayUi.add(a).appearAfter(0.2);
         overlayUi.add(b).appearAfter(0.28);
         overlayUi.add(c).appearAfter(0.36);
+        styleSheetButtons();
         layoutOverlay();
     }
 
@@ -1304,9 +1387,9 @@ public final class GameScene extends Scene {
                     g.alpha(0.4);
                 }
                 GameLayout.Rect t = lay.tray;
-                double r = 14 * lay.k;
-                g.fillRoundRect(t.x, t.y, t.w, t.h, r, Colors.withAlpha(Theme.SURFACE, 0.8));
-                g.strokeRoundRect(t.x, t.y, t.w, t.h, r, 1, Theme.LINE);
+                double top = t.y - 30 * u;
+                double bot = Math.min(t.y + t.h, lay.mapY + lay.mapH);
+                scrim(g, lay.mapX, top, lay.mapW, bot - top, 0, 0.9);
             }
             for (Button c : cards) {
                 c.render(g);
@@ -1397,24 +1480,26 @@ public final class GameScene extends Scene {
         double cx = lay.mapX + mw / 2;
         String title = bannerTitle.charAt(0) + bannerTitle.substring(1).toLowerCase();
         boolean hasSub = bannerSub != null && !bannerSub.isEmpty();
-        double cy = lay.rotated ? lay.clearTop + 50 * u + (hasSub ? 28 : 20) * u
-                : lay.mapY + Math.min(lay.mapH * 0.2, 70 * u);
-        double ts = Math.min(22 * u, mw * 0.06);
-        double ss = Math.max(11, 12.5 * u);
-        double w = Math.max(g.textWidth(title, ts, true), hasSub ? g.textWidth(bannerSub, ss, false) : 0) + 44 * u;
-        w = Math.min(w, mw - 16 * u);
-        double h = hasSub ? 56 * u : 40 * u;
+        double cy = lay.rotated ? lay.clearTop + 56 * u + (hasSub ? 24 : 16) * u
+                : lay.mapY + Math.min(lay.mapH * 0.2, 76 * u);
+        double ts = Math.min(Kit.T_TITLE * u, mw * 0.085);
+        double ss = Math.max(11, Kit.T_BODY * u);
+        double w = Math.min(Math.max(g.textWidth(title, ts, true), hasSub ? g.textWidth(bannerSub, ss, false) : 0) + 60 * u,
+                mw - 8 * u);
         g.save();
         g.alpha(a);
         g.translate(cx, cy);
         g.scale(sc, sc);
         g.translate(0, (1 - Easing.outCubic(inT)) * -10 * u);
-        g.fillRoundRect(-w / 2, -h / 2, w, h, 16 * u, Colors.withAlpha(Theme.SURFACE, 0.96));
-        g.strokeRoundRect(-w / 2, -h / 2, w, h, 16 * u, 1, Colors.withAlpha(bannerColor, 0.5));
-        g.fillRoundRect(-w / 2, -h / 2, w, h, 16 * u, Colors.withAlpha(bannerColor, 0.08));
-        Draw.fit(g, title, 0, hasSub ? -h * 0.18 : 0, ts, w - 28 * u, Colors.lighten(bannerColor, 0.45), Gfx.ALIGN_CENTER, true);
+        // weicher dunkler Schleier statt Kasten, darüber ein Hauch der Bannerfarbe
+        g.save();
+        g.scale(1, hasSub ? 0.42 : 0.3);
+        g.radialGlow(0, 0, w * 0.62, Colors.withAlpha(0x000000, 0.88));
+        g.radialGlow(0, 0, w * 0.5, Colors.withAlpha(bannerColor, 0.10));
+        g.restore();
+        Draw.fit(g, title, 0, hasSub ? -ts * 0.38 : 0, ts, mw - 24 * u, Colors.lighten(bannerColor, 0.4), Gfx.ALIGN_CENTER, true);
         if (hasSub) {
-            Draw.fit(g, bannerSub, 0, h * 0.24, ss, w - 28 * u, Theme.TEXT, Gfx.ALIGN_CENTER, false);
+            Draw.fit(g, bannerSub, 0, ts * 0.58, ss, mw - 32 * u, Colors.withAlpha(0xFFFFFF, 0.82), Gfx.ALIGN_CENTER, false);
         }
         g.restore();
     }
@@ -1440,23 +1525,6 @@ public final class GameScene extends Scene {
 
     // ------------------------------------------------------------------------------------------- HUD
 
-    private void chip(Gfx g, double x, double y, double w, double h, Icon icon, String text, int color,
-                      double flash) {
-        int c = Colors.lerp(color, Theme.RED, flash);
-        g.fillRoundRect(x, y, w, h, h * 0.36, Colors.withAlpha(Theme.SURFACE, 0.94));
-        if (flash > 0.02) {
-            g.fillRoundRect(x, y, w, h, h * 0.36, Colors.withAlpha(Theme.RED, 0.25 * flash));
-        }
-        double is = h * 0.26;
-        double tx = x + h * 0.3;
-        if (icon != null) {
-            Icons.draw(g, icon, x + h * 0.25 + is, y + h / 2, is, c, 0);
-            tx = x + h * 0.25 + is * 2 + h * 0.15;
-        }
-        double size = Math.min(h * 0.48, (x + w - tx - h * 0.2) / Math.max(1, text.length() * 0.62));
-        g.text(text, tx, y + h / 2, Math.max(8, size), Theme.TEXT, Gfx.ALIGN_LEFT, true);
-    }
-
     private String waveText(boolean shortForm) {
         if (world.endless) {
             return (shortForm ? "W " : "WELLE ") + world.waveIndex + " ∞";
@@ -1470,103 +1538,88 @@ public final class GameScene extends Scene {
         GameLayout.Rect h = lay.hud;
         switch (lay.mode) {
             case DOCKED: {
-                double chipH = 34 * u;
-                double gap = 6 * u;
-                double w1 = h.w * 0.38;
-                chip(g, h.x, h.y, w1, chipH, Icon.HEART, lives, Theme.LIFE, livesPulse.value);
-                chip(g, h.x + w1 + gap, h.y, h.w - w1 - gap, chipH, Icon.GEM, money, Theme.MONEY, moneyDeny);
-                double y2 = h.y + chipH + gap;
-                g.fillRoundRect(h.x, y2, h.w, chipH, chipH * 0.36, Colors.withAlpha(Theme.SURFACE, 0.94));
-                g.text(waveText(false), h.x + chipH * 0.4, y2 + chipH / 2, chipH * 0.44, Theme.TEXT, Gfx.ALIGN_LEFT, true);
-                g.text(world.enemiesRemaining() + " Gegner", h.x + h.w - chipH * 0.4, y2 + chipH / 2, chipH * 0.36,
+                double rowH = 34 * u;
+                hudLine(g, h.x, h.y + rowH / 2, h.w, 17 * u, u, false);
+                double y2 = h.y + rowH + 6 * u;
+                g.fillRect(h.x, y2, h.w, 1, Colors.withAlpha(0xFFFFFF, 0.08));
+                String wv = waveText(false);
+                wv = wv.charAt(0) + wv.substring(1, 5).toLowerCase() + wv.substring(5);
+                g.text(wv, h.x, y2 + rowH / 2 + 2 * u, Kit.T_BODY * u, Theme.TEXT, Gfx.ALIGN_LEFT, true);
+                g.text(world.enemiesRemaining() + " Gegner", h.x + h.w, y2 + rowH / 2 + 2 * u, Kit.T_CAPTION * u,
                         Theme.MUTED, Gfx.ALIGN_RIGHT, false);
                 if (arena != null) {
-                    drawScoreBar(g, h.x, y2 + chipH + gap, h.w, chipH * 1.3, u);
+                    drawScoreBar(g, h.x, y2 + rowH + 6 * u, h.w, rowH * 1.3, u);
                 } else {
-                    drawLevelBar(g, h.x, y2 + chipH + gap, h.w, chipH, u);
+                    drawLevelBar(g, h.x, y2 + rowH + 6 * u, h.w, rowH, u);
                 }
                 break;
             }
             case STACKED:
             case COMPACT_PORT: {
-                double gap = lay.mode == GameLayout.Mode.STACKED ? 6 * u : 4 * lay.k;
-                boolean ar = arena != null;
-                double w1 = h.w * (ar ? 0.16 : 0.20);
-                double w2 = h.w * (ar ? 0.23 : 0.27);
-                double w3 = h.w * (ar ? 0.36 : 0.15);
-                double w4 = h.w - w1 - w2 - w3 - gap * 3;
-                double x = h.x;
-                chip(g, x, h.y, w1, h.h, Icon.HEART, lives, Theme.LIFE, livesPulse.value);
-                x += w1 + gap;
-                chip(g, x, h.y, w2, h.h, Icon.GEM, money, Theme.MONEY, moneyDeny);
-                x += w2 + gap;
-                if (ar) {
-                    scoreChip(g, x, h.y, w3, h.h);
-                } else {
-                    chip(g, x, h.y, w3, h.h, Icon.STAR, Integer.toString(progress.level()), Theme.MAGENTA, 0);
-                }
-                x += w3 + gap;
-                g.fillRoundRect(x, h.y, w4, h.h, h.h * 0.36, Colors.withAlpha(Theme.SURFACE, 0.94));
-                boolean small = h.h < 34 * u;
-                if (ar) {
-                    // Welle und Live-Platz in einer Zeile
-                    String wv = "W" + world.waveIndex;
-                    String rk = liveRank > 0 ? "#" + liveRank : "";
-                    double fs = Math.min(h.h * 0.42, w4 / Math.max(1, (wv.length() + rk.length() + 1) * 0.62));
-                    double tw = g.textWidth(wv, fs, true) + (rk.isEmpty() ? 0 : g.textWidth(rk, fs, true) + fs * 0.4);
-                    double tx = x + w4 / 2 - tw / 2;
-                    g.text(wv, tx, h.y + h.h / 2, fs, Theme.TEXT, Gfx.ALIGN_LEFT, true);
-                    if (!rk.isEmpty()) {
-                        g.text(rk, tx + tw, h.y + h.h / 2, fs, liveRank == 1 ? Theme.STAR : Theme.ACCENT, Gfx.ALIGN_RIGHT, true);
-                    }
-                } else if (small) {
-                    g.text(waveText(true), x + w4 / 2, h.y + h.h * 0.5, h.h * 0.42, Theme.TEXT, Gfx.ALIGN_CENTER, true);
-                } else {
-                    g.text(waveText(false), x + w4 / 2, h.y + h.h * 0.36, h.h * 0.36, Theme.TEXT, Gfx.ALIGN_CENTER, true);
-                    g.text(world.enemiesRemaining() + " Gegner", x + w4 / 2, h.y + h.h * 0.74, h.h * 0.26,
-                            Theme.MUTED, Gfx.ALIGN_CENTER, false);
-                }
-                if (arena != null) {
-                    // Serie bis zum Höchst-Multiplikator
-                    double bw = h.w;
-                    double f = Math.min(1, world.streak / (double) World.STREAK_MAX);
-                    g.fillRect(h.x, h.y + h.h + 1, bw, 2, Colors.withAlpha(Theme.STAR, 0.18));
-                    g.fillRect(h.x, h.y + h.h + 1, bw * f, 2, Colors.withAlpha(Theme.STAR, 0.9));
-                } else if (progressOn) {
-                    double bw = h.w;
-                    g.fillRect(h.x, h.y + h.h + 1, bw, 2, Colors.withAlpha(Theme.MAGENTA, 0.2));
-                    g.fillRect(h.x, h.y + h.h + 1, bw * progress.levelFraction(), 2, Colors.withAlpha(Theme.MAGENTA, 0.9));
+                // Werte direkt über der Karte, ohne Kästen; ein weicher Schleier hält sie lesbar
+                double top = Math.min(h.y, lay.mapY);
+                double fullW = lay.pause.x + lay.pause.w - h.x;
+                scrim(g, h.x - 8 * u, top - 2 * u, fullW + 16 * u, h.y + h.h + 26 * u - top, 0.82, 0);
+                hudLine(g, h.x, h.y + h.h / 2, h.w, Math.min(h.h * 0.56, 18 * u), u);
+                // feine Linie: Spielerlevel (bzw. Serie in der Arena)
+                double ly = h.y + h.h + 3 * u;
+                double f = arena != null ? Math.min(1, world.streak / (double) World.STREAK_MAX)
+                        : (progressOn ? progress.levelFraction() : 0);
+                int lc = arena != null ? Theme.STAR : Theme.MAGENTA;
+                g.fillRoundRect(h.x, ly, fullW, 2 * u, u, Colors.withAlpha(0xFFFFFF, 0.08));
+                if (f > 0) {
+                    g.fillRoundRect(h.x, ly, Math.max(2 * u, fullW * f), 2 * u, u, Colors.withAlpha(lc, 0.9));
                 }
                 break;
             }
             default: {
-                // Handy quer: eine schwebende, halbtransparente Kopfzeile über der Karte
-                double k = lay.k;
-                g.save();
-                g.alpha(0.88);
-                g.fillRoundRect(h.x, h.y, h.w, h.h, h.h * 0.4, Colors.withAlpha(Theme.SURFACE, 0.9));
-                double cy = h.y + h.h / 2;
-                double fs = h.h * 0.5;
-                double x = h.x + 8 * k;
-                Icons.draw(g, Icon.HEART, x + fs * 0.5, cy, fs * 0.5, Theme.LIFE, 0);
-                x += fs * 1.2;
-                g.text(lives, x, cy, fs, Theme.TEXT, Gfx.ALIGN_LEFT, true);
-                x += g.textWidth(lives, fs, true) + 10 * k;
-                Icons.draw(g, Icon.GEM, x + fs * 0.5, cy, fs * 0.5, Theme.MONEY, 0);
-                x += fs * 1.2;
-                g.text(money, x, cy, fs, moneyDeny > 0.1 ? Theme.RED : Theme.TEXT, Gfx.ALIGN_LEFT, true);
-                x += g.textWidth(money, fs, true) + 10 * k;
-                String w = waveText(true);
-                g.text(w, x, cy, fs, Theme.CYAN, Gfx.ALIGN_LEFT, true);
-                x += g.textWidth(w, fs, true) + 10 * k;
-                String lv = arena != null ? Fmt.tight(scoreShown.value) + " ×" + Fmt.one(world.multiplier())
-                        : "LV " + progress.level();
-                if (x + g.textWidth(lv, fs, true) < h.x + h.w - 4 * k) {
-                    g.text(lv, x, cy, fs, arena != null ? Theme.STAR : Theme.MAGENTA, Gfx.ALIGN_LEFT, true);
-                }
-                g.restore();
+                // Handy quer: Werte schweben über der Karte, nur ein weicher Schleier dahinter
+                scrim(g, h.x - 6 * u, h.y - 4 * u, h.w + 12 * u, h.h + 20 * u, 0.75, 0);
+                hudLine(g, h.x + 4 * u, h.y + h.h / 2, h.w - 8 * u, h.h * 0.56, u);
                 break;
             }
+        }
+    }
+
+    /**
+     * Eine Zeile mit Leben, Geld, Spielerlevel (bzw. Punkte in der Arena) links und der Welle rechts – Symbol und Wert,
+     * keine Flächen.
+     */
+    private void hudLine(Gfx g, double x, double cy, double w, double fs, double u) {
+        hudLine(g, x, cy, w, fs, u, true);
+    }
+
+    private void hudLine(Gfx g, double x, double cy, double w, double fs, double u, boolean showWave) {
+        String lives = Integer.toString(world.lives);
+        String money = Fmt.tight(moneyShown.value);
+        double gap = fs * 1.15;
+        double xx = x;
+        int lc = Colors.lerp(Theme.TEXT, Theme.RED, livesPulse.value);
+        xx += Kit.iconValue(g, xx, cy, Icon.HEART, lives, Theme.LIFE, lc, fs * (1 + 0.12 * livesPulse.value), u) + gap;
+        int mc = moneyDeny > 0.05 ? Colors.lerp(Theme.TEXT, Theme.RED, Math.min(1, moneyDeny)) : Theme.TEXT;
+        xx += Kit.iconValue(g, xx, cy, Icon.GEM, money, Theme.MONEY, mc, fs, u) + gap;
+        String wave;
+        int wc = Theme.TEXT;
+        if (arena != null) {
+            double pop = 1 + 0.08 * scorePulse;
+            String sc = Fmt.tight(scoreShown.value);
+            g.text(sc, xx, cy, fs * pop, Theme.STAR, Gfx.ALIGN_LEFT, true);
+            xx += g.textWidth(sc, fs * pop, true) + 6 * u;
+            g.text("×" + Fmt.one(world.multiplier()), xx, cy + fs * 0.06, fs * 0.78, multColor(), Gfx.ALIGN_LEFT, true);
+            wave = "W" + world.waveIndex + (liveRank > 0 ? "  #" + liveRank : "");
+            wc = liveRank == 1 ? Theme.STAR : Theme.TEXT;
+        } else {
+            xx += Kit.iconValue(g, xx, cy, Icon.STAR, Integer.toString(progress.level()), Theme.MAGENTA, Theme.TEXT, fs, u);
+            if (world.endless) {
+                wave = "Welle " + world.waveIndex;
+            } else {
+                wave = "Welle " + Math.min(world.waveIndex, world.totalWaves()) + "/" + world.totalWaves();
+            }
+        }
+        double room = x + w - xx - 12 * u;
+        double ws = Math.min(fs, room / Math.max(1, g.textWidth(wave, fs, true)) * fs);
+        if (showWave && ws > fs * 0.6) {
+            g.text(wave, x + w, cy, ws, wc, Gfx.ALIGN_RIGHT, true);
         }
     }
 
@@ -1579,33 +1632,9 @@ public final class GameScene extends Scene {
         return Colors.lerp(Theme.ACCENT, Theme.STAR, f);
     }
 
-    /** Arena: Punkte mit Multiplikator als HUD-Chip. */
-    private void scoreChip(Gfx g, double x, double y, double w, double h) {
-        g.fillRoundRect(x, y, w, h, h * 0.36, Colors.withAlpha(Theme.SURFACE, 0.94));
-        if (scorePulse > 0.01) {
-            g.fillRoundRect(x, y, w, h, h * 0.36, Colors.withAlpha(Theme.STAR, 0.12 * scorePulse));
-        }
-        String m = "×" + Fmt.one(world.multiplier());
-        double ms = h * 0.34;
-        double mw = g.textWidth(m, ms, true) + h * 0.36;
-        double mx = x + w - mw - h * 0.14;
-        int mc = multColor();
-        g.fillRoundRect(mx, y + h * 0.2, mw, h * 0.6, h * 0.3, Colors.withAlpha(mc, 0.16));
-        g.text(m, mx + mw / 2, y + h / 2, ms, mc, Gfx.ALIGN_CENTER, true);
-        String sc = Fmt.tight(scoreShown.value);
-        double avail = mx - x - h * 0.3;
-        double size = Math.min(h * 0.46, avail / Math.max(1, sc.length() * 0.6));
-        double pop = 1 + 0.08 * scorePulse;
-        g.text(sc, x + h * 0.28, y + h / 2, Math.max(8, size * pop), Theme.TEXT, Gfx.ALIGN_LEFT, true);
-    }
-
     /** Arena auf dem PC: Punkte, Multiplikator, Serie und Live-Platz in der Seitenleiste. */
     private void drawScoreBar(Gfx g, double x, double y, double w, double h, double u) {
-        g.fillRoundRect(x, y, w, h, h * 0.3, Colors.withAlpha(Theme.SURFACE, 0.94));
-        if (scorePulse > 0.01) {
-            g.fillRoundRect(x, y, w, h, h * 0.3, Colors.withAlpha(Theme.STAR, 0.1 * scorePulse));
-        }
-        double pad = h * 0.28;
+        double pad = 0;
         g.text(Fmt.points((long) scoreShown.value), x + pad, y + h * 0.36, h * 0.34 * (1 + 0.06 * scorePulse), Theme.TEXT,
                 Gfx.ALIGN_LEFT, true);
         String m = "×" + Fmt.one(world.multiplier());
@@ -1644,16 +1673,9 @@ public final class GameScene extends Scene {
 
     /** Dritte Zeile der Seitenleiste: Spielerlevel mit Titel und Fortschrittsbalken. */
     private void drawLevelBar(Gfx g, double x, double y, double w, double h, double u) {
-        g.fillRoundRect(x, y, w, h, h * 0.36, Colors.withAlpha(Theme.SURFACE, 0.94));
-        double is = h * 0.24;
-        Icons.draw(g, Icon.STAR, x + h * 0.25 + is, y + h * 0.4, is, Theme.MAGENTA, 0);
-        g.text("Level " + progress.level(), x + h * 0.25 + is * 2 + h * 0.15, y + h * 0.38, h * 0.36, Theme.TEXT,
-                Gfx.ALIGN_LEFT, true);
-        g.text(progress.title(), x + w - h * 0.4, y + h * 0.38, h * 0.26, Theme.MUTED, Gfx.ALIGN_RIGHT, false);
-        double bx = x + h * 0.4;
-        double bw = w - h * 0.8;
-        double by = y + h * 0.74;
-        Draw.bar(g, bx, by - 2, bw, 4, progressOn ? progress.levelFraction() : 0, Theme.MAGENTA);
+        g.text("Level " + progress.level(), x, y + h * 0.38, Kit.T_BODY * u, Theme.TEXT, Gfx.ALIGN_LEFT, true);
+        g.text(progress.title(), x + w, y + h * 0.38, Kit.T_CAPTION * u, Theme.MUTED, Gfx.ALIGN_RIGHT, false);
+        Kit.meter(g, x, y + h * 0.78, w, progressOn ? progress.levelFraction() : 0, Theme.MAGENTA, u);
     }
 
     // ---------------------------------------------------------------------------------- Shop & Panel
@@ -1666,15 +1688,21 @@ public final class GameScene extends Scene {
         boolean active = placing == type;
         double hv = Math.max(b.hover.value, active ? 1 : 0);
         int c = type.color;
-        double r = Math.min(w, h) * 0.22;
-        int fill = active ? Colors.lerp(Theme.SURFACE2, c, 0.22) : Colors.lerp(Theme.SURFACE, Theme.SURFACE2, hv * 0.8 + b.press.value);
-        g.fillRoundRect(-w / 2, -h / 2, w, h, r, Colors.withAlpha(fill, 0.96));
+        double r = Math.min(w, h) * 0.26;
+        boolean horizontal = w > h * 1.5;
+        // keine Kachel: nur beim Drücken/Hover eine weiche Aufhellung, der gewählte Turm leuchtet in seiner Farbe
+        double press = Math.max(b.hover.value * 0.6, b.press.value);
         if (active) {
-            g.strokeRoundRect(-w / 2, -h / 2, w, h, r, 1.5, Colors.withAlpha(c, 0.9));
+            if (horizontal) {
+                g.fillRoundRect(-w / 2, -h / 2, w, h, r, Colors.withAlpha(c, 0.14));
+            } else {
+                g.radialGlow(0, -h * 0.14, Math.min(w, h) * 0.55, Colors.withAlpha(c, 0.35));
+            }
+        } else if (press > 0.01) {
+            g.fillRoundRect(-w / 2, -h / 2, w, h, r, Colors.withAlpha(0xFFFFFF, 0.07 * press));
         }
         g.save();
         g.alpha(!unlocked ? 0.38 : (can ? 1 : 0.55));
-        boolean horizontal = w > h * 1.5;
         String cost = Fmt.compact(world.buildCost(type));
         if (horizontal) {
             double ir = h * 0.3;
@@ -1687,10 +1715,13 @@ public final class GameScene extends Scene {
                         Gfx.ALIGN_LEFT, true);
             }
         } else {
-            double ir = Math.min(w * 0.32, h * 0.26);
-            TowerArt.drawIcon(g, type, 0, -h * 0.18, ir, app.time);
+            double ir = Math.min(w * 0.36, h * 0.29);
+            TowerArt.drawIcon(g, type, 0, -h * 0.14, ir, app.time);
+            if (active) {
+                g.fillRoundRect(-w * 0.18, h * 0.47, w * 0.36, 2.5 * app.vp.u, 1.2 * app.vp.u, c);
+            }
             if (unlocked) {
-                double cs = Math.max(9, Math.min(w * 0.22, h * 0.19));
+                double cs = Math.max(9, Math.min(w * 0.23, h * 0.2));
                 double tw = g.textWidth(cost, cs, true);
                 double gem = Math.min(w * 0.08, h * 0.08);
                 double x0 = -(tw + gem * 2.4) / 2;
@@ -1720,7 +1751,7 @@ public final class GameScene extends Scene {
         double w = b.w;
         double h = b.h;
         int c = Theme.GREEN;
-        double r = Math.min(w, h) * 0.24;
+        double r = Math.min(w, h) * 0.32;
         double hv = Math.max(b.hover.value, 0);
         g.fillRoundRect(-w / 2, -h / 2, w, h, r, Colors.lerp(Colors.lighten(c, 0.08 * hv), Colors.darken(c, 0.2), b.press.value));
         Icons.draw(g, Icon.PLAY, 0, -h * 0.14, Math.min(w * 0.28, h * 0.22), 0x000000, 0);
@@ -1732,8 +1763,11 @@ public final class GameScene extends Scene {
         double w = b.w;
         double h = b.h;
         double hv = b.hover.value;
-        double r = Math.min(w, h) * 0.24;
-        g.fillRoundRect(-w / 2, -h / 2, w, h, r, Colors.lerp(Theme.SURFACE2, Theme.SURFACE3, Math.max(hv, b.press.value)));
+        double r = Math.min(h / 2, 16 * app.vp.u);
+        double k = Math.max(hv * 0.6, b.press.value);
+        if (k > 0.01) {
+            g.fillRoundRect(-w / 2, -h / 2, w, h, r, Colors.withAlpha(0xFFFFFF, 0.08 * k));
+        }
         double ang;
         if (lay.mode == GameLayout.Mode.COMPACT_PORT) {
             ang = railWanted ? Math.PI : 0;
@@ -1742,7 +1776,7 @@ public final class GameScene extends Scene {
         }
         g.save();
         g.rotate(ang);
-        Icons.draw(g, Icon.UP, 0, 0, Math.min(w, h) * 0.26, Theme.MUTED, 0);
+        Icons.draw(g, Icon.UP, 0, 0, Math.min(w, h) * 0.24, Theme.TEXT, 0);
         g.restore();
     }
 
@@ -1757,8 +1791,7 @@ public final class GameScene extends Scene {
             case COMPACT_LAND: {
                 GameLayout.Rect p = lay.panel;
                 double k = lay.k;
-                g.fillRoundRect(p.x - 5 * k, p.y - 5 * k, p.w + 10 * k, p.h + 10 * k, 12 * k, Colors.withAlpha(Theme.SURFACE, 0.96));
-                g.strokeRoundRect(p.x - 5 * k, p.y - 5 * k, p.w + 10 * k, p.h + 10 * k, 12 * k, 1, Theme.LINE);
+                g.fillRoundRect(p.x - 6 * k, p.y - 6 * k, p.w + 12 * k, p.h + 12 * k, 18 * k, Colors.withAlpha(Theme.SURFACE, 0.97));
                 double hh = 34 * k * (p.h / ((34 + 3 * 52 + 34 + 34 + 38 + 6 * 4) * k));
                 TowerArt.drawIcon(g, t.type, p.x + hh * 0.5, p.y + hh / 2, hh * 0.34, app.time);
                 g.text(t.type.label, p.x + hh * 1.0, p.y + hh * 0.34, Math.max(11, hh * 0.34), Theme.TEXT,
@@ -1770,12 +1803,20 @@ public final class GameScene extends Scene {
                 GameLayout.Rect p = lay.panel;
                 double k = lay.k;
                 double pp = lay.panelPad;
-                g.fillRoundRect(p.x - pp, p.y - pp, p.w + 2 * pp, p.h + 2 * pp, 14 * k, Colors.withAlpha(Theme.SURFACE, 0.95));
-                g.strokeRoundRect(p.x - pp, p.y - pp, p.w + 2 * pp, p.h + 2 * pp, 14 * k, 1, Theme.LINE);
+                // eine einzige Fläche; darin gliedern nur Haarlinien
+                g.fillRoundRect(p.x - pp, p.y - pp, p.w + 2 * pp, p.h + 2 * pp, 20 * k, Colors.withAlpha(Theme.SURFACE, 0.97));
+                int hair = Colors.withAlpha(0xFFFFFF, 0.08);
+                for (int i = 1; i < 3; i++) {
+                    Button tb = trackBtns[i];
+                    g.fillRect((trackBtns[i - 1].x + trackBtns[i - 1].w + tb.x) / 2, tb.y + tb.h * 0.12, 1, tb.h * 0.76, hair);
+                }
                 double rh = modeBtn.h;
+                g.fillRect(p.x + 6 * k, modeBtn.y - 2 * k, p.w - 12 * k, 1, hair);
+                g.fillRect(specialBtn.x - 2 * k, modeBtn.y + rh * 0.22, 1, rh * 0.56, hair);
+                g.fillRect(modeBtn.x - 2 * k, modeBtn.y + rh * 0.22, 1, rh * 0.56, hair);
+                g.fillRect(sellBtn.x - 2 * k, modeBtn.y + rh * 0.22, 1, rh * 0.56, hair);
                 double bx = p.x;
                 double bw = specialBtn.x - 4 * k - p.x;
-                g.fillRoundRect(bx, modeBtn.y, bw, rh, rh * 0.28, Colors.withAlpha(Theme.SURFACE2, 0.96));
                 TowerArt.drawIcon(g, t.type, bx + rh * 0.5, modeBtn.y + rh / 2, rh * 0.3, app.time);
                 String lv = world.endless ? Integer.toString(t.totalLevels()) : t.totalLevels() + "/15";
                 double ls = Math.max(8, Math.min(rh * 0.36, (bw - rh * 1.0) / Math.max(1, lv.length() * 0.62)));
@@ -1796,7 +1837,6 @@ public final class GameScene extends Scene {
                 double hy = lay.panel.y;
                 double hh = sellBtn.h;
                 double hw = lay.panel.w * 0.5 - 6 * u;
-                g.fillRoundRect(hx, hy, hw, hh, hh * 0.28, Colors.withAlpha(Theme.SURFACE2, 0.96));
                 TowerArt.drawIcon(g, t.type, hx + hh * 0.55, hy + hh / 2, hh * 0.34, app.time);
                 g.text(t.type.label, hx + hh * 1.0, hy + hh * 0.34, Math.max(11, hh * 0.3), Theme.TEXT, Gfx.ALIGN_LEFT, true);
                 Draw.fit(g, stufe, hx + hh * 1.0, hy + hh * 0.7, Math.max(10, hh * 0.24), hw - hh * 1.1, Theme.MUTED, Gfx.ALIGN_LEFT, false);
@@ -1941,13 +1981,16 @@ public final class GameScene extends Scene {
         double hv = b.hover.value;
         int c = track.color;
         double r = h * 0.24;
-        g.fillRoundRect(-w / 2, -h / 2, w, h, r, Colors.lerp(Theme.SURFACE2, Theme.SURFACE3, hv * 0.7 + b.press.value));
+        double pressK = Math.max(hv * 0.6, b.press.value);
+        if (pressK > 0.01) {
+            g.fillRoundRect(-w / 2, -h / 2, w, h, r, Colors.withAlpha(0xFFFFFF, 0.06 * pressK));
+        }
         boolean boosted = padTrack(t.pad) == track;
         int statColor = Theme.MUTED;
         if (boosted) {
             double pulse = 0.5 + 0.5 * Math.sin(app.time * 3.2);
             g.fillRoundRect(-w / 2, -h / 2, w, h, r, Colors.withAlpha(t.pad.color, 0.10 + 0.05 * pulse));
-            g.strokeRoundRect(-w / 2 + 1, -h / 2 + 1, w - 2, h - 2, r, 2, Colors.withAlpha(t.pad.color, 0.75 + 0.25 * pulse));
+            g.strokeRoundRect(-w / 2 + 1, -h / 2 + 1, w - 2, h - 2, r, 1.6, Colors.withAlpha(t.pad.color, 0.6 + 0.3 * pulse));
             statColor = Colors.lighten(t.pad.color, 0.25);
         }
         boolean tile = w < h * 2.6;
@@ -1984,7 +2027,7 @@ public final class GameScene extends Scene {
             } else {
                 int bc = can ? Theme.GREEN : Theme.RED;
                 double bw = w - h * 0.2;
-                g.fillRoundRect(-bw / 2, by - bh / 2, bw, bh, bh * 0.35, Colors.withAlpha(bc, can ? 0.2 : 0.1));
+                g.fillRoundRect(-bw / 2, by - bh / 2, bw, bh, bh / 2, Colors.withAlpha(bc, can ? 0.2 : 0.1));
                 String cs = Fmt.compact(cost);
                 double fs = Math.max(9, Math.min(bh * 0.62, (bw - bh * 1.1) / Math.max(1, cs.length() * 0.62)));
                 double tw = g.textWidth(cs, fs, true);
@@ -2026,12 +2069,15 @@ public final class GameScene extends Scene {
             g.text("MAX", bx + bw / 2, 0, h * 0.28, Theme.MUTED, Gfx.ALIGN_CENTER, true);
         } else {
             int bc = can ? Theme.GREEN : Theme.RED;
-            g.fillRoundRect(bx, -bh / 2, bw, bh, bh * 0.35, Colors.withAlpha(bc, can ? 0.2 : 0.1));
+            g.fillRoundRect(bx, -bh / 2, bw, bh, bh / 2, Colors.withAlpha(bc, can ? 0.2 : 0.1));
             Icons.draw(g, Icon.GEM, bx + bw * 0.2, 0, bh * 0.18, can ? Theme.MONEY : Colors.withAlpha(Theme.MONEY, 0.5), 0);
             String cs = Fmt.compact(cost);
             double fs = Math.min(h * 0.3, Math.min(bw * 0.3, (bw * 0.6) / Math.max(1, cs.length() * 0.62)));
             g.text(cs, bx + bw * 0.4, 0, Math.max(8, fs), can ? Theme.TEXT : Colors.withAlpha(Theme.RED, 0.9),
                     Gfx.ALIGN_LEFT, true);
+        }
+        if (track != UpgradeTrack.SPEED) {
+            g.fillRect(-w / 2 + h * 1.0, h / 2 + 1, w - h * 1.0, 1, Colors.withAlpha(0xFFFFFF, 0.08));
         }
     }
 
@@ -2090,8 +2136,12 @@ public final class GameScene extends Scene {
         double h = b.h;
         int c = armed ? Theme.RED : Theme.MONEY;
         double hv = Math.max(b.hover.value, armed ? 1 : 0);
-        g.fillRoundRect(-w / 2, -h / 2, w, h, h * 0.28, armed ? Colors.withAlpha(Theme.RED, 0.25)
-                : Colors.lerp(Theme.SURFACE2, Theme.SURFACE3, hv * 0.7 + b.press.value));
+        double pk = Math.max(hv * 0.6, b.press.value);
+        if (armed) {
+            g.fillRoundRect(-w / 2, -h / 2, w, h, Math.min(h / 2, 14 * app.vp.u), Colors.withAlpha(Theme.RED, 0.25));
+        } else if (pk > 0.01) {
+            g.fillRoundRect(-w / 2, -h / 2, w, h, Math.min(h / 2, 14 * app.vp.u), Colors.withAlpha(0xFFFFFF, 0.07 * pk));
+        }
         boolean flat = w > h * 2.2 && h < 44;
         if (armed) {
             g.text("Sicher?", 0, -h * 0.02, Math.max(11, h * 0.34), Theme.TEXT, Gfx.ALIGN_CENTER, true);
@@ -2123,7 +2173,10 @@ public final class GameScene extends Scene {
         double w = b.w;
         double h = b.h;
         double hv = b.hover.value;
-        g.fillRoundRect(-w / 2, -h / 2, w, h, h * 0.28, Colors.lerp(Theme.SURFACE2, Theme.SURFACE3, hv * 0.7 + b.press.value));
+        double pk = Math.max(hv * 0.6, b.press.value);
+        if (pk > 0.01) {
+            g.fillRoundRect(-w / 2, -h / 2, w, h, Math.min(h / 2, 14 * app.vp.u), Colors.withAlpha(0xFFFFFF, 0.07 * pk));
+        }
         Icons.draw(g, Icon.TARGET, -w / 2 + h * 0.55, 0, h * 0.24, Theme.MUTED, 0);
         double fs = Math.max(9, h * 0.32);
         if (w < 120) {
@@ -2386,8 +2439,10 @@ public final class GameScene extends Scene {
         boolean set = sp != null || br != null;
         double hv = b.hover.value;
         double r = h * 0.28;
-        g.fillRoundRect(-w / 2, -h / 2, w, h, r, set ? Colors.withAlpha(c, 0.16 + 0.06 * hv)
-                : Colors.lerp(Theme.SURFACE2, Theme.SURFACE3, hv * 0.7 + b.press.value));
+        double pk = Math.max(hv * 0.6, b.press.value);
+        if (pk > 0.01) {
+            g.fillRoundRect(-w / 2, -h / 2, w, h, Math.min(h / 2, 14 * app.vp.u), Colors.withAlpha(0xFFFFFF, 0.07 * pk));
+        }
         double ir = Math.min(h * 0.26, w * 0.12);
         Icons.draw(g, br != null ? Icon.BRANCH : Icon.STAR, -w / 2 + h * 0.55, 0, ir, c, 0);
         double tx = -w / 2 + h * 1.0;
@@ -2399,7 +2454,7 @@ public final class GameScene extends Scene {
                     Theme.TEXT, Gfx.ALIGN_RIGHT, true);
             return;
         }
-        g.text(label, tx, sp != null ? -h * 0.12 : 0, fs, Theme.TEXT, Gfx.ALIGN_LEFT, true);
+        g.text(label, tx, sp != null ? -h * 0.12 : 0, fs, set ? Colors.lighten(c, 0.3) : Theme.TEXT, Gfx.ALIGN_LEFT, true);
         if (sp != null) {
             g.text("tauschen", tx, h * 0.26, Math.max(7, h * 0.22), Theme.MUTED, Gfx.ALIGN_LEFT, false);
         }
@@ -2439,8 +2494,9 @@ public final class GameScene extends Scene {
         double sh = box[3];
         g.save();
         g.alpha(a);
-        g.fillRoundRect(sx, sy, sw, sh, 24 * u, Theme.SURFACE);
-        g.strokeRoundRect(sx, sy, sw, sh, 24 * u, 1, Theme.LINE);
+        // Blatt von unten: oben gerundet, unten bündig, mit Griff – wie die Blätter der Menüs
+        g.fillRoundRect(sx, sy, sw, sh + 40 * u, 28 * u, Theme.SURFACE);
+        g.fillRoundRect(vp.w / 2 - 18 * u, sy + 8 * u, 36 * u, 4 * u, 2 * u, Colors.withAlpha(0xFFFFFF, 0.18));
         String title;
         int color;
         switch (overlay) {
@@ -2457,24 +2513,27 @@ public final class GameScene extends Scene {
                 color = Theme.TEXT;
                 break;
         }
-        double pad = 20 * u;
-        double y = sy + 22 * u + 10 * u;
+        double pad = Kit.MARGIN * u;
+        boolean tight = sheetTight();
+        double y = sy + (tight ? 36 : 48) * u;
         if (arena != null) {
             drawArenaSheet(g, sx, y, sw, pad, u);
             overlayUi.render(g);
             g.restore();
             return;
         }
-        g.text(title, sx + pad, y, 22 * u, overlay == Overlay.PAUSE ? Theme.TEXT : color, Gfx.ALIGN_LEFT, true);
+        double ts = (tight ? 24 : Kit.T_TITLE) * u;
+        g.text(title, sx + pad, y, ts, overlay == Overlay.PAUSE ? Theme.TEXT : color, Gfx.ALIGN_LEFT, true);
         String sub = level.name + (world.endless ? "  ·  Endlos" : "") + (editorReturn != null ? "  ·  Testspiel" : "");
-        double titleW = g.textWidth(title, 22 * u, true);
-        Draw.cut(g, sub, sx + sw - pad, y, 13 * u, sw - 2 * pad - titleW - 14 * u, Theme.MUTED, Gfx.ALIGN_RIGHT, false);
-        y += 34 * u;
+        double titleW = g.textWidth(title, ts, true);
+        Draw.cut(g, sub, sx + sw - pad, y + 2 * u, Kit.T_BODY * u, sw - 2 * pad - titleW - 14 * u, Theme.MUTED, Gfx.ALIGN_RIGHT,
+                false);
+        y += (tight ? 34 : 44) * u;
         if (overlay != Overlay.PAUSE) {
             if (overlay == Overlay.WON && !world.endless && level.builtin && progressOn) {
                 // Sterne groß, nacheinander eingeblendet
                 double scx = sx + sw / 2;
-                double sr = 18 * u;
+                double sr = (tight ? 15 : 24) * u;
                 for (int i = 0; i < 3; i++) {
                     boolean on = i < starsRun;
                     double pop = Easing.outBack(Mathx.clamp01((overlayIn * 3 - 0.3 - i * 0.35) / 0.5));
@@ -2484,8 +2543,8 @@ public final class GameScene extends Scene {
                 y += sr * 2 + 10 * u;
                 String why = starsRun >= 3 ? "Ohne ein verlorenes Leben – perfekt!" : starsRun == 2
                         ? "Mindestens die Hälfte der Leben behalten" : "Für drei Sterne: kein einziges Leben verlieren";
-                g.text(why, scx, y + 4 * u, 12 * u, Theme.MUTED, Gfx.ALIGN_CENTER, false);
-                y += 22 * u;
+                g.text(why, scx, y + 6 * u, Kit.T_CAPTION * u, Theme.MUTED, Gfx.ALIGN_CENTER, false);
+                y += 30 * u;
             }
             String stats;
             if (world.endless) {
@@ -2494,8 +2553,8 @@ public final class GameScene extends Scene {
                 stats = "Welle " + Math.min(world.waveIndex, world.totalWaves()) + "/" + world.totalWaves()
                         + "  ·  " + world.kills + " Gegner  ·  " + world.lives + " Leben";
             }
-            g.text(stats, sx + pad, y, 14 * u, Theme.TEXT, Gfx.ALIGN_LEFT, true);
-            y += 22 * u;
+            Draw.fit(g, stats, sx + pad, y, Kit.T_ROW * u, sw - 2 * pad, Theme.TEXT, Gfx.ALIGN_LEFT, true);
+            y += 26 * u;
             if (progressOn) {
                 StringBuilder xp = new StringBuilder("+" + xpRun + " XP");
                 if (progress.level() > levelAtStart) {
@@ -2511,14 +2570,15 @@ public final class GameScene extends Scene {
                 if (cr > 0) {
                     xp.append("  ·  +").append(cr).append(" ◆");
                 }
-                Draw.fit(g, xp.toString(), sx + pad, y, 13 * u, sw - 2 * pad, Theme.MAGENTA, Gfx.ALIGN_LEFT, true);
-                y += 20 * u;
+                Draw.fit(g, xp.toString(), sx + pad, y, Kit.T_BODY * u, sw - 2 * pad, Theme.MAGENTA, Gfx.ALIGN_LEFT, true);
+                y += 23 * u;
                 String nt = newTowersText();
                 if (!nt.isEmpty()) {
-                    Draw.fit(g, "Neu freigeschaltet: " + nt, sx + pad, y, 12 * u, sw - 2 * pad, Theme.GREEN, Gfx.ALIGN_LEFT, true);
+                    Draw.fit(g, "Neu freigeschaltet: " + nt, sx + pad, y, Kit.T_CAPTION * u, sw - 2 * pad, Theme.GREEN, Gfx.ALIGN_LEFT,
+                            true);
                 } else if (overlay == Overlay.WON && !world.endless) {
-                    Draw.fit(g, "Endlosmodus freigeschaltet – wie weit kommst du?", sx + pad, y, 12 * u, sw - 2 * pad, Theme.MUTED,
-                            Gfx.ALIGN_LEFT, false);
+                    Draw.fit(g, "Endlosmodus freigeschaltet – wie weit kommst du?", sx + pad, y, Kit.T_CAPTION * u, sw - 2 * pad,
+                            Theme.MUTED, Gfx.ALIGN_LEFT, false);
                 }
             }
         }
@@ -2530,11 +2590,11 @@ public final class GameScene extends Scene {
     private void drawArenaSheet(Gfx g, double sx, double y, double sw, double pad, double u) {
         boolean pause = overlay == Overlay.PAUSE;
         String head = pause ? "Pause" : "Lauf beendet";
-        g.text(head, sx + pad, y, 22 * u, pause ? Theme.TEXT : Theme.ACCENT, Gfx.ALIGN_LEFT, true);
-        double headW = g.textWidth(head, 22 * u, true);
-        Draw.cut(g, "Arena " + arena.label() + "  ·  " + level.name, sx + sw - pad, y, 13 * u,
+        g.text(head, sx + pad, y, Kit.T_TITLE * u, pause ? Theme.TEXT : Theme.ACCENT, Gfx.ALIGN_LEFT, true);
+        double headW = g.textWidth(head, Kit.T_TITLE * u, true);
+        Draw.cut(g, "Arena " + arena.label() + "  ·  " + level.name, sx + sw - pad, y + 2 * u, Kit.T_BODY * u,
                 sw - 2 * pad - headW - 14 * u, Theme.MUTED, Gfx.ALIGN_RIGHT, false);
-        y += 34 * u;
+        y += 44 * u;
         if (pause) {
             String line = Fmt.points(world.score) + " Punkte  ·  ×" + Fmt.one(world.multiplier()) + "  ·  Welle "
                     + world.clearedWaves() + (liveRank > 0 ? "  ·  live Platz " + liveRank : "");

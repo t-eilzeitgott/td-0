@@ -17,6 +17,7 @@ import neontd.sim.TowerType;
 import neontd.ui.Button;
 import neontd.ui.Draw;
 import neontd.ui.Fmt;
+import neontd.ui.Kit;
 import neontd.ui.Ui;
 import neontd.ui.Viewport;
 
@@ -70,21 +71,43 @@ public final class ProfileScene extends Scene {
 
     public ProfileScene(App app) {
         super(app);
-        back = ui.add(new Button("", Icon.BACK, Theme.CYAN, () -> app.goTo(new MenuScene(app))));
+        back = ui.add(new Button("", Icon.BACK, Theme.TEXT, () -> app.goTo(new MenuScene(app))));
+        back.painter = (g, b) -> {
+            double r = Math.min(b.w, b.h) / 2;
+            double k = Math.max(b.hover.value, b.press.value);
+            if (k > 0) {
+                g.fillCircle(0, 0, r, Colors.withAlpha(0xFFFFFF, 0.08 * k));
+            }
+            Draw.chevron(g, -1, 0, r * 0.36, Theme.TEXT, false);
+        };
         nameBtn = ui.add(new Button("", null, Theme.MAGENTA, this::editName));
-        nameBtn.painter = (g, b) -> { };
-        connectBtn = ui.add(new Button("MIT GITHUB VERBINDEN", Icon.SAVE, Theme.GREEN, this::connect));
-        helpBtn = ui.add(new Button("TOKEN ERSTELLEN (GITHUB ÖFFNEN)", null, Theme.CYAN,
+        nameBtn.painter = (g, b) -> {
+            double k = Math.max(b.hover.value, b.press.value);
+            if (k > 0) {
+                g.fillRoundRect(-b.w / 2, -b.h / 2, b.w, b.h, 14 * u, Colors.withAlpha(0xFFFFFF, 0.05 * k));
+            }
+        };
+        connectBtn = ui.add(new Button("Mit GitHub verbinden", Icon.SAVE, Theme.ACCENT, this::connect));
+        connectBtn.style = Button.Style.PRIMARY;
+        helpBtn = ui.add(new Button("Token erstellen (GitHub öffnen)", null, Theme.ACCENT,
                 () -> app.platform.openUrl(TOKEN_URL)));
-        syncBtn = ui.add(new Button("JETZT ABGLEICHEN", Icon.LOOP, Theme.GREEN, () -> app.cloud.sync()));
-        disconnectBtn = ui.add(new Button("TRENNEN", Icon.CROSS, Theme.RED, () -> {
+        helpBtn.style = Button.Style.TEXT;
+        syncBtn = ui.add(new Button("Jetzt abgleichen", Icon.LOOP, Theme.ACCENT, () -> app.cloud.sync()));
+        syncBtn.style = Button.Style.PRIMARY;
+        disconnectBtn = ui.add(new Button("Trennen", Icon.CROSS, Theme.RED, () -> {
             app.cloud.disconnect();
             say("Getrennt – dein Spielstand bleibt auf diesem Gerät.", Theme.YELLOW);
         }));
-        copyBtn = ui.add(new Button("CODE KOPIEREN", Icon.SAVE, Theme.CYAN, this::exportCode));
-        pasteBtn = ui.add(new Button("CODE EINFÜGEN", Icon.PLUS, Theme.MAGENTA, this::importCode));
-        for (Button b : new Button[] {connectBtn, helpBtn, syncBtn, disconnectBtn, copyBtn, pasteBtn}) {
-            b.fontScale = 0.72;
+        disconnectBtn.style = Button.Style.TEXT;
+        copyBtn = ui.add(new Button("Code kopieren", Icon.SAVE, Theme.ACCENT, this::exportCode));
+        copyBtn.style = Button.Style.TEXT;
+        pasteBtn = ui.add(new Button("Code einfügen", Icon.PLUS, Theme.ACCENT, this::importCode));
+        pasteBtn.style = Button.Style.TEXT;
+        for (Button b : new Button[] {connectBtn, syncBtn}) {
+            b.fontScale = 1.05;
+        }
+        for (Button b : new Button[] {helpBtn, disconnectBtn, copyBtn, pasteBtn}) {
+            b.fontScale = 0.95;
         }
     }
 
@@ -150,67 +173,69 @@ public final class ProfileScene extends Scene {
     public void layout() {
         Viewport vp = app.vp;
         u = vp.u;
-        double m = 14 * u;
-        double bs = 46 * u;
-        back.bounds(vp.insetL + m, vp.insetT + m, bs, bs);
-        top = vp.insetT + m + bs + m;
-        bottom = vp.h - vp.insetB - m * 0.5;
-        cw = Math.min(vp.safeW() - 2 * m, 600 * u);
+        double m = Kit.MARGIN * u;
+        double bs = 44 * u;
+        cw = Math.min(vp.safeW() - 2 * m, 640 * u);
         cx = vp.insetL + (vp.safeW() - cw) / 2;
-        double gap = 14 * u;
-        double y = 0;
+        back.bounds(cx - 12 * u, vp.insetT + 10 * u, bs, bs);
+        top = vp.insetT + 10 * u + bs + 14 * u;
+        bottom = vp.h - vp.insetB - 8 * u;
+        double gap = Kit.SECTION_GAP * u;
+        double y = 6 * u;
         yCard = y;
-        hCard = 150 * u;
+        hCard = 170 * u;
         y += hCard + gap;
         yStats = y;
-        hStats = 2 * 56 * u + 10 * u + 20 * u;
+        hStats = 38 * u + 2 * 74 * u;
         y += hStats + gap;
         yTowers = y;
-        hTowers = 44 * u + TowerType.values().length * 40 * u + 22 * u + 36 * u;
+        hTowers = 38 * u + TowerType.values().length * TOWER_ROW * u + 92 * u;
         y += hTowers + gap;
         yCloud = y;
         hCloud = cloudHeight();
         y += hCloud + gap;
         yBackup = y;
-        hBackup = 64 * u + 46 * u + 40 * u;
-        y += hBackup + gap;
-        contentH = y + 20 * u;
+        hBackup = 38 * u + 52 * u + 52 * u + 40 * u;
+        y += hBackup;
+        contentH = y + 30 * u;
         scrollMax = Math.max(0, contentH - (bottom - top));
         scroll = Mathx.clamp(scroll, 0, scrollMax);
         placeButtons();
     }
 
+    private static final double TOWER_ROW = 60;
+
     private double cloudHeight() {
         boolean connected = app.cloud.connected();
-        return connected ? 44 * u + 54 * u + 58 * u + 24 * u : 44 * u + 4 * 22 * u + 2 * 50 * u + 30 * u;
+        return connected ? 38 * u + 56 * u + Kit.BUTTON * u + 36 * u
+                : 38 * u + 5 * 21 * u + 18 * u + Kit.BUTTON * u + 8 * u + 48 * u + 30 * u;
     }
 
     private void placeButtons() {
         double off = top - scroll;
-        double pad = 16 * u;
-        double bh = 46 * u;
-        // Name antippen: die ganze Kopfzeile der Karte
-        nameBtn.bounds(cx + 96 * u, off + yCard + 12 * u, cw - 96 * u - 12 * u, 44 * u);
+        double bh = Kit.BUTTON * u;
+        // Name antippen: Name und Titel neben dem Level-Ring
+        nameBtn.bounds(cx + 96 * u, off + yCard, cw - 96 * u, 70 * u);
         boolean connected = app.cloud.connected();
-        double bw = cw - 2 * pad;
+        double bw = cw;
         connectBtn.visible = !connected;
         helpBtn.visible = !connected;
         syncBtn.visible = connected;
         disconnectBtn.visible = connected;
         if (!connected) {
-            double y = off + yCloud + 44 * u + 4 * 22 * u + 10 * u;
-            connectBtn.bounds(cx + pad, y, bw, bh);
-            helpBtn.bounds(cx + pad, y + bh + 8 * u, bw, bh * 0.82);
+            double y = off + yCloud + 38 * u + 5 * 21 * u + 18 * u;
+            connectBtn.bounds(cx, y, bw, bh);
+            helpBtn.bounds(cx, y + bh + 8 * u, bw, 48 * u);
         } else {
-            double y = off + yCloud + 44 * u + 54 * u;
-            double w1 = bw * 0.62;
-            syncBtn.bounds(cx + pad, y, w1, bh);
-            disconnectBtn.bounds(cx + pad + w1 + 8 * u, y, bw - w1 - 8 * u, bh);
+            double y = off + yCloud + 38 * u + 56 * u;
+            double w1 = bw * 0.64;
+            syncBtn.bounds(cx, y, w1, bh);
+            disconnectBtn.bounds(cx + w1 + 8 * u, y, bw - w1 - 8 * u, bh);
         }
-        double y2 = off + yBackup + 64 * u;
+        double y2 = off + yBackup + 38 * u + 52 * u;
         double half = (bw - 8 * u) / 2;
-        copyBtn.bounds(cx + pad, y2, half, bh);
-        pasteBtn.bounds(cx + pad + half + 8 * u, y2, half, bh);
+        copyBtn.bounds(cx, y2, half, 52 * u);
+        pasteBtn.bounds(cx + half + 8 * u, y2, half, 52 * u);
         nameBtn.visible = true;
         copyBtn.visible = true;
         pasteBtn.visible = true;
@@ -276,15 +301,21 @@ public final class ProfileScene extends Scene {
         g.restore();
         drawScrollBar(g);
 
-        g.fillRect(0, 0, vp.w, top - 4 * u, Theme.BG);
-        g.text("Profil", back.x + back.w + 12 * u, back.cy(), 24 * u, Theme.TEXT, Gfx.ALIGN_LEFT, true);
+        double headBottom = top - 4 * u;
+        g.fillRect(0, 0, vp.w, headBottom, Theme.BG);
+        for (int i = 0; i < 6; i++) {
+            g.fillRect(0, headBottom + i * 2 * u, vp.w, 2 * u, Colors.withAlpha(0x000000, 0.85 * (1 - i / 6.0)));
+        }
+        g.text("Profil", back.x + back.w + 2 * u, back.cy() + 1 * u, Kit.T_TITLE * 0.9 * u, Theme.TEXT, Gfx.ALIGN_LEFT, true);
+        Kit.iconValueRight(g, cx + cw, back.cy(), Icon.CRYSTAL, Fmt.compact(app.progress.crystals()), Theme.CRYSTAL,
+                Theme.TEXT, 18 * u, u);
         back.render(g);
 
         if (toastTime > 0 && toast != null) {
             double a = Mathx.clamp01(toastTime / 0.4);
-            double fs = Math.max(11, 14 * u);
-            double w = Math.min(vp.safeW() - 20 * u, g.textWidth(toast, fs, true) + 34 * u);
-            double h = 34 * u;
+            double fs = Math.max(11, 16 * u);
+            double w = Math.min(vp.safeW() - 24 * u, g.textWidth(toast, fs, true) + 60 * u);
+            double h = 44 * u;
             double y = vp.h - vp.insetB - h - 16 * u;
             g.save();
             g.alpha(a);
@@ -306,82 +337,67 @@ public final class ProfileScene extends Scene {
         double trackH = bottom - top;
         double barH = Math.max(30 * u, trackH * trackH / (trackH + scrollMax));
         double y = top + (trackH - barH) * (scroll / scrollMax);
-        g.fillRoundRect(app.vp.w - app.vp.insetR - 6 * u, y, 3 * u, barH, 2 * u, Theme.SURFACE3);
-    }
-
-    private void panel(Gfx g, double y, double h, int accent, String title) {
-        double r = 16 * u;
-        neontd.ui.Draw.card(g, cx, y, cw, h, r, 0);
-        if (title != null) {
-            g.text(title, cx + 16 * u, y + 22 * u, Math.max(11, 14 * u), Theme.TEXT, Gfx.ALIGN_LEFT, true);
-        }
+        g.fillRoundRect(app.vp.w - app.vp.insetR - 5 * u, y, 2.5 * u, barH, 1.5 * u, Colors.withAlpha(0xFFFFFF, 0.22));
     }
 
     private void drawCard(Gfx g) {
         Progress p = app.progress;
-        panel(g, yCard, hCard, Theme.MAGENTA, null);
-        // Level-Plakette
-        double r = 38 * u;
-        double bx = cx + 16 * u + r;
-        double by = yCard + 16 * u + r;
-        g.strokeCircle(bx, by, r, 4 * u, Theme.SURFACE3);
-        g.beginPath();
-        g.arc(bx, by, r, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * Math.max(0.01, p.levelFraction()));
-        g.stroke(4 * u, Theme.MAGENTA);
-        g.text(Integer.toString(p.level()), bx, by - 2 * u, r * 0.9, Theme.TEXT, Gfx.ALIGN_CENTER, true);
-        g.text("LEVEL", bx, by + r * 0.6, Math.max(8, r * 0.24), Theme.MUTED, Gfx.ALIGN_CENTER, true);
+        double r = 40 * u;
+        double bx = cx + r;
+        double by = yCard + 6 * u + r;
+        Kit.ring(g, bx, by - 4 * u, r, Math.max(0.01, p.levelFraction()), Theme.MAGENTA, Integer.toString(p.level()), u);
+        g.text("LEVEL", bx, by + r * 0.42, Kit.T_KICKER * 0.8 * u, Theme.MUTED, Gfx.ALIGN_CENTER, true);
         // Name (antippen zum Ändern) und Titel
         double nx = cx + 96 * u;
-        double fs = Math.max(14, 24 * u);
-        g.text(p.displayName(), nx, yCard + 30 * u, fs, Theme.TEXT, Gfx.ALIGN_LEFT, true);
-        Icons.draw(g, Icon.PENCIL, cx + cw - 28 * u, yCard + 30 * u, 9 * u, Theme.TEXT_DIM, 0);
-        g.text(p.title(), nx, yCard + 58 * u, Math.max(11, 14 * u), Theme.MAGENTA, Gfx.ALIGN_LEFT, true);
+        Draw.cut(g, p.displayName(), nx, yCard + 24 * u, 26 * u, cw - 96 * u - 34 * u, Theme.TEXT, Gfx.ALIGN_LEFT, true);
+        Icons.draw(g, Icon.PENCIL, cx + cw - 10 * u, yCard + 24 * u, 8 * u, Theme.MUTED, 0);
+        g.text(p.title(), nx, yCard + 52 * u, Kit.T_BODY * u, Colors.lighten(Theme.MAGENTA, 0.15), Gfx.ALIGN_LEFT, true);
         String badge = p.seasonBadge();
         if (badge != null) {
-            double tw = g.textWidth(p.title(), Math.max(11, 14 * u), true);
-            Icons.draw(g, Icon.TROPHY, nx + tw + 18 * u, yCard + 58 * u, 8 * u, Theme.YELLOW, 3);
-            g.text(badge, nx + tw + 32 * u, yCard + 58 * u, Math.max(9, 12 * u), Theme.YELLOW, Gfx.ALIGN_LEFT, true);
+            double tw = g.textWidth(p.title(), Kit.T_BODY * u, true);
+            Icons.draw(g, Icon.TROPHY, nx + tw + 18 * u, yCard + 52 * u, 8 * u, Theme.YELLOW, 0);
+            g.text(badge, nx + tw + 32 * u, yCard + 52 * u, Kit.T_CAPTION * u, Theme.YELLOW, Gfx.ALIGN_LEFT, true);
         }
-        // XP-Balken
-        double bw = cw - 96 * u - 20 * u;
-        double barY = yCard + 92 * u;
-        g.fillRoundRect(nx, barY - 5 * u, bw, 10 * u, 5 * u, Colors.withAlpha(Theme.MAGENTA, 0.2));
-        double f = p.levelFraction();
-        if (f > 0) {
-            g.fillRoundRect(nx, barY - 5 * u, Math.max(10 * u, bw * f), 10 * u, 5 * u, Theme.MAGENTA);
-        }
+        // XP-Balken über die ganze Breite
+        double barY = yCard + 112 * u;
         String xp = p.level() >= Progress.MAX_LEVEL ? "Höchststufe" : Fmt.compact(p.xpIntoLevel()) + " / " + Fmt.compact(p.xpSpan()) + " XP";
-        g.text(xp, nx, barY + 20 * u, Math.max(10, 12 * u), Theme.TEXT_DIM, Gfx.ALIGN_LEFT, false);
+        g.text(xp, cx, barY - 14 * u, Kit.T_CAPTION * u, Theme.TEXT, Gfx.ALIGN_LEFT, true);
         int next = p.nextUnlockLevel();
         String hint = next > 0 ? "Nächster Turm ab Level " + next : "Alle Türme frei";
-        g.text(hint, cx + cw - 16 * u, barY + 20 * u, Math.max(10, 12 * u), Theme.GREEN, Gfx.ALIGN_RIGHT, false);
-        g.text(app.cloud.connected() ? "☁ " + app.cloud.user() : "Nur auf diesem Gerät gespeichert", cx + 16 * u,
-                yCard + hCard - 16 * u, Math.max(9, 11 * u), Theme.TEXT_DIM, Gfx.ALIGN_LEFT, false);
+        g.text(hint, cx + cw, barY - 14 * u, Kit.T_CAPTION * u, Theme.GREEN, Gfx.ALIGN_RIGHT, false);
+        Kit.meter(g, cx, barY, cw, p.levelFraction(), Theme.MAGENTA, u);
+        String store = app.cloud.connected() ? "In der Cloud gesichert als @" + app.cloud.user() : "Nur auf diesem Gerät gespeichert";
+        Icons.draw(g, app.cloud.connected() ? Icon.CHECK : Icon.SAVE, cx + 7 * u, yCard + hCard - 22 * u, 6 * u,
+                app.cloud.connected() ? Theme.GREEN : Theme.MUTED, 0);
+        g.text(store, cx + 22 * u, yCard + hCard - 22 * u, Kit.T_CAPTION * u, Theme.MUTED, Gfx.ALIGN_LEFT, false);
     }
 
     private void drawStats(Gfx g) {
         Progress p = app.progress;
-        panel(g, yStats, hStats, Theme.CYAN, "STATISTIK");
-        String[] labels = {"Wellen besiegt", "Abschüsse", "Siege", "Medaillen (von " + 4 * neontd.level.Levels.builtins().size() + ")"};
+        Kit.section(g, "Statistik", null, 0, cx, yStats, cw, u);
+        String[] labels = {"Wellen besiegt", "Abschüsse", "Siege / Spiele", "Medaillen von " + 4 * neontd.level.Levels.builtins().size()};
         String[] vals = {Fmt.compact(p.wavesCleared), Fmt.compact(p.kills), p.gamesWon + " / " + p.gamesPlayed,
             Integer.toString(p.totalMedals())};
-        double cell = (cw - 32 * u) / 2;
+        double cell = cw / 2;
         for (int i = 0; i < 4; i++) {
-            double x = cx + 16 * u + (i % 2) * cell;
-            double y = yStats + 34 * u + (i / 2) * 56 * u;
-            g.text(vals[i], x, y + 14 * u, Math.max(14, 22 * u), Theme.TEXT, Gfx.ALIGN_LEFT, true);
-            g.text(labels[i], x, y + 38 * u, Math.max(9, 11 * u), Theme.TEXT_DIM, Gfx.ALIGN_LEFT, false);
+            double x = cx + (i % 2) * cell;
+            double y = yStats + 38 * u + (i / 2) * 74 * u;
+            Kit.stat(g, vals[i], labels[i], x, y, Theme.TEXT, u);
         }
     }
 
     private void drawTowers(Gfx g) {
         Progress p = app.progress;
-        panel(g, yTowers, hTowers, Theme.GREEN, "TÜRME & BELOHNUNGEN");
-        double y0 = yTowers + 44 * u;
-        double rowH = 40 * u;
-        TowerType[] types = TowerType.values();
-        // nach Freischalt-Level sortiert anzeigen
-        TowerType[] order = types.clone();
+        int open = 0;
+        for (TowerType t : TowerType.values()) {
+            if (p.isUnlocked(t)) {
+                open++;
+            }
+        }
+        Kit.section(g, "Türme", open + " / " + TowerType.values().length + " frei", Theme.MUTED, cx, yTowers, cw, u);
+        double y0 = yTowers + 38 * u;
+        double rowH = TOWER_ROW * u;
+        TowerType[] order = TowerType.values().clone();
         for (int i = 0; i < order.length; i++) {
             for (int j = i + 1; j < order.length; j++) {
                 if (order[j].unlockLevel < order[i].unlockLevel) {
@@ -393,61 +409,64 @@ public final class ProfileScene extends Scene {
         }
         for (int i = 0; i < order.length; i++) {
             TowerType t = order[i];
-            boolean open = p.isUnlocked(t);
+            boolean isOpen = p.isUnlocked(t);
             double y = y0 + i * rowH;
-            double ix = cx + 16 * u + 16 * u;
+            double ix = cx + 18 * u;
             g.save();
-            g.alpha(open ? 1 : 0.35);
-            TowerArt.drawIcon(g, t, ix, y + rowH / 2 - 2 * u, 14 * u, time);
+            g.alpha(isOpen ? 1 : 0.4);
+            TowerArt.drawIcon(g, t, ix, y + rowH / 2, 17 * u, time);
             g.restore();
-            g.text(t.label, ix + 28 * u, y + rowH / 2 - 8 * u, Math.max(11, 15 * u), open ? Theme.TEXT : Theme.TEXT_DIM,
-                    Gfx.ALIGN_LEFT, true);
-            g.text(t.tagline, ix + 28 * u, y + rowH / 2 + 9 * u, Math.max(8, 10 * u), Theme.TEXT_DIM, Gfx.ALIGN_LEFT, false);
-            if (open) {
-                Icons.draw(g, Icon.CHECK, cx + cw - 30 * u, y + rowH / 2 - 2 * u, 9 * u, Theme.GREEN, 3);
+            double tx = cx + 52 * u;
+            double right = cx + cw;
+            double vw;
+            if (isOpen) {
+                Icons.draw(g, Icon.CHECK, right - 8 * u, y + rowH / 2, 8 * u, Theme.GREEN, 0);
+                vw = 24 * u;
             } else {
-                String need = t.tier == 2 && p.level() >= t.unlockLevel ? "IM SHOP" : "LEVEL " + t.unlockLevel;
-                double ns = Math.max(10, 12 * u);
-                g.text(need, cx + cw - 16 * u, y + rowH / 2 - 2 * u, ns, Theme.TEXT_DIM, Gfx.ALIGN_RIGHT, true);
-                Icons.draw(g, Icon.LOCK, cx + cw - 16 * u - g.textWidth(need, ns, true) - 14 * u, y + rowH / 2 - 2 * u,
-                        9 * u, Theme.TEXT_DIM, 0);
+                String need = t.tier == 2 && p.level() >= t.unlockLevel ? "Im Shop" : "Level " + t.unlockLevel;
+                double ns = Kit.T_BODY * u;
+                g.text(need, right, y + rowH / 2, ns, Theme.MUTED, Gfx.ALIGN_RIGHT, true);
+                double nw = g.textWidth(need, ns, true);
+                Draw.lock(g, right - nw - 14 * u, y + rowH / 2, 6 * u);
+                vw = nw + 30 * u;
+            }
+            Draw.cut(g, t.label.charAt(0) + t.label.substring(1).toLowerCase(), tx, y + rowH / 2 - 10 * u, Kit.T_ROW * u,
+                    right - vw - tx, isOpen ? Theme.TEXT : Theme.MUTED, Gfx.ALIGN_LEFT, true);
+            Draw.cut(g, t.tagline, tx, y + rowH / 2 + 12 * u, Kit.T_CAPTION * u, right - vw - tx, Theme.MUTED, Gfx.ALIGN_LEFT,
+                    false);
+            if (i < order.length - 1) {
+                Kit.hairline(g, tx, y + rowH - 1, right - tx);
             }
         }
-        double y = y0 + order.length * rowH + 8 * u;
-        g.text("Startgeld  +" + p.startMoneyBonus() + "   ·   Start-Leben  +" + p.startLivesBonus(), cx + 16 * u,
-                y + 8 * u, Math.max(10, 13 * u), Theme.YELLOW, Gfx.ALIGN_LEFT, true);
-        g.text("+10 Startgeld je Level (bis +300), +1 Leben je 5 Level (bis +5), mehr durch Forschung im Shop", cx + 16 * u, y + 28 * u,
-                Math.max(8, 10 * u), Theme.TEXT_DIM, Gfx.ALIGN_LEFT, false);
+        double y = y0 + order.length * rowH + 22 * u;
+        double w1 = Kit.iconValue(g, cx, y, Icon.GEM, "+" + p.startMoneyBonus() + " Startgeld", Theme.MONEY, Theme.TEXT,
+                Kit.T_BODY * u, u);
+        Kit.iconValue(g, cx + w1 + 24 * u, y, Icon.HEART, "+" + p.startLivesBonus() + " Start-Leben", Theme.LIFE, Theme.TEXT,
+                Kit.T_BODY * u, u);
+        Kit.paragraph(g, "+10 Startgeld je Level (bis +300), +1 Leben je 5 Level (bis +5), mehr durch Forschung im Shop.",
+                cx, y + 16 * u, cw, Kit.T_CAPTION * u, Theme.MUTED, u);
     }
 
     private void drawCloud(Gfx g) {
         boolean connected = app.cloud.connected();
-        panel(g, yCloud, hCloud, Theme.GREEN, "CLOUD-SPEICHER (GITHUB)");
-        double x = cx + 16 * u;
-        double fs = Math.max(10, 12 * u);
-        if (!connected) {
-            String[] lines = {
-                "Sichert Profil, eigene Level und laufende Spiele in einem",
-                "privaten GitHub-Gist – und bringt sie auf jedes Gerät, auch",
-                "auf die Home-Bildschirm-App am iPhone (die hat einen",
-                "eigenen Speicher). Das Token bleibt nur auf diesem Gerät."
-            };
-            for (int i = 0; i < lines.length; i++) {
-                g.text(lines[i], x, yCloud + 50 * u + i * 22 * u, fs, Theme.TEXT_DIM, Gfx.ALIGN_LEFT, false);
-            }
-        } else {
-            g.text("Verbunden als @" + app.cloud.user(), x, yCloud + 50 * u, Math.max(12, 15 * u), Theme.TEXT, Gfx.ALIGN_LEFT, true);
-            String last = app.cloud.lastOk() > 0 ? "Zuletzt abgeglichen: " + ago(app.saves.now() - app.cloud.lastOk())
-                    : "Noch nicht abgeglichen";
-            g.text(last, x, yCloud + 50 * u + 20 * u, fs, Theme.TEXT_DIM, Gfx.ALIGN_LEFT, false);
-        }
         int c = app.cloud.status == GistSync.Status.ERROR ? Theme.RED
                 : (app.cloud.status == GistSync.Status.OK ? Theme.GREEN : Theme.YELLOW);
+        Kit.section(g, "Cloud-Speicher", "GitHub", Theme.MUTED, cx, yCloud, cw, u);
+        double x = cx;
+        double y = yCloud + 38 * u;
+        if (!connected) {
+            Kit.paragraph(g, "Sichert Profil, eigene Level und laufende Spiele in einem privaten GitHub-Gist – und bringt "
+                    + "sie auf jedes Gerät, auch auf die Home-Bildschirm-App am iPhone. Das Token bleibt nur auf diesem Gerät.",
+                    x, y, cw, Kit.T_BODY * 0.95 * u, Theme.MUTED, u);
+        } else {
+            g.text("Verbunden als @" + app.cloud.user(), x, y + 10 * u, Kit.T_ROW * u, Theme.TEXT, Gfx.ALIGN_LEFT, true);
+            String last = app.cloud.lastOk() > 0 ? "Zuletzt abgeglichen " + ago(app.saves.now() - app.cloud.lastOk())
+                    : "Noch nicht abgeglichen";
+            g.text(last, x, y + 34 * u, Kit.T_CAPTION * u, Theme.MUTED, Gfx.ALIGN_LEFT, false);
+        }
         String msg = app.cloud.message;
         if (!msg.isEmpty()) {
-            double max = cw - 32 * u;
-            double size = Math.min(fs, max / Math.max(1, msg.length() * 0.56));
-            g.text(msg, x, yCloud + hCloud - 18 * u, Math.max(8, size), c, Gfx.ALIGN_LEFT, true);
+            Draw.fit(g, msg, x, yCloud + hCloud - 12 * u, Kit.T_CAPTION * u, cw, c, Gfx.ALIGN_LEFT, true);
         }
     }
 
@@ -466,11 +485,11 @@ public final class ProfileScene extends Scene {
     }
 
     private void drawBackup(Gfx g) {
-        panel(g, yBackup, hBackup, Theme.CYAN, "SICHERUNG PER CODE (OHNE KONTO)");
-        g.text("Kopiere deinen Stand als Text und füge ihn auf einem anderen Gerät ein.", cx + 16 * u,
-                yBackup + 46 * u, Math.max(9, 11 * u), Theme.TEXT_DIM, Gfx.ALIGN_LEFT, false);
-        g.text("Der Code enthält Profil und eigene Level, nicht das laufende Spiel.", cx + 16 * u, yBackup + hBackup - 14 * u,
-                Math.max(8, 10 * u), Theme.TEXT_DIM, Gfx.ALIGN_LEFT, false);
+        Kit.section(g, "Sicherung per Code", "ohne Konto", Theme.MUTED, cx, yBackup, cw, u);
+        Kit.paragraph(g, "Kopiere deinen Stand als Text und füge ihn auf einem anderen Gerät ein.", cx, yBackup + 38 * u, cw,
+                Kit.T_BODY * 0.95 * u, Theme.MUTED, u);
+        g.text("Enthält Profil und eigene Level, nicht das laufende Spiel.", cx, yBackup + hBackup - 14 * u,
+                Kit.T_CAPTION * u, Colors.withAlpha(0xFFFFFF, 0.4), Gfx.ALIGN_LEFT, false);
     }
 
     /**

@@ -13,6 +13,7 @@ import neontd.save.Leaderboard;
 import neontd.ui.Button;
 import neontd.ui.Draw;
 import neontd.ui.Easing;
+import neontd.ui.Kit;
 import neontd.ui.Ui;
 import neontd.ui.Viewport;
 
@@ -50,6 +51,7 @@ public final class NameScene extends Scene {
     private double fieldW;
     private double fieldH;
     private double titleY;
+    private boolean compact;
 
     public NameScene(App app, boolean firstStart) {
         super(app);
@@ -62,7 +64,7 @@ public final class NameScene extends Scene {
         go = ui.add(new Button(firstStart ? "Los geht's" : "Speichern", null, Theme.ACCENT, this::submit));
         go.painter = this::paintGo;
         cancel = ui.add(new Button("Abbrechen", null, Theme.MUTED, () -> app.goTo(new ProfileScene(app))));
-        cancel.style = Button.Style.GHOST;
+        cancel.style = Button.Style.TEXT;
         cancel.visible = !firstStart;
     }
 
@@ -99,8 +101,8 @@ public final class NameScene extends Scene {
     public void layout() {
         Viewport vp = app.vp;
         double u = vp.u;
-        double m = 16 * u;
-        double w = Math.min(vp.safeW() - 2 * m, 440 * u);
+        double m = Kit.MARGIN * u;
+        double w = Math.min(vp.safeW() - 2 * m, 480 * u);
         double x = vp.insetL + (vp.safeW() - w) / 2;
         // Die Höhe zählt nur, solange sie wächst (oder sich die Breite ändert): Geht auf dem iPhone die Tastatur
         // auf und das Fenster wird niedriger, bleibt alles genau, wo es ist.
@@ -111,14 +113,28 @@ public final class NameScene extends Scene {
             stableH = Math.max(stableH, vp.safeH());
         }
         // Inhalt in der oberen Hälfte: Auf dem iPhone deckt die Tastatur die untere ab.
-        titleY = vp.insetT + Math.max(96 * u, Math.min(stableH * 0.16, 150 * u));
+        compact = stableH < 520 * u;
         fieldX = x;
-        fieldW = w;
-        fieldH = 56 * u;
-        fieldY = titleY + 92 * u;
-        double by = fieldY + fieldH + 44 * u;
-        go.bounds(x, by, w, 52 * u);
-        cancel.bounds(x, by + 60 * u, w, 44 * u);
+        fieldH = 64 * u;
+        if (compact) {
+            // Quer/niedrig: Feld und Taste nebeneinander, alles näher am Kopf
+            w = Math.min(vp.safeW() - 2 * m, 720 * u);
+            x = vp.insetL + (vp.safeW() - w) / 2;
+            fieldX = x;
+            titleY = vp.insetT + 72 * u;
+            double bw = Math.min(220 * u, w * 0.36);
+            fieldW = w - bw - 24 * u;
+            fieldY = titleY + 92 * u;
+            go.bounds(x + w - bw, fieldY + fieldH - Kit.BUTTON * u, bw, Kit.BUTTON * u);
+            cancel.bounds(x + w - bw, fieldY + fieldH + 12 * u, bw, 44 * u);
+        } else {
+            titleY = vp.insetT + Math.max(92 * u, Math.min(stableH * 0.15, 140 * u));
+            fieldW = w;
+            fieldY = titleY + 128 * u;
+            double by = fieldY + fieldH + 52 * u;
+            go.bounds(x, by, w, Kit.BUTTON * u);
+            cancel.bounds(x, by + Kit.BUTTON * u + 8 * u, w, 48 * u);
+        }
         placeInput();
     }
 
@@ -128,6 +144,8 @@ public final class NameScene extends Scene {
     }
 
     private static final double FIELD_DELAY = 0.12;
+    /** Schriftgröße im Namensfeld. */
+    private static final double FIELD_FONT = 26;
 
     private void placeInput() {
         if (input == null) {
@@ -139,7 +157,8 @@ public final class NameScene extends Scene {
         }
         double u = app.vp.u;
         double dy = (1 - a) * 10 * u;
-        input.place(fieldX + 2 * u, fieldY + 2 * u + dy, fieldW - 4 * u - 56 * u, fieldH - 4 * u, 17 * u, a);
+        // Das HTML-Feld hat 16 px Innenabstand: um diesen nach links versetzt, damit der Text bündig an der Linie beginnt.
+        input.place(fieldX - 16, fieldY + 2 * u + dy, fieldW + 16 - 40 * u, fieldH - 6 * u, FIELD_FONT * u, a);
     }
 
     @Override
@@ -260,51 +279,56 @@ public final class NameScene extends Scene {
         g.save();
         g.alpha(r0);
         g.translate(0, (1 - r0) * 10 * u);
-        g.text(firstStart ? "WILLKOMMEN" : "PROFIL", x, y, 11 * u, Theme.ACCENT, Gfx.ALIGN_LEFT, true);
-        g.text(firstStart ? "Wie heißt du?" : "Neuer Name", x, y + 34 * u, 30 * u, Theme.TEXT, Gfx.ALIGN_LEFT, true);
+        Kit.kicker(g, firstStart ? "Willkommen" : "Profil", x, y, u, Theme.ACCENT);
+        g.text(firstStart ? "Wie heißt du?" : "Neuer Name", x, y + 40 * u, 38 * u, Theme.TEXT, Gfx.ALIGN_LEFT, true);
         g.restore();
         g.save();
         g.alpha(r1);
         g.translate(0, (1 - r1) * 10 * u);
-        Draw.fit(g, "Dein Name steht in der Arena und allen Bestenlisten.", x, y + 64 * u, 14 * u, fieldW, Theme.MUTED,
-                Gfx.ALIGN_LEFT, false);
+        if (compact) {
+            Draw.fit(g, "Dein Name steht in der Arena und in allen Bestenlisten.", x, y + 72 * u, 17 * u, fieldW,
+                    Theme.MUTED, Gfx.ALIGN_LEFT, false);
+        } else {
+            Kit.paragraph(g, "Dein Name steht in der Arena und in allen Bestenlisten.", x, y + 70 * u, fieldW, 17 * u,
+                    Theme.MUTED, u);
+        }
         g.restore();
 
-        // Feld (das echte Eingabefeld liegt mit genau derselben Bewegung darüber, siehe placeInput)
+        // Feld: nur eine Grundlinie, kein Kasten (das echte Eingabefeld liegt mit derselben Bewegung darüber)
         g.save();
         g.alpha(rf);
         g.translate(0, (1 - rf) * 10 * u);
         double sx = shake > 0 ? Math.sin(shake * 40) * 6 * u * shake : 0;
         double fx = x + sx;
         boolean valid = problem() == null;
-        int edge = error != null ? Theme.NEG : (text.isEmpty() ? Theme.LINE : Colors.withAlpha(Theme.ACCENT, 0.7));
-        g.fillRoundRect(fx, fieldY, fieldW, fieldH, 16 * u, Theme.SURFACE2);
-        g.strokeRoundRect(fx, fieldY, fieldW, fieldH, 16 * u, error != null || !text.isEmpty() ? 1.5 * u : 1, edge);
+        int edge = error != null ? Theme.NEG : (text.isEmpty() ? Colors.withAlpha(0xFFFFFF, 0.22)
+                : (valid ? Theme.ACCENT : Colors.withAlpha(0xFFFFFF, 0.5)));
+        double base = fieldY + fieldH - 2 * u;
+        g.fillRoundRect(fx, base, fieldW, 2 * u, 1 * u, edge);
         if (input == null) {
             // Ohne Plattform-Feld: Text und Cursor selbst zeichnen
-            double tx = fx + 18 * u;
             double cy = fieldY + fieldH / 2;
+            double fs = FIELD_FONT * u;
             if (text.isEmpty()) {
-                g.text("Spielername", tx, cy, 17 * u, Theme.MUTED, Gfx.ALIGN_LEFT, true);
+                g.text("Spielername", fx, cy, fs, Colors.withAlpha(0xFFFFFF, 0.3), Gfx.ALIGN_LEFT, true);
             } else {
-                g.text(text, tx, cy, 17 * u, Theme.TEXT, Gfx.ALIGN_LEFT, true);
+                g.text(text, fx, cy, fs, Theme.TEXT, Gfx.ALIGN_LEFT, true);
             }
             if ((time % 1.0) < 0.55) {
-                double cw = text.isEmpty() ? 0 : g.textWidth(text, 17 * u, true);
-                g.fillRect(tx + cw + 2 * u, cy - 11 * u, 2 * u, 22 * u, Theme.ACCENT);
+                double cw = text.isEmpty() ? 0 : g.textWidth(text, fs, true);
+                g.fillRect(fx + cw + 3 * u, cy - 15 * u, 2.5 * u, 30 * u, Theme.ACCENT);
             }
         }
         // Häkchen, sobald der Name passt
-        double ix = fx + fieldW - 30 * u;
+        double ix = fx + fieldW - 14 * u;
         double iy = fieldY + fieldH / 2;
         if (checking) {
             double ang = time * 7;
             g.beginPath();
-            g.arc(ix, iy, 9 * u, ang, ang + Math.PI * 1.4);
-            g.stroke(2 * u, Theme.ACCENT);
+            g.arc(ix, iy, 10 * u, ang, ang + Math.PI * 1.4);
+            g.stroke(2.2 * u, Theme.ACCENT);
         } else if (valid && error == null) {
-            g.fillCircle(ix, iy, 11 * u, Colors.withAlpha(Theme.POS, 0.18));
-            Icons.draw(g, Icon.CHECK, ix, iy, 6 * u, Theme.POS, 0);
+            Icons.draw(g, Icon.CHECK, ix, iy, 8 * u, Theme.POS, 0);
         }
         g.restore();
 
@@ -312,13 +336,13 @@ public final class NameScene extends Scene {
         g.save();
         g.alpha(r3);
         g.translate(0, (1 - r3) * 10 * u);
-        double hy = fieldY + fieldH + 18 * u;
+        double hy = fieldY + fieldH + 20 * u;
         String hint = error != null ? error
                 : (text.isEmpty() ? "2–16 Zeichen · Buchstaben, Zahlen, Leerzeichen, . _ -"
                         : (valid ? "Sieht gut aus" : problem()));
         int hc = error != null ? Theme.NEG : (valid && !text.isEmpty() ? Theme.POS : Theme.MUTED);
-        Draw.fit(g, hint, x + 4 * u, hy, 12 * u, fieldW - 60 * u, hc, Gfx.ALIGN_LEFT, false);
-        g.text(Leaderboard.cleanName(text).length() + "/" + Leaderboard.MAX_NAME, x + fieldW - 4 * u, hy, 12 * u,
+        Draw.fit(g, hint, x, hy, Kit.T_CAPTION * u, fieldW - 60 * u, hc, Gfx.ALIGN_LEFT, false);
+        g.text(Leaderboard.cleanName(text).length() + " / " + Leaderboard.MAX_NAME, x + fieldW, hy, Kit.T_CAPTION * u,
                 Theme.MUTED, Gfx.ALIGN_RIGHT, false);
         ui.render(g);
         g.restore();
@@ -326,10 +350,15 @@ public final class NameScene extends Scene {
         // Fußnote
         String note = app.board.available() ? "Gespeichert werden nur dein Name und eine zufällige Gerätekennung."
                 : "Ohne Verbindung: Der Name gilt erst einmal nur auf diesem Gerät.";
+        double noteY = vp.insetT + stableH - 24 * u;
+        if (noteY < Math.max(go.y + go.h, fieldY + fieldH + 30 * u) + 24 * u) {
+            return; // zu wenig Platz (quer): Fußnote weglassen
+        }
         g.save();
         g.alpha(part(0.3) * 0.9);
         // feste Lage (nicht vp.h): Geht die Tastatur auf, rutscht nichts nach
-        Draw.fit(g, note, vp.w / 2, vp.insetT + stableH - 24 * u, 11 * u, fieldW, Theme.MUTED, Gfx.ALIGN_CENTER, false);
+        Draw.fit(g, note, vp.w / 2, noteY, Kit.T_CAPTION * u, fieldW, Theme.MUTED, Gfx.ALIGN_CENTER,
+                false);
         g.restore();
     }
 
@@ -338,10 +367,13 @@ public final class NameScene extends Scene {
         double h = b.h;
         boolean valid = problem() == null && !checking;
         double hv = Math.max(b.hover.value, b.press.value);
-        int fill = valid ? Colors.lerp(Theme.ACCENT, 0xFFFFFF, 0.12 * hv) : Theme.SURFACE3;
-        g.fillRoundRect(-w / 2, -h / 2, w, h, 16 * app.vp.u, fill);
         String label = checking ? "Prüfe …" : b.label;
-        g.text(label, 0, 0, 17 * app.vp.u, valid ? 0x000000 : Theme.MUTED, Gfx.ALIGN_CENTER, true);
+        if (valid) {
+            Kit.primary(g, -w / 2, -h / 2, w, h, label, null, Theme.ACCENT, hv, app.vp.u);
+        } else {
+            g.fillRoundRect(-w / 2, -h / 2, w, h, h / 2, Theme.SURFACE2);
+            g.text(label, 0, 0, Kit.T_ROW * 1.06 * app.vp.u, Theme.MUTED, Gfx.ALIGN_CENTER, true);
+        }
     }
 
     // ---------------------------------------------------------------------------------------- Eingabe

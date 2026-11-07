@@ -22,6 +22,7 @@ import neontd.ui.Button;
 import neontd.ui.Draw;
 import neontd.ui.Easing;
 import neontd.ui.Fmt;
+import neontd.ui.Kit;
 import neontd.ui.Smooth;
 import neontd.ui.Viewport;
 
@@ -47,8 +48,11 @@ public final class MenuScene extends PanelScene {
         settings = ui.add(new Button("", Icon.GEAR, Theme.MUTED, () -> app.goTo(new SettingsScene(app))));
         settings.painter = (g, b) -> {
             double r = Math.min(b.w, b.h) / 2;
-            g.fillCircle(0, 0, r, Colors.lerp(Theme.SURFACE2, Theme.SURFACE3, Math.max(b.hover.value, b.press.value)));
-            Icons.draw(g, Icon.GEAR, 0, 0, r * 0.5, Theme.TEXT, 0);
+            double k = Math.max(b.hover.value, b.press.value);
+            if (k > 0) {
+                g.fillCircle(0, 0, r, Colors.withAlpha(0xFFFFFF, 0.08 * k));
+            }
+            Icons.draw(g, Icon.GEAR, 0, 0, r * 0.46, Theme.TEXT, 0);
         };
         refresh();
         in.target = 1;
@@ -57,10 +61,10 @@ public final class MenuScene extends PanelScene {
     /** Position der Wortmarke im Kopf: {linke Kante, Mitte y, Zeichenhöhe}. */
     static double[] wordmarkBox(Viewport vp) {
         double u = vp.u;
-        double m = 16 * u;
-        double contentW = Math.min(vp.safeW() - 2 * m, 720 * u);
+        double m = Kit.MARGIN * u;
+        double contentW = Math.min(vp.safeW() - 2 * m, 640 * u);
         double contentX = vp.insetL + (vp.safeW() - contentW) / 2;
-        return new double[] {contentX + 2 * u, vp.insetT + m + 20 * u, 20 * u};
+        return new double[] {contentX, vp.insetT + 10 * u + 22 * u, 22 * u};
     }
 
     private void refresh() {
@@ -102,19 +106,19 @@ public final class MenuScene extends PanelScene {
         super.layout();
         Viewport vp = app.vp;
         double u = vp.u;
-        double bs = 40 * u;
-        settings.bounds(contentX + contentW - bs, vp.insetT + 16 * u, bs, bs);
-        // der Kristall-Chip rückt neben das Zahnrad
-        chipShift = bs + 10 * u;
+        double bs = 44 * u;
+        settings.bounds(contentX + contentW - bs + 10 * u, vp.insetT + 10 * u, bs, bs);
+        // die Kristalle rücken neben das Zahnrad
+        chipShift = bs + 2 * u;
     }
 
     private double chipShift;
 
     @Override
     protected void drawCrystalChip(Gfx g, double u) {
-        double y = app.vp.insetT + 16 * u + 4 * u;
-        Draw.chipRight(g, contentX + contentW - chipShift, y, 32 * u, Icon.CRYSTAL, Fmt.compact(app.progress.crystals()),
-                Theme.CRYSTAL, true);
+        double cy = app.vp.insetT + 10 * u + 22 * u;
+        Kit.iconValueRight(g, contentX + contentW - chipShift, cy, Icon.CRYSTAL, Fmt.compact(app.progress.crystals()),
+                Theme.CRYSTAL, Theme.TEXT, 18 * u, u);
     }
 
     @Override
@@ -133,98 +137,114 @@ public final class MenuScene extends PanelScene {
 
     @Override
     protected double drawContent(Gfx g, double x, double y0, double w, double u) {
-        Progress p = app.progress;
-        double y = y0 + 4 * u;
-        double gap = 12 * u;
+        double y = y0 + 6 * u;
         double a = Easing.outCubic(Mathx.clamp01(in.value));
         g.save();
         g.alpha(a);
         g.translate(0, (1 - a) * 10 * u);
 
-        y += heroCard(g, x, y, w, u) + gap;
-        y += arenaCard(g, x, y, w, u) + gap;
+        y += hero(g, x, y, w, u) + Kit.SECTION_GAP * u;
         if (otherRun != null) {
-            y += resumeRow(g, x, y, w, u) + gap;
+            y += resumeRow(g, x, y, w, u) + 18 * u;
         }
-        y += profileRow(g, x, y, w, u) + gap;
-        y += todayCard(g, x, y, w, u) + gap;
-        y += worldsCard(g, x, y, w, u) + gap;
-        y += tiles(g, x, y, w, u) + gap;
-        g.text("v" + neontd.app.Version.NAME, x + w, y + 6 * u, 11 * u, Theme.MUTED, Gfx.ALIGN_RIGHT, false);
-        y += 24 * u;
+        y += profileRow(g, x, y, w, u) + Kit.SECTION_GAP * u;
+        y += arena(g, x, y, w, u) + Kit.SECTION_GAP * u;
+        y += today(g, x, y, w, u) + Kit.SECTION_GAP * u;
+        y += worlds(g, x, y, w, u) + Kit.SECTION_GAP * u;
+        y += more(g, x, y, w, u) + 24 * u;
+        g.text("Neon TD  ·  v" + neontd.app.Version.NAME, x + w / 2, y, Kit.T_CAPTION * u, Colors.withAlpha(0xFFFFFF, 0.3),
+                Gfx.ALIGN_CENTER, false);
+        y += 30 * u;
         g.restore();
         return y - y0;
     }
 
-    /** Die große Karte „Weiter“: nächstes Level mit Vorschau, Sternen und der Spielen-Taste. */
-    private double heroCard(Gfx g, double x, double y, double w, double u) {
+    private double lift(String tag) {
+        return pressed(tag) ? 1 : (hovered(tag) ? 0.5 : 0);
+    }
+
+    /** Held: nächstes Level mit großer Vorschau direkt auf Schwarz und der Spielen-Taste. */
+    private double hero(Gfx g, double x, double y, double w, double u) {
         int world = next.chapter;
         int accent = Worlds.accent(world);
         boolean resume = nextRun != null && nextRun.snapshot != null;
-        double pad = 16 * u;
-        double previewH = Math.min(w * 0.42, 240 * u);
-        double h = pad + 18 * u + 26 * u + previewH + 12 * u + 50 * u + pad;
-        double lift = pressed("play") ? 1 : (hovered("play") ? 0.5 : 0);
-        Draw.accentCard(g, x, y, w, h, 22 * u, accent, lift * 0.5);
-        hit(x, y, w, h, "play");
-        double tx = x + pad;
-        double ty = y + pad + 8 * u;
-        String kicker = (resume ? "FORTSETZEN" : "WEITER") + "  ·  " + Worlds.name(world) + "  ·  Level " + next.number;
-        g.text(kicker, tx, ty, 11 * u, Colors.lighten(accent, 0.15), Gfx.ALIGN_LEFT, true);
-        ty += 24 * u;
-        Draw.fit(g, next.name, tx, ty, 24 * u, w - 2 * pad - 90 * u, Theme.TEXT, Gfx.ALIGN_LEFT, true);
-        Draw.stars(g, x + w - pad - 34 * u, ty, 9 * u, app.progress.stars(next.id), 3);
-        ty += 20 * u;
-        // Vorschau
-        double px = x + pad;
-        double py = ty;
-        double pw = w - 2 * pad;
-        g.fillRoundRect(px, py, pw, previewH, 14 * u, Theme.BG);
-        g.save();
-        g.clipRect(px, py, pw, previewH);
-        LevelPreview.draw(g, nextPaths, next.width, next.height, px + 8 * u, py + 8 * u, pw - 16 * u, previewH - 16 * u,
-                Worlds.lane(world), time);
-        g.restore();
-        g.strokeRoundRect(px, py, pw, previewH, 14 * u, 1, Theme.LINE);
-        ty += previewH + 12 * u;
-        // Fußzeile: Stil-Chip und Spielen-Taste
-        double bh = 50 * u;
+        double y0 = y;
+        Kit.kicker(g, (resume ? "Fortsetzen" : "Weiter") + "  ·  " + Worlds.name(world) + "  ·  Level " + next.number,
+                x, y + 8 * u, u, Colors.lighten(accent, 0.1));
+        y += 30 * u;
+        Draw.fit(g, next.name, x, y + 4 * u, Kit.T_HERO * u, w - 100 * u, Theme.TEXT, Gfx.ALIGN_LEFT, true);
+        Draw.stars(g, x + w - 34 * u, y + 4 * u, 10 * u, app.progress.stars(next.id), 3);
+        y += 36 * u;
         String sub = next.style == null ? "" : next.style.label + "  ·  " + (next.bossLevel ? "Boss alle 5 Wellen" : "20 Wellen");
         if (resume) {
             sub = "Welle " + (nextRun.snapshot.waveIndex + 1) + "  ·  " + Fmt.compact(nextRun.snapshot.money) + " Geld";
         }
-        double bw = Math.min(w * 0.42, 190 * u);
-        double bx = x + w - pad - bw;
-        Draw.fit(g, sub, tx, ty + bh / 2 - 9 * u, 13 * u, bx - tx - 10 * u, Theme.MUTED, Gfx.ALIGN_LEFT, false);
-        Draw.cut(g, next.blurb, tx, ty + bh / 2 + 10 * u, 11 * u, bx - tx - 10 * u, Theme.MUTED, Gfx.ALIGN_LEFT, false);
-        g.fillRoundRect(bx, ty, bw, bh, 16 * u, Colors.lerp(accent, 0xFFFFFF, 0.15 * lift));
-        Icons.draw(g, Icon.PLAY, bx + 22 * u, ty + bh / 2, 8 * u, 0x000000, 0);
-        g.text(resume ? "Fortsetzen" : "Spielen", bx + 36 * u, ty + bh / 2, 17 * u, 0x000000, Gfx.ALIGN_LEFT, true);
+        g.text(sub, x, y, Kit.T_BODY * u, Theme.MUTED, Gfx.ALIGN_LEFT, false);
+        y += 18 * u;
+        // Vorschau ohne Rahmen: die Strecke leuchtet direkt auf dem Schwarz
+        double previewH = Math.min(w * 0.62, 300 * u);
+        g.radialGlow(x + w / 2, y + previewH / 2, Math.min(w * 0.5, previewH * 0.62), Colors.withAlpha(accent, 0.07));
+        g.save();
+        g.clipRect(x - 10 * u, y, w + 20 * u, previewH);
+        LevelPreview.draw(g, nextPaths, next.width, next.height, x + 6 * u, y + 10 * u, w - 12 * u, previewH - 20 * u,
+                Worlds.lane(world), time);
+        g.restore();
+        hit(x, y, w, previewH, "play");
+        y += previewH + 8 * u;
+        if (next.blurb != null && !next.blurb.isEmpty()) {
+            y += Kit.paragraph(g, next.blurb, x, y, w, Kit.T_BODY * u, Colors.withAlpha(0xFFFFFF, 0.62), u) + 18 * u;
+        }
+        double bh = Kit.BUTTON * u;
+        Kit.primary(g, x, y, w, bh, resume ? "Fortsetzen" : "Spielen", Icon.PLAY, accent, lift("play"), u);
+        hit(x, y, w, bh, "play");
+        y += bh;
+        return y - y0;
+    }
+
+    /** Ein anderer gespeicherter Lauf (nicht das nächste Level). */
+    private double resumeRow(Gfx g, double x, double y, double w, double u) {
+        LevelDef l = Levels.find(otherRunId);
+        double h = Kit.ROW * u;
+        hit(x, y, w, h, "resume");
+        Icons.draw(g, Icon.SAVE, x + 12 * u, y + h / 2, 9 * u, Worlds.accent(l.chapter), 0);
+        Kit.row(g, x, y, w, h, 40 * u, "Gespeicherter Lauf", l.name + "  ·  Welle " + (otherRun.snapshot.waveIndex + 1),
+                null, 0, true, false, lift("resume"), false, u);
         return h;
     }
 
-    /** Die Arena der Woche: Restzeit, eigener Platz, wer führt – und Antreten. */
-    private double arenaCard(Gfx g, double x, double y, double w, double u) {
+    /** Profil: Level-Ring, Name, Titel, Serie – eine offene Zeile. */
+    private double profileRow(Gfx g, double x, double y, double w, double u) {
+        Progress p = app.progress;
+        double h = 72 * u;
+        Kit.rowPress(g, x, y, w, h, lift("profile"), u);
+        hit(x, y, w, h, "profile");
+        double r = 25 * u;
+        Kit.ring(g, x + r, y + h / 2, r, p.levelFraction(), Theme.MAGENTA, Integer.toString(p.level()), u);
+        double tx = x + 2 * r + 16 * u;
+        int streak = p.streakNow(app.today());
+        double right = x + w - 22 * u;
+        double sw = 0;
+        if (streak > 0) {
+            sw = Kit.iconValueRight(g, right, y + h / 2, Icon.FLAME, streak + (streak == 1 ? " Tag" : " Tage"),
+                    p.playedToday(app.today()) ? Theme.ORANGE : Theme.MUTED, p.playedToday(app.today()) ? Theme.TEXT : Theme.MUTED,
+                    Kit.T_BODY * u, u) + 14 * u;
+        }
+        Draw.cut(g, p.displayName(), tx, y + h / 2 - 10 * u, 19 * u, right - sw - tx, Theme.TEXT, Gfx.ALIGN_LEFT, true);
+        Draw.cut(g, p.title() + "  ·  " + p.totalStars() + " Sterne", tx, y + h / 2 + 13 * u, Kit.T_CAPTION * u,
+                right - sw - tx, Theme.MUTED, Gfx.ALIGN_LEFT, false);
+        Draw.chevron(g, x + w - 6 * u, y + h / 2, 5.5 * u, Colors.withAlpha(0xFFFFFF, 0.35), true);
+        return h;
+    }
+
+    /** Arena der Woche als offene Sektion. */
+    private double arena(Gfx g, double x, double y, double w, double u) {
         if (arena == null) {
             arena = neontd.progress.Arena.of(app.today());
         }
-        double pad = 16 * u;
-        double h = 112 * u;
-        double lift = pressed("arena") ? 1 : (hovered("arena") ? 0.5 : 0);
-        Draw.accentCard(g, x, y, w, h, 20 * u, Theme.ACCENT, lift * 0.5);
-        hit(x, y, w, h, "arena");
-        double tx = x + pad;
-        double ty = y + pad + 8 * u;
+        double y0 = y;
         String left = neontd.progress.Arena.remainingText(arena.remainingMillis(app.platform.nowMillis(),
                 app.platform.localOffsetMillis()));
-        g.text("ARENA  ·  " + arena.label() + "  ·  noch " + left, tx, ty, 11 * u, Colors.lighten(Theme.ACCENT, 0.15),
-                Gfx.ALIGN_LEFT, true);
-        ty += 26 * u;
-        double bw = Math.min(w * 0.36, 150 * u);
-        double bx = x + w - pad - bw;
-        Draw.fit(g, arena.def.name, tx, ty, 22 * u, bx - tx - 10 * u, Theme.TEXT, Gfx.ALIGN_LEFT, true);
-        ty += 24 * u;
-        // Stand
+        y += Kit.section(g, "Arena", arena.label() + "  ·  noch " + left, Theme.MUTED, x, y, w, u);
         neontd.save.Leaderboard.ArenaEntry mine = null;
         neontd.save.Leaderboard.ArenaEntry lead = null;
         if (arenaList != null) {
@@ -238,178 +258,127 @@ public final class MenuScene extends PanelScene {
             }
         }
         long best = app.board.arenaBest(arena.id);
-        String line1;
-        String line2;
+        String line;
+        int lineColor = Theme.MUTED;
         if (mine != null) {
-            line1 = "Platz " + mine.rank + " von " + arenaList.size() + "  ·  " + Fmt.points(mine.score);
-            line2 = lead != null && !lead.mine ? "Es führt " + lead.name + " mit " + Fmt.points(lead.score) : "Du führst!";
+            line = "Platz " + mine.rank + " von " + arenaList.size() + "  ·  " + Fmt.points(mine.score)
+                    + (lead != null && !lead.mine ? "  ·  " + lead.name + " führt" : "");
+            lineColor = mine.rank == 1 ? Theme.STAR : Theme.TEXT;
         } else if (best > 0) {
-            line1 = "Dein Bestwert: " + Fmt.points(best);
-            line2 = lead != null ? "Es führt " + lead.name + " mit " + Fmt.points(lead.score) : "Wöchentlicher Highscore";
+            line = "Dein Bestwert " + Fmt.points(best);
         } else {
-            line1 = "Noch kein Lauf diese Woche";
-            line2 = lead != null ? "Es führt " + lead.name + " mit " + Fmt.points(lead.score)
-                    : "Gleiche Regeln für alle – wer holt die Woche?";
+            line = lead != null ? "Es führt " + lead.name + " mit " + Fmt.points(lead.score) : "Noch kein Lauf diese Woche";
         }
-        Draw.fit(g, line1, tx, ty, 14 * u, bx - tx - 10 * u, mine != null && mine.rank == 1 ? Theme.STAR : Theme.TEXT,
-                Gfx.ALIGN_LEFT, true);
-        Draw.cut(g, line2, tx, ty + 19 * u, 12 * u, bx - tx - 10 * u, Theme.MUTED, Gfx.ALIGN_LEFT, false);
-        double bh = 44 * u;
-        double by = y + h - pad - bh;
-        g.fillRoundRect(bx, by, bw, bh, 14 * u, Colors.lerp(Theme.ACCENT, 0xFFFFFF, 0.15 * lift));
-        Icons.draw(g, Icon.TROPHY, bx + 22 * u, by + bh / 2, 7 * u, 0x000000, 0);
-        g.text("Antreten", bx + 36 * u, by + bh / 2, 16 * u, 0x000000, Gfx.ALIGN_LEFT, true);
-        return h;
+        double h = 76 * u;
+        Kit.rowPress(g, x, y, w, h, lift("arena"), u);
+        hit(x, y, w, h, "arena");
+        Icons.draw(g, Icon.TROPHY, x + 14 * u, y + h / 2, 11 * u, Theme.ACCENT, 0);
+        double tx = x + 44 * u;
+        double lw = g.textWidth("Antreten", Kit.T_BODY * u, true);
+        Draw.cut(g, arena.def.name, tx, y + h / 2 - 12 * u, 22 * u, x + w - lw - 40 * u - tx, Theme.TEXT, Gfx.ALIGN_LEFT, true);
+        Draw.cut(g, line, tx, y + h / 2 + 14 * u, Kit.T_CAPTION * u, x + w - lw - 40 * u - tx, lineColor, Gfx.ALIGN_LEFT,
+                mine != null);
+        Kit.link(g, "Antreten", x + w - 22 * u, y + h / 2, Theme.ACCENT, lift("arena"), u);
+        Draw.chevron(g, x + w - 6 * u, y + h / 2, 5.5 * u, Theme.ACCENT, true);
+        y += h;
+        return y - y0;
     }
 
-    /** Ein anderer gespeicherter Lauf (nicht das nächste Level). */
-    private double resumeRow(Gfx g, double x, double y, double w, double u) {
-        LevelDef l = Levels.find(otherRunId);
-        double h = 56 * u;
-        double lift = pressed("resume") ? 1 : (hovered("resume") ? 0.5 : 0);
-        Draw.card(g, x, y, w, h, 16 * u, lift * 0.5);
-        hit(x, y, w, h, "resume");
-        Draw.iconBadge(g, x + 30 * u, y + h / 2, 16 * u, Icon.SAVE, Worlds.accent(l.chapter));
-        g.text("Gespeicherter Lauf", x + 56 * u, y + h / 2 - 9 * u, 14 * u, Theme.TEXT, Gfx.ALIGN_LEFT, true);
-        g.text(l.name + "  ·  Welle " + (otherRun.snapshot.waveIndex + 1), x + 56 * u, y + h / 2 + 10 * u, 12 * u,
-                Theme.MUTED, Gfx.ALIGN_LEFT, false);
-        Draw.chevron(g, x + w - 18 * u, y + h / 2, 5 * u, Theme.MUTED, true);
-        return h;
-    }
-
-    /** Profilzeile: Level-Ring, Name, Titel, XP-Balken, Serie. */
-    private double profileRow(Gfx g, double x, double y, double w, double u) {
+    /** Heute: Tages-Challenge und Tagesaufgaben. */
+    private double today(Gfx g, double x, double y, double w, double u) {
         Progress p = app.progress;
-        double h = 64 * u;
-        double lift = pressed("profile") ? 1 : (hovered("profile") ? 0.5 : 0);
-        Draw.card(g, x, y, w, h, 16 * u, lift * 0.5);
-        hit(x, y, w, h, "profile");
-        double cx = x + 32 * u;
-        double cy = y + h / 2;
-        double r = 20 * u;
-        g.strokeCircle(cx, cy, r, 3 * u, Theme.SURFACE3);
-        g.beginPath();
-        g.arc(cx, cy, r, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * p.levelFraction());
-        g.stroke(3 * u, Theme.MAGENTA);
-        g.text(Integer.toString(p.level()), cx, cy, 15 * u, Theme.TEXT, Gfx.ALIGN_CENTER, true);
-        double tx = x + 64 * u;
-        int streak = p.streakNow(app.today());
-        double right = x + w - 14 * u;
-        double chipW = 0;
-        if (streak > 0) {
-            chipW = Draw.chipRight(g, right, cy - 14 * u, 28 * u, Icon.FLAME, streak + (streak == 1 ? " Tag" : " Tage"),
-                    p.playedToday(app.today()) ? Theme.ORANGE : Theme.MUTED, true) + 10 * u;
-        }
-        Draw.fit(g, p.displayName(), tx, cy - 10 * u, 16 * u, right - chipW - tx, Theme.TEXT, Gfx.ALIGN_LEFT, true);
-        g.text(p.title() + "  ·  " + p.totalStars() + " Sterne", tx, cy + 11 * u, 12 * u, Theme.MUTED, Gfx.ALIGN_LEFT, false);
-        return h;
-    }
-
-    /** Karte „Heute“: Tages-Challenge und Tagesaufgaben mit Abholen. */
-    private double todayCard(Gfx g, double x, double y, double w, double u) {
-        Progress p = app.progress;
-        Quest[] q = p.dailyQuests();
-        double pad = 14 * u;
-        double rowH = 44 * u;
-        double h = pad + 20 * u + 52 * u + q.length * rowH + pad;
-        Draw.card(g, x, y, w, h, 18 * u, 0);
-        double ty = y + pad + 8 * u;
-        g.text("Heute", x + pad, ty, 16 * u, Theme.TEXT, Gfx.ALIGN_LEFT, true);
+        double y0 = y;
         int claimable = p.claimable();
-        if (claimable > 0) {
-            Draw.chipRight(g, x + w - pad, ty - 12 * u, 24 * u, null, claimable + " abholbar", Theme.GREEN, true);
-        }
-        ty += 22 * u;
-        // Tages-Challenge
+        y += Kit.section(g, "Heute", claimable > 0 ? claimable + " abholbar" : null, Theme.GREEN, x, y, w, u);
         neontd.progress.Daily d = neontd.progress.Daily.today(app.today());
-        double ch = 44 * u;
-        double lift = pressed("daily") ? 1 : (hovered("daily") ? 0.5 : 0);
-        Draw.raised(g, x + pad, ty, w - 2 * pad, ch, 12 * u, lift * 0.6);
-        hit(x + pad, ty, w - 2 * pad, ch, "daily");
-        Draw.iconBadge(g, x + pad + 22 * u, ty + ch / 2, 14 * u, Icon.CALENDAR, Worlds.accent(d.level.chapter));
-        Draw.fit(g, "Tages-Challenge: " + d.level.name, x + pad + 44 * u, ty + ch / 2 - 8 * u, 14 * u, w - 2 * pad - 140 * u,
-                Theme.TEXT, Gfx.ALIGN_LEFT, true);
-        String dsub = d.modifier.label + (p.dailyBestToday(app.today()) > 0
+        double h = Kit.ROW * u;
+        hit(x, y, w, h, "daily");
+        Icons.draw(g, Icon.CALENDAR, x + 14 * u, y + h / 2, 10 * u, Worlds.accent(d.level.chapter), 0);
+        String dsub = "Tages-Challenge  ·  " + d.modifier.label + (p.dailyBestToday(app.today()) > 0
                 ? "  ·  Beste Welle " + p.dailyBestToday(app.today()) : "  ·  " + neontd.progress.Daily.REWARD + " Kristalle");
-        Draw.fit(g, dsub, x + pad + 44 * u, ty + ch / 2 + 10 * u, 12 * u, w - 2 * pad - 140 * u, Theme.MUTED, Gfx.ALIGN_LEFT,
-                false);
-        g.fillRoundRect(x + w - pad - 80 * u, ty + 8 * u, 70 * u, ch - 16 * u, 10 * u, Colors.withAlpha(Theme.ACCENT, 0.16));
-        g.text("Spielen", x + w - pad - 45 * u, ty + ch / 2, 13 * u, Colors.lighten(Theme.ACCENT, 0.3), Gfx.ALIGN_CENTER, true);
-        ty += ch + 8 * u;
+        Kit.row(g, x, y, w, h, 44 * u, d.level.name, dsub, "Spielen", Theme.ACCENT, true, true, lift("daily"), false, u);
+        y += h;
+        Quest[] q = p.dailyQuests();
+        double rh = 64 * u;
         for (int i = 0; i < q.length; i++) {
             Quest quest = q[i];
             boolean ready = p.dailyReady(i);
             boolean done = p.dailyClaimed[i];
-            double ry = ty + i * rowH;
             String tag = "claim:" + i;
-            if (ready) {
-                hit(x + pad, ry, w - 2 * pad, rowH, tag);
-            }
             double f = Math.min(1, (double) p.dailyProgress[i] / quest.target);
-            int c = done ? Theme.MUTED : (ready ? Theme.GREEN : Theme.ACCENT);
-            g.text(quest.text(), x + pad, ry + 12 * u, 13 * u, done ? Theme.MUTED : Theme.TEXT, Gfx.ALIGN_LEFT, false);
-            String val = done ? "✓" : (ready ? "Abholen" : Fmt.compact(p.dailyProgress[i]) + "/" + Fmt.compact(quest.target));
             if (ready) {
-                double bw = 72 * u;
-                g.fillRoundRect(x + w - pad - bw, ry + 2 * u, bw, 22 * u, 8 * u,
-                        Colors.withAlpha(Theme.GREEN, pressed(tag) ? 0.4 : 0.2));
-                g.text("+" + quest.crystals + " ◆", x + w - pad - bw / 2, ry + 13 * u, 12 * u, Colors.lighten(Theme.GREEN, 0.3),
-                        Gfx.ALIGN_CENTER, true);
-            } else {
-                g.text(val, x + w - pad, ry + 12 * u, 12 * u, Theme.MUTED, Gfx.ALIGN_RIGHT, true);
+                hit(x, y, w, rh, tag);
             }
-            Draw.bar(g, x + pad, ry + 26 * u, w - 2 * pad, 5 * u, done ? 1 : f, c);
+            double right = x + w;
+            double vw;
+            if (ready) {
+                vw = Kit.pill(g, "Abholen  +" + quest.crystals + " ◆", right, y + rh / 2 - 8 * u, Theme.GREEN,
+                        pressed(tag) ? 1 : 0, u);
+            } else {
+                String v = done ? "Erledigt" : Fmt.compact(p.dailyProgress[i]) + " / " + Fmt.compact(quest.target);
+                g.text(v, right, y + rh / 2 - 8 * u, Kit.T_BODY * u, done ? Theme.GREEN : Theme.MUTED, Gfx.ALIGN_RIGHT, true);
+                vw = g.textWidth(v, Kit.T_BODY * u, true);
+            }
+            Draw.cut(g, quest.text(), x + 44 * u, y + rh / 2 - 8 * u, Kit.T_ROW * u, right - vw - 16 * u - x - 44 * u,
+                    done ? Theme.MUTED : Theme.TEXT, Gfx.ALIGN_LEFT, true);
+            int c = done ? Colors.withAlpha(Theme.GREEN, 0.5) : (ready ? Theme.GREEN : Theme.ACCENT);
+            if (done) {
+                Icons.draw(g, Icon.CHECK, x + 14 * u, y + rh / 2 - 8 * u, 8 * u, Theme.GREEN, 0);
+            } else {
+                g.strokeCircle(x + 14 * u, y + rh / 2 - 8 * u, 9 * u, 1.6 * u, Colors.withAlpha(0xFFFFFF, 0.25));
+            }
+            Kit.meter(g, x + 44 * u, y + rh / 2 + 12 * u, w - 44 * u, done ? 1 : f, c, u);
+            if (i < q.length - 1) {
+                Kit.hairline(g, x + 44 * u, y + rh - 1, w - 44 * u);
+            }
+            y += rh;
         }
-        return h;
+        return y - y0;
     }
 
-    /** Welten in einer Reihe: Akzentpunkt, Name, Sterne, Schloss. */
-    private double worldsCard(Gfx g, double x, double y, double w, double u) {
+    /** Welten: zweispaltig, ohne Kacheln – Farbpunkt, Name, Sterne und ein feiner Balken. */
+    private double worlds(Gfx g, double x, double y, double w, double u) {
         Progress p = app.progress;
-        double pad = 14 * u;
-        int cols = w > 560 * u ? 4 : 2;
-        int rows = (Worlds.COUNT + cols - 1) / cols;
-        double tileH = 60 * u;
-        double gapT = 8 * u;
-        double h = pad + 20 * u + 10 * u + rows * (tileH + gapT) - gapT + pad;
-        Draw.card(g, x, y, w, h, 18 * u, 0);
-        double ty = y + pad + 8 * u;
-        g.text("Welten", x + pad, ty, 16 * u, Theme.TEXT, Gfx.ALIGN_LEFT, true);
-        int total = p.totalStars();
-        Draw.chipRight(g, x + w - pad, ty - 12 * u, 24 * u, Icon.STAR, total + " / " + Worlds.maxStarsThrough(Worlds.COUNT),
-                Theme.STAR, true);
-        ty += 22 * u;
-        double tw = (w - 2 * pad - gapT * (cols - 1)) / cols;
+        double y0 = y;
+        y += Kit.section(g, "Welten", "★ " + p.totalStars() + " / " + Worlds.maxStarsThrough(Worlds.COUNT), Theme.STAR,
+                x, y, w, u);
+        int cols = w > 520 * u ? 4 : 2;
+        double colGap = 24 * u;
+        double cw = (w - colGap * (cols - 1)) / cols;
+        double ch = 74 * u;
         for (int i = 0; i < Worlds.COUNT; i++) {
             int world = i + 1;
-            double tx = x + pad + (i % cols) * (tw + gapT);
-            double yy = ty + (i / cols) * (tileH + gapT);
+            double cx = x + (i % cols) * (cw + colGap);
+            double cy = y + (i / cols) * ch;
             boolean open = p.worldUnlocked(world);
             String tag = "world:" + world;
-            double lift = pressed(tag) ? 1 : (hovered(tag) ? 0.5 : 0);
-            Draw.raised(g, tx, yy, tw, tileH, 12 * u, open ? lift * 0.6 : 0);
-            hit(tx, yy, tw, tileH, tag);
+            hit(cx, cy, cw, ch, tag);
+            Kit.rowPress(g, cx + 4 * u, cy, cw - 8 * u, ch, open ? lift(tag) : 0, u);
             int accent = Worlds.accent(world);
             g.save();
-            g.alpha(open ? 1 : 0.45);
-            g.fillCircle(tx + 16 * u, yy + 20 * u, 5 * u, accent);
-            Draw.fit(g, Worlds.name(world), tx + 28 * u, yy + 20 * u, 13 * u, tw - 36 * u, Theme.TEXT, Gfx.ALIGN_LEFT, true);
+            g.alpha(open ? 1 : 0.42);
+            Kit.dot(g, cx + 6 * u, cy + 24 * u, 5 * u, accent);
+            Draw.cut(g, Worlds.name(world), cx + 20 * u, cy + 24 * u, Kit.T_ROW * u, cw - 24 * u, Theme.TEXT, Gfx.ALIGN_LEFT, true);
             if (open) {
                 int stars = p.worldStars(world);
-                g.text(stars + " / " + (Worlds.LEVELS * 3) + " ★", tx + 12 * u, yy + 42 * u, 11 * u, Theme.MUTED, Gfx.ALIGN_LEFT, false);
-                Draw.bar(g, tx + tw - 70 * u, yy + 39 * u, 58 * u, 4 * u, stars / (double) (Worlds.LEVELS * 3), accent);
-            } else {
-                g.text("ab " + Worlds.REQUIRED_STARS[world - 1] + " ★", tx + 12 * u, yy + 42 * u, 11 * u, Theme.MUTED,
+                g.text(stars + " / " + (Worlds.LEVELS * 3) + " ★", cx + 20 * u, cy + 47 * u, Kit.T_CAPTION * u, Theme.MUTED,
                         Gfx.ALIGN_LEFT, false);
-                Draw.lock(g, tx + tw - 16 * u, yy + 40 * u, 6 * u);
+                Kit.meter(g, cx + 20 * u, cy + 60 * u, cw - 24 * u, stars / (double) (Worlds.LEVELS * 3), accent, u);
+            } else {
+                Draw.lock(g, cx + 26 * u, cy + 48 * u, 5.5 * u);
+                g.text("ab " + Worlds.REQUIRED_STARS[world - 1] + " ★", cx + 38 * u, cy + 48 * u, Kit.T_CAPTION * u, Theme.MUTED,
+                        Gfx.ALIGN_LEFT, false);
             }
             g.restore();
         }
-        return h;
+        y += ((Worlds.COUNT + cols - 1) / cols) * ch;
+        return y - y0;
     }
 
-    /** Kacheln: Shop, Season, Erfolge, Bestenliste, Editor. */
-    private double tiles(Gfx g, double x, double y, double w, double u) {
+    /** Weitere Bereiche als schlichte Liste. */
+    private double more(Gfx g, double x, double y, double w, double u) {
+        double y0 = y;
+        y += Kit.section(g, "Mehr", null, 0, x, y, w, u);
         String[][] items = {
             {"shop", "Shop", "Elite-Türme, Spezials, Forschung"},
             {"missions", "Season", "Season-Pass und Monatsaufgaben"},
@@ -419,30 +388,17 @@ public final class MenuScene extends PanelScene {
         };
         Icon[] icons = {Icon.CRYSTAL, Icon.FLAG, Icon.TROPHY, Icon.BOARD, Icon.EDITOR};
         int[] colors = {Theme.CRYSTAL, Theme.GREEN, Theme.YELLOW, Theme.MAGENTA, Theme.CYAN};
-        double rowH = 58 * u;
-        double h = items.length * rowH;
-        Draw.card(g, x, y, w, h, 18 * u, 0);
+        double rh = Kit.ROW * u;
         for (int i = 0; i < items.length; i++) {
-            double ry = y + i * rowH;
             String tag = items[i][0];
-            double lift = pressed(tag) ? 1 : (hovered(tag) ? 0.5 : 0);
-            if (lift > 0) {
-                g.fillRoundRect(x + 4 * u, ry + 3 * u, w - 8 * u, rowH - 6 * u, 12 * u, Colors.withAlpha(0xFFFFFF, 0.04 * lift));
-            }
-            hit(x, ry, w, rowH, tag);
-            Draw.iconBadge(g, x + 30 * u, ry + rowH / 2, 16 * u, icons[i], colors[i]);
-            g.text(items[i][1], x + 58 * u, ry + rowH / 2 - 8 * u, 15 * u, Theme.TEXT, Gfx.ALIGN_LEFT, true);
-            g.text(items[i][2], x + 58 * u, ry + rowH / 2 + 10 * u, 12 * u, Theme.MUTED, Gfx.ALIGN_LEFT, false);
+            hit(x, y, w, rh, tag);
+            Icons.draw(g, icons[i], x + 14 * u, y + rh / 2, 10 * u, colors[i], 0);
             boolean badge = tag.equals("missions") && app.progress.claimable() > 0;
-            if (badge) {
-                g.fillCircle(x + w - 40 * u, ry + rowH / 2, 4 * u, Theme.RED);
-            }
-            Draw.chevron(g, x + w - 18 * u, ry + rowH / 2, 5 * u, Theme.MUTED, true);
-            if (i < items.length - 1) {
-                Draw.divider(g, x + 58 * u, ry + rowH, w - 58 * u);
-            }
+            Kit.row(g, x, y, w, rh, 44 * u, items[i][1], items[i][2], badge ? "●" : null, Theme.RED, true,
+                    i < items.length - 1, lift(tag), false, u);
+            y += rh;
         }
-        return h;
+        return y - y0;
     }
 
     // ---------------------------------------------------------------------------------------- Aktionen
@@ -518,7 +474,7 @@ public final class MenuScene extends PanelScene {
 
     /** Für Tests und das Screenshot-Werkzeug: die Spielen-Taste liegt in der ersten Karte. */
     public double[] playAnchor() {
-        return new double[] {contentX + contentW - 60 * app.vp.u, contentTop + 20 * app.vp.u};
+        return new double[] {contentX + contentW / 2, contentTop + 200 * app.vp.u};
     }
 
     @Override

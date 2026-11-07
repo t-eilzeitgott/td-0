@@ -12,7 +12,7 @@ import neontd.gfx.Theme;
  * nur eine Linie.
  */
 public final class Button {
-    public enum Style { PRIMARY, SECONDARY, GHOST }
+    public enum Style { PRIMARY, SECONDARY, GHOST, TEXT }
 
     /** Eigene Darstellung statt des Standardaussehens. Koordinaten: (0,0) = Mitte, Größe b.w × b.h. */
     public interface Painter {
@@ -128,6 +128,12 @@ public final class Button {
                     g.fillRoundRect(-w / 2, -h / 2, w, h, r, Colors.withAlpha(color, 0.06 * hv + 0.12 * pr + (selected ? 0.14 : 0)));
                 }
                 g.strokeRoundRect(-w / 2, -h / 2, w, h, r, 1, selected ? Colors.withAlpha(color, 0.6) : Theme.LINE);
+                break;
+            case TEXT:
+                fg = Theme.TEXT;
+                if (hv > 0 || pr > 0) {
+                    g.fillRoundRect(-w / 2, -h / 2, w, h, r, Colors.withAlpha(0xFFFFFF, 0.04 * hv + 0.07 * pr));
+                }
                 break;
             default:
                 if (selected) {

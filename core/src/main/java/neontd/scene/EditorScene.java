@@ -154,6 +154,9 @@ public final class EditorScene extends Scene {
         backBtn = ui.add(new Button("ZURÜCK", Icon.BACK, Theme.TEXT_DIM, this::leave));
         toggleBtn = ui.add(new Button("", Icon.UP, Theme.TEXT_DIM, this::toggleRail));
         toggleBtn.painter = this::paintToggle;
+        testBtn.painter = this::paintPill;
+        saveBtn.painter = this::paintPlain;
+        backBtn.painter = this::paintPlain;
         testBtn.fontScale = 0.8;
         saveBtn.fontScale = 0.8;
         backBtn.fontScale = 0.8;
@@ -166,6 +169,52 @@ public final class EditorScene extends Scene {
         railT.snap(railWanted ? 1 : 0);
     }
 
+    // ------------------------------------------------------------------------------- Design-Bausteine
+
+    /** Weiche Aufhellung beim Drücken/Hover statt einer dauerhaften Fläche. */
+    private void pressGlow(Gfx g, Button b, double w, double h) {
+        double k = Math.max(b.hover.value * 0.6, b.press.value);
+        if (k > 0.01) {
+            g.fillRoundRect(-w / 2, -h / 2, w, h, Math.min(h / 2, 16 * app.vp.u), Colors.withAlpha(0xFFFFFF, 0.08 * k));
+        }
+    }
+
+    private void label(Gfx g, Button b, int iconColor, int textColor, double fs) {
+        double w = b.w;
+        boolean hasIcon = b.icon != null;
+        boolean hasText = b.label != null && !b.label.isEmpty();
+        String text = hasText ? b.label.charAt(0) + b.label.substring(1).toLowerCase() : "";
+        double is = hasText ? Math.min(fs * 0.42, b.h * 0.2) : Math.min(Math.min(w, b.h) * 0.24, 11 * app.vp.u);
+        double tw = hasText ? g.textWidth(text, fs, true) : 0;
+        double gap = hasIcon && hasText ? fs * 0.45 : 0;
+        double total = (hasIcon ? is * 2 : 0) + gap + tw;
+        double k = total > w * 0.88 ? w * 0.88 / total : 1;
+        double left = -total * k / 2;
+        if (hasIcon) {
+            Icons.draw(g, b.icon, left + is * k, 0, is * k, iconColor, 0);
+            left += (is * 2 + gap) * k;
+        }
+        if (hasText) {
+            g.text(text, left, 0, fs * k, textColor, Gfx.ALIGN_LEFT, true);
+        }
+    }
+
+    /** Haupttaste als Pille. */
+    private void paintPill(Gfx g, Button b) {
+        double w = b.w;
+        double h = b.h;
+        int c = Colors.lerp(Colors.lerp(b.color, 0xFFFFFF, 0.12 * b.hover.value), Colors.darken(b.color, 0.18), b.press.value);
+        g.fillRoundRect(-w / 2, -h / 2, w, h, h / 2, c);
+        label(g, b, 0x000000, 0x000000, Math.min(h * 0.36, neontd.ui.Kit.T_BODY * app.vp.u));
+    }
+
+    /** Nebenaktion ohne Fläche. */
+    private void paintPlain(Gfx g, Button b) {
+        pressGlow(g, b, b.w, b.h);
+        label(g, b, b.color == Theme.TEXT_DIM ? Theme.TEXT : b.color, Theme.TEXT,
+                Math.min(b.h * 0.36, neontd.ui.Kit.T_BODY * app.vp.u));
+    }
+
     private void toggleRail() {
         railWanted = !railWanted;
         app.platform.store().put(RAIL_KEY, railWanted ? "1" : "0");
@@ -175,11 +224,11 @@ public final class EditorScene extends Scene {
         double w = b.w;
         double h = b.h;
         double hv = b.hover.value;
-        g.fillRoundRect(-w / 2, -h / 2, w, h, h * 0.25, Colors.lerp(Theme.SURFACE2, Theme.SURFACE3, hv));
+        pressGlow(g, b, w, h);
         double ang = portrait ? (railWanted ? Math.PI : 0) : (railWanted ? -Math.PI / 2 : Math.PI / 2);
         g.save();
         g.rotate(ang);
-        Icons.draw(g, Icon.UP, 0, 0, Math.min(w, h) * 0.28, Theme.TEXT_DIM, 0);
+        Icons.draw(g, Icon.UP, 0, 0, Math.min(w, h) * 0.24, Theme.TEXT, 0);
         g.restore();
     }
 
@@ -188,10 +237,15 @@ public final class EditorScene extends Scene {
         double w = b.w;
         double h = b.h;
         double hv = Math.max(b.hover.value, sel ? 1 : 0);
-        g.fillRoundRect(-w / 2, -h / 2, w, h, h * 0.2, sel ? Colors.withAlpha(color, 0.2) : Colors.lerp(Theme.SURFACE2, Theme.SURFACE3, hv * 0.7 + b.press.value));
-        double is = Math.min(h * 0.27, w * 0.2);
-        Icons.draw(g, icon, 0, -h * 0.13, is, color, 0);
-        g.text(label, 0, h * 0.30, Math.max(8, Math.min(h * 0.19, w * 0.13)), sel ? Theme.TEXT : Theme.MUTED, Gfx.ALIGN_CENTER, true);
+        pressGlow(g, b, w, h);
+        double is = Math.min(h * 0.24, w * 0.18);
+        if (sel) {
+            g.radialGlow(0, -h * 0.13, Math.min(w, h) * 0.5, Colors.withAlpha(color, 0.3));
+            g.fillRoundRect(-w * 0.2, h / 2 - 3 * app.vp.u, w * 0.4, 2.5 * app.vp.u, 1.2 * app.vp.u, color);
+        }
+        Icons.draw(g, icon, 0, -h * 0.13, is, sel ? color : Colors.withAlpha(color, 0.7), 0);
+        String t = label.charAt(0) + label.substring(1).toLowerCase();
+        g.text(t, 0, h * 0.27, Math.max(8, Math.min(h * 0.2, w * 0.15)), sel ? Theme.TEXT : Theme.MUTED, Gfx.ALIGN_CENTER, true);
     }
 
     private void paintChip(Gfx g, Button b, int idx) {
@@ -203,11 +257,15 @@ public final class EditorScene extends Scene {
         int c = isPlus ? Theme.GREEN : Theme.YELLOW;
         double hv = Math.max(b.hover.value, sel ? 1 : 0);
         double a = (exists || isPlus) ? 1 : 0.28;
-        g.fillRoundRect(-w / 2, -h / 2, w, h, h * 0.3, sel ? Colors.withAlpha(c, 0.22) : Colors.lerp(Theme.SURFACE2, Theme.SURFACE3, hv * 0.7 + b.press.value));
+        pressGlow(g, b, w, h);
+        if (sel) {
+            g.fillCircle(0, 0, Math.min(w, h) * 0.36, Colors.withAlpha(c, 0.22));
+        }
         if (isPlus) {
             Icons.draw(g, Icon.PLUS, 0, 0, h * 0.24, c, 0);
         } else {
-            g.text(Integer.toString(idx + 1), 0, 0, h * 0.42, Colors.withAlpha(Theme.TEXT, a), Gfx.ALIGN_CENTER, true);
+            g.text(Integer.toString(idx + 1), 0, 0, h * 0.4, sel ? Colors.lighten(c, 0.3) : Colors.withAlpha(Theme.TEXT, a),
+                    Gfx.ALIGN_CENTER, true);
         }
     }
 
@@ -217,8 +275,8 @@ public final class EditorScene extends Scene {
         double hv = b.hover.value;
         int c = b.color;
         boolean on = b.enabled;
-        g.fillRoundRect(-w / 2, -h / 2, w, h, h * 0.25, Colors.lerp(Theme.SURFACE2, Theme.SURFACE3, hv * 0.7 + b.press.value));
-        Icons.draw(g, icon, 0, 0, Math.min(h * 0.3, w * 0.2), on ? c : Colors.withAlpha(c, 0.35), 0);
+        pressGlow(g, b, w, h);
+        Icons.draw(g, icon, 0, 0, Math.min(h * 0.26, w * 0.2), on ? c : Colors.withAlpha(c, 0.3), 0);
     }
 
     // ---------------------------------------------------------------------------------------- Layout
@@ -789,18 +847,17 @@ public final class EditorScene extends Scene {
         double h = headerH;
         boolean ok = problem == null;
         int accent = ok ? Theme.GREEN : Theme.YELLOW;
-        g.fillRoundRect(x, y, w, h, h * 0.2, Colors.withAlpha(Theme.PANEL, 0.95));
-        g.strokeRoundRect(x, y, w, h, h * 0.2, 1.4, Colors.withAlpha(accent, 0.6));
+        g.fillRect(x, y + h - 1, w, 1, Colors.withAlpha(0xFFFFFF, 0.08));
         String name = level.id.isEmpty() ? "Neues Level" : level.name;
-        g.text(name + (dirty ? " *" : ""), x + h * 0.25, y + h * 0.3, Math.max(11, h * 0.3), Theme.TEXT, Gfx.ALIGN_LEFT, true);
-        Icons.draw(g, ok ? Icon.CHECK : Icon.TARGET, x + h * 0.45, y + h * 0.72, h * 0.17, accent, 2);
+        g.text(name + (dirty ? " *" : ""), x, y + h * 0.3, Math.max(13, h * 0.34), Theme.TEXT, Gfx.ALIGN_LEFT, true);
+        Icons.draw(g, ok ? Icon.CHECK : Icon.TARGET, x + h * 0.2, y + h * 0.72, h * 0.17, accent, 0);
         String status = ok ? "Spielbar · Länge " + Mathx.roundToInt(totalLength) : problem;
         double size = Math.max(9, h * 0.22);
-        double avail = w - h * 0.85;
+        double avail = w - h * 0.5;
         while (size > 8 && g.textWidth(status, size, false) > avail) {
             size -= 0.5;
         }
-        g.text(status, x + h * 0.72, y + h * 0.72, size, ok ? Theme.TEXT_DIM : accent, Gfx.ALIGN_LEFT, false);
+        g.text(status, x + h * 0.48, y + h * 0.72, size, ok ? Theme.MUTED : accent, Gfx.ALIGN_LEFT, false);
     }
 
     /** Handy: Name und Zustand als schwebende Kopfzeile über der Karte. */
@@ -813,18 +870,20 @@ public final class EditorScene extends Scene {
         int accent = ok ? Theme.GREEN : Theme.YELLOW;
         g.save();
         g.alpha(0.9);
-        g.fillRoundRect(x, y, w, h, h * 0.4, Colors.withAlpha(0x000000, 0.66));
-        g.strokeRoundRect(x, y, w, h, h * 0.4, 1, Colors.withAlpha(accent, 0.6));
+        for (int i = 0; i < 10; i++) {
+            double t = i / 10.0;
+            g.fillRect(x - 6, y - 4 + i * (h + 16) / 10, w + 12, (h + 16) / 10 + 0.6, Colors.withAlpha(0x000000, 0.7 * (1 - t)));
+        }
         String name = level.id.isEmpty() ? "Neues Level" : level.name;
         String status = ok ? "Spielbar · " + Mathx.roundToInt(totalLength) : problem;
         double fs = h * 0.46;
-        Icons.draw(g, ok ? Icon.CHECK : Icon.TARGET, x + h * 0.55, y + h / 2, h * 0.24, accent, 2);
+        Icons.draw(g, ok ? Icon.CHECK : Icon.TARGET, x + h * 0.4, y + h / 2, h * 0.24, accent, 0);
         String text = name + (dirty ? " *" : "") + "  ·  " + status;
-        double avail = w - h * 1.1;
+        double avail = w - h * 0.9;
         while (fs > 8 && g.textWidth(text, fs, true) > avail) {
             fs -= 0.5;
         }
-        g.text(text, x + h * 0.95, y + h / 2, fs, ok ? Theme.TEXT : accent, Gfx.ALIGN_LEFT, true);
+        g.text(text, x + h * 0.8, y + h / 2, fs, ok ? Theme.TEXT : accent, Gfx.ALIGN_LEFT, true);
         g.restore();
     }
 
@@ -840,8 +899,8 @@ public final class EditorScene extends Scene {
         double y = view.y + view.h - h - 12 * u;
         g.save();
         g.alpha(a);
-        g.fillRoundRect(cx - w / 2, y, w, h, h / 2, Colors.withAlpha(0x000000, 0.9));
-        Neon.roundRect(g, cx - w / 2, y, w, h, h / 2, 1.6, toastColor, 5);
+        g.fillRoundRect(cx - w / 2, y, w, h, h / 2, Colors.withAlpha(Theme.SURFACE3, 0.96));
+        g.fillCircle(cx - w / 2 + h * 0.5, y + h / 2, h * 0.12, toastColor);
         g.text(toast, cx, y + h / 2, size, Theme.TEXT, Gfx.ALIGN_CENTER, true);
         g.restore();
     }

@@ -17,6 +17,7 @@ import neontd.save.RunSave;
 import neontd.ui.Button;
 import neontd.ui.Draw;
 import neontd.ui.Fmt;
+import neontd.ui.Kit;
 
 /**
  * Die Tages-Challenge: Level und Modifikator des Tages, der eigene Rekord, die heutige Bestenliste und die
@@ -43,6 +44,8 @@ public final class DailyScene extends PanelScene {
                     app.goTo(r != null ? GameScene.resume(app, level, r) : GameScene.endless(app, level));
                 }));
         play.style = Button.Style.PRIMARY;
+        play.painter = (g, b) -> Kit.primary(g, -b.w / 2, -b.h / 2, b.w, b.h, b.label, Icon.PLAY, Theme.ACCENT,
+                Math.max(b.hover.value * 0.5, b.press.value), app.vp.u);
         if (app.board.available()) {
             loading = true;
             app.board.top(daily.id(), l -> {
@@ -62,72 +65,55 @@ public final class DailyScene extends PanelScene {
     public void layout() {
         super.layout();
         double u = app.vp.u;
-        double bh = 52 * u;
-        play.bounds(contentX, contentBottom - bh - 8 * u, contentW, bh);
-        contentBottom -= bh + 20 * u;
+        double bh = Kit.BUTTON * u;
+        play.bounds(contentX, contentBottom - bh - 6 * u, contentW, bh);
+        contentBottom -= bh + 22 * u;
     }
 
     @Override
     protected double drawContent(Gfx g, double x, double y0, double w, double u) {
         double y = y0;
-        double pad = 16 * u;
         int accent = Worlds.accent(daily.level.chapter);
-        double previewH = Math.min(w * 0.4, 220 * u);
-        double h = pad + 20 * u + previewH + 12 * u + 60 * u + pad;
-        Draw.accentCard(g, x, y, w, h, 20 * u, accent, 0);
-        double ty = y + pad + 8 * u;
-        g.text(Worlds.name(daily.level.chapter) + "  ·  Level " + daily.level.number, x + pad, ty, 11 * u,
-                Colors.lighten(accent, 0.15), Gfx.ALIGN_LEFT, true);
-        Draw.chipRight(g, x + w - pad, ty - 12 * u, 24 * u, Icon.CALENDAR, "Heute", Theme.ACCENT, true);
-        ty += 20 * u;
-        g.fillRoundRect(x + pad, ty, w - 2 * pad, previewH, 14 * u, Theme.BG);
-        LevelPreview.draw(g, paths, level.width, level.height, x + pad + 8 * u, ty + 8 * u, w - 2 * pad - 16 * u,
-                previewH - 16 * u, Worlds.lane(daily.level.chapter), time);
-        g.strokeRoundRect(x + pad, ty, w - 2 * pad, previewH, 14 * u, 1, Theme.LINE);
-        ty += previewH + 14 * u;
-        Draw.fit(g, daily.level.name, x + pad, ty + 6 * u, 22 * u, w - 2 * pad, Theme.TEXT, Gfx.ALIGN_LEFT, true);
-        ty += 30 * u;
-        double cw = Draw.chip(g, x + pad, ty, 26 * u, null, daily.modifier.label, daily.modifier.color, true);
-        Draw.fit(g, daily.modifier.desc, x + pad + cw + 10 * u, ty + 13 * u, 13 * u, w - 2 * pad - cw - 10 * u, Theme.MUTED,
-                Gfx.ALIGN_LEFT, false);
-        y += h + 12 * u;
+        Kit.kicker(g, "Heute  ·  " + Worlds.name(daily.level.chapter) + "  ·  Level " + daily.level.number, x, y + 8 * u, u,
+                Colors.lighten(accent, 0.1));
+        y += 30 * u;
+        Draw.fit(g, daily.level.name, x, y + 4 * u, Kit.T_HERO * u, w, Theme.TEXT, Gfx.ALIGN_LEFT, true);
+        y += 36 * u;
+        g.text(daily.modifier.label, x, y, Kit.T_BODY * u, Colors.lighten(daily.modifier.color, 0.2), Gfx.ALIGN_LEFT, true);
+        double mw = g.textWidth(daily.modifier.label, Kit.T_BODY * u, true);
+        Draw.cut(g, "  ·  " + daily.modifier.desc, x + mw, y, Kit.T_BODY * u, w - mw, Theme.MUTED, Gfx.ALIGN_LEFT, false);
+        y += 18 * u;
+        double previewH = Math.min(Math.min(w * 0.62, 300 * u), app.vp.h * 0.42);
+        g.save();
+        g.clipRect(x - 10 * u, y, w + 20 * u, previewH);
+        g.radialGlow(x + w / 2, y + previewH / 2, w * 0.6, Colors.withAlpha(accent, 0.07));
+        LevelPreview.draw(g, paths, level.width, level.height, x + 6 * u, y + 10 * u, w - 12 * u, previewH - 20 * u,
+                Worlds.lane(daily.level.chapter), time);
+        g.restore();
+        y += previewH + 16 * u;
 
         // Eigener Stand
         int best = app.progress.dailyBestToday(app.today());
-        double rh = 60 * u;
-        Draw.card(g, x, y, w, rh, 16 * u, 0);
-        Draw.iconBadge(g, x + 30 * u, y + rh / 2, 16 * u, Icon.WAVES, Theme.ACCENT);
-        Draw.fit(g, best > 0 ? "Deine beste Welle heute: " + best : "Noch nicht gespielt", x + 58 * u, y + rh / 2 - 8 * u,
-                14 * u, w - 72 * u, Theme.TEXT, Gfx.ALIGN_LEFT, true);
-        Draw.cut(g, "Ab Welle " + Daily.REWARD_WAVE + ": +" + Daily.REWARD + " Kristalle  ·  Endlos, die weiteste Welle zählt",
-                x + 58 * u, y + rh / 2 + 10 * u, 11 * u, w - 72 * u, Theme.MUTED, Gfx.ALIGN_LEFT, false);
-        y += rh + 12 * u;
+        Kit.stat(g, best > 0 ? "Welle " + best : "–", best > 0 ? "Deine beste Welle heute" : "Noch nicht gespielt", x, y,
+                best > 0 ? Theme.TEXT : Theme.MUTED, u);
+        Kit.stat(g, "+" + Daily.REWARD, "Kristalle ab Welle " + Daily.REWARD_WAVE, x + w * 0.52, y, Theme.CRYSTAL, u);
+        y += 60 * u;
+        y += Kit.paragraph(g, "Endlosmodus – die weiteste Welle zählt.", x, y, w, Kit.T_CAPTION * u, Theme.MUTED, u);
+        y += Kit.SECTION_GAP * u;
 
         // Bestenliste des Tages
-        g.text("Bestenliste heute", x + 2 * u, y + 10 * u, 13 * u, Theme.MUTED, Gfx.ALIGN_LEFT, false);
-        y += 26 * u;
+        y += Kit.section(g, "Bestenliste heute", null, 0, x, y, w, u);
         if (list == null || list.isEmpty()) {
-            double eh = 64 * u;
-            Draw.card(g, x, y, w, eh, 16 * u, 0);
-            String msg = loading ? "Lädt …" : (failed ? "Keine Verbindung." : "Noch keine Einträge – sei der Erste!");
-            g.text(msg, x + w / 2, y + eh / 2, 13 * u, Theme.MUTED, Gfx.ALIGN_CENTER, false);
-            y += eh;
+            String msg = loading ? "Lädt …" : (failed ? "Keine Verbindung" : "Noch keine Einträge – sei der Erste!");
+            g.text(msg, x, y + 20 * u, Kit.T_BODY * u, Theme.MUTED, Gfx.ALIGN_LEFT, false);
+            y += 44 * u;
         } else {
             int n = Math.min(10, list.size());
-            double rowH = 40 * u;
-            Draw.card(g, x, y, w, n * rowH, 16 * u, 0);
             for (int i = 0; i < n; i++) {
                 Leaderboard.Entry e = list.get(i);
-                double ry = y + i * rowH;
-                if (e.mine) {
-                    g.fillRoundRect(x + 4 * u, ry + 3 * u, w - 8 * u, rowH - 6 * u, 10 * u, Colors.withAlpha(Theme.ACCENT, 0.12));
-                }
-                g.text(Integer.toString(i + 1), x + pad + 8 * u, ry + rowH / 2, 13 * u, i < 3 ? Theme.STAR : Theme.MUTED,
-                        Gfx.ALIGN_CENTER, true);
-                Draw.fit(g, e.name, x + pad + 30 * u, ry + rowH / 2, 14 * u, w - 130 * u, Theme.TEXT, Gfx.ALIGN_LEFT, true);
-                g.text("Welle " + Fmt.compact(e.score), x + w - pad, ry + rowH / 2, 13 * u, Theme.TEXT, Gfx.ALIGN_RIGHT, true);
+                y += LeaderboardScene.rankRow(g, x, y, w, u, i + 1, e.name, null, "Welle " + Fmt.compact(e.score), e.mine,
+                        Theme.ACCENT, i < n - 1);
             }
-            y += n * rowH;
         }
         return y - y0 + 16 * u;
     }

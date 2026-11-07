@@ -14,6 +14,7 @@ import neontd.platform.InstallInfo;
 import neontd.ui.Button;
 import neontd.ui.Draw;
 import neontd.ui.Easing;
+import neontd.ui.Kit;
 import neontd.ui.Ui;
 import neontd.ui.Viewport;
 
@@ -61,16 +62,21 @@ public final class InstallScene extends Scene {
         info = app.platform.installInfo();
         install = ui.add(new Button("App installieren", Icon.PLUS, Theme.ACCENT, this::runPrompt));
         install.style = Button.Style.PRIMARY;
+        install.painter = (g, b) -> Kit.primary(g, -b.w / 2, -b.h / 2, b.w, b.h, b.label, Icon.PLUS, Theme.ACCENT,
+                Math.max(b.hover.value, b.press.value), app.vp.u);
         skip = ui.add(new Button(firstStart ? "Ohne Installation im Browser weiter" : "Zurück", null, Theme.MUTED, this::leave));
         skip.painter = (g, b) -> {
             double hv = Math.max(b.hover.value, b.press.value);
-            g.text(b.label, 0, 0, 14 * app.vp.u, Colors.lerp(Theme.MUTED, Theme.TEXT, hv), Gfx.ALIGN_CENTER, true);
+            g.text(b.label, 0, 0, Kit.T_BODY * app.vp.u, Colors.lerp(Theme.MUTED, Theme.TEXT, hv), Gfx.ALIGN_CENTER, true);
         };
         back = ui.add(new Button("", Icon.BACK, Theme.TEXT, this::leave));
         back.painter = (g, b) -> {
             double r = Math.min(b.w, b.h) / 2;
-            g.fillCircle(0, 0, r, Colors.lerp(Theme.SURFACE2, Theme.SURFACE3, Math.max(b.hover.value, b.press.value)));
-            Draw.chevron(g, 1, 0, r * 0.3, Theme.TEXT, false);
+            double k = Math.max(b.hover.value, b.press.value);
+            if (k > 0) {
+                g.fillCircle(0, 0, r, Colors.withAlpha(0xFFFFFF, 0.08 * k));
+            }
+            Draw.chevron(g, -1, 0, r * 0.36, Theme.TEXT, false);
         };
         back.visible = !firstStart;
         refreshButtons();
@@ -107,8 +113,8 @@ public final class InstallScene extends Scene {
     public void layout() {
         Viewport vp = app.vp;
         double u = vp.u;
-        double m = 16 * u;
-        w = Math.min(vp.safeW() - 2 * m, 440 * u);
+        double m = Kit.MARGIN * u;
+        w = Math.min(vp.safeW() - 2 * m, 520 * u);
         x = vp.insetL + (vp.safeW() - w) / 2;
         if (vp.w != layoutW) {
             layoutW = vp.w;
@@ -116,12 +122,12 @@ public final class InstallScene extends Scene {
         } else {
             stableH = Math.max(stableH, vp.safeH());
         }
-        titleY = vp.insetT + Math.max(96 * u, Math.min(stableH * 0.16, 150 * u));
-        cardY = titleY + 150 * u;
-        install.bounds(x, cardY, w, 52 * u);
+        titleY = vp.insetT + Math.max(92 * u, Math.min(stableH * 0.15, 140 * u));
+        cardY = titleY + 252 * u;
+        install.bounds(x, cardY, w, Kit.BUTTON * u);
         double bottom = vp.insetT + stableH;
-        skip.bounds(x, bottom - 56 * u, w, 44 * u);
-        back.bounds(x, vp.insetT + 16 * u, 40 * u, 40 * u);
+        skip.bounds(x, bottom - 60 * u, w, 48 * u);
+        back.bounds(x - 12 * u, vp.insetT + 10 * u, 44 * u, 44 * u);
     }
 
     @Override
@@ -167,20 +173,16 @@ public final class InstallScene extends Scene {
         g.save();
         g.alpha(r0);
         g.translate(0, (1 - r0) * 10 * u);
-        g.text("APP INSTALLIEREN", x, y, 11 * u, Theme.ACCENT, Gfx.ALIGN_LEFT, true);
-        g.text("Erst aufs Handy,", x, y + 34 * u, 30 * u, Theme.TEXT, Gfx.ALIGN_LEFT, true);
-        g.text("dann los.", x, y + 70 * u, 30 * u, Theme.ACCENT, Gfx.ALIGN_LEFT, true);
+        Kit.kicker(g, "App installieren", x, y, u, Theme.ACCENT);
+        g.text("Erst aufs Handy,", x, y + 40 * u, 38 * u, Theme.TEXT, Gfx.ALIGN_LEFT, true);
+        g.text("dann los.", x, y + 84 * u, 38 * u, Theme.ACCENT, Gfx.ALIGN_LEFT, true);
         g.restore();
         double r1 = part(0.06);
         g.save();
         g.alpha(r1);
         g.translate(0, (1 - r1) * 10 * u);
-        double ly = y + 102 * u;
-        for (String line : wrapPlain(g, "Leg Neon TD auf deinen Home-Bildschirm: Vollbild, auch offline – und Name, "
-                + "Fortschritt und Arena-Läufe bleiben in der App.", 14 * u, w)) {
-            g.text(line, x, ly, 14 * u, Theme.MUTED, Gfx.ALIGN_LEFT, false);
-            ly += 20 * u;
-        }
+        Kit.paragraph(g, "Leg Neon TD auf deinen Home-Bildschirm: Vollbild, auch offline – und Name, "
+                + "Fortschritt und Arena-Läufe bleiben in der App.", x, y + 112 * u, w, 17 * u, Theme.MUTED, u);
         g.restore();
 
         double cy = cardY;
@@ -190,8 +192,8 @@ public final class InstallScene extends Scene {
             g.alpha(rb);
             g.translate(0, (1 - rb) * 10 * u);
             install.render(g);
-            g.text("Kostenlos · ohne App-Store · in Sekunden", x + w / 2, cy + 52 * u + 22 * u, 12 * u, Theme.MUTED,
-                    Gfx.ALIGN_CENTER, false);
+            g.text("Kostenlos  ·  ohne App-Store  ·  in Sekunden", x + w / 2, cy + Kit.BUTTON * u + 24 * u,
+                    Kit.T_CAPTION * u, Theme.MUTED, Gfx.ALIGN_CENTER, false);
             g.restore();
         } else if (info != null && info.installed) {
             notice(g, cy, Icon.CHECK, Theme.POS, "Installiert!",
@@ -213,20 +215,12 @@ public final class InstallScene extends Scene {
 
     private void notice(Gfx g, double y, Icon icon, int color, String head, String body, double r) {
         double u = app.vp.u;
-        List<String> lines = wrapPlain(g, body, 14 * u, w - 76 * u);
-        double h = 34 * u + lines.size() * 20 * u + 14 * u;
         g.save();
         g.alpha(r);
         g.translate(0, (1 - r) * 10 * u);
-        g.fillRoundRect(x, y, w, h, 18 * u, Theme.SURFACE);
-        g.strokeRoundRect(x, y, w, h, 18 * u, 1, Theme.LINE);
-        Draw.iconBadge(g, x + 30 * u, y + 30 * u, 14 * u, icon, color);
-        g.text(head, x + 56 * u, y + 24 * u, 15 * u, Theme.TEXT, Gfx.ALIGN_LEFT, true);
-        double ly = y + 46 * u;
-        for (String l : lines) {
-            g.text(l, x + 56 * u, ly, 14 * u, Theme.MUTED, Gfx.ALIGN_LEFT, false);
-            ly += 20 * u;
-        }
+        Icons.draw(g, icon, x + 12 * u, y + 14 * u, 11 * u, color, 0);
+        g.text(head, x + 44 * u, y + 14 * u, 21 * u, Theme.TEXT, Gfx.ALIGN_LEFT, true);
+        Kit.paragraph(g, body, x + 44 * u, y + 34 * u, w - 44 * u, Kit.T_BODY * u, Theme.MUTED, u);
         g.restore();
     }
 
@@ -246,26 +240,18 @@ public final class InstallScene extends Scene {
                     "Wähle **App installieren** oder **Zum Startbildschirm hinzufügen**.",
                     "Bestätigen und Neon TD vom Startbildschirm öffnen.",
                 };
-        double pad = 16 * u;
-        double fs = 15 * u;
-        double lh = 21 * u;
-        double tw = w - pad * 2 - 40 * u;
+        double pad = 0;
+        double fs = 17 * u;
+        double lh = 24 * u;
+        double tw = w - 44 * u;
         List<List<Tok>> wrapped = new ArrayList<>();
         double h = pad;
         for (String s : steps) {
             List<Tok> lines = wrapRich(g, s, fs, tw);
             wrapped.add(lines);
-            h += Math.max(26 * u, countLines(lines) * lh) + 14 * u;
+            h += Math.max(26 * u, countLines(lines) * lh) + 30 * u;
         }
-        h += pad - 14 * u;
-        double rc = part(0.12);
-        g.save();
-        g.alpha(rc);
-        g.translate(0, (1 - rc) * 10 * u);
-        g.fillRoundRect(x, y, w, h, 18 * u, Theme.SURFACE);
-        g.strokeRoundRect(x, y, w, h, 18 * u, 1, Theme.LINE);
-        g.restore();
-        double ry = y + pad;
+        double ry = y + 4 * u;
         for (int i = 0; i < steps.length; i++) {
             double r = part(0.18 + 0.07 * i);
             List<Tok> toks = wrapped.get(i);
@@ -273,10 +259,9 @@ public final class InstallScene extends Scene {
             g.save();
             g.alpha(r);
             g.translate(0, (1 - r) * 8 * u);
-            double cx = x + pad + 13 * u;
-            g.fillCircle(cx, ry + 13 * u, 13 * u, Colors.withAlpha(Theme.ACCENT, 0.16));
-            g.text(Integer.toString(i + 1), cx, ry + 13 * u, 14 * u, Theme.ACCENT, Gfx.ALIGN_CENTER, true);
-            double tx0 = x + pad + 40 * u;
+            double cx = x + 10 * u;
+            g.text(Integer.toString(i + 1), cx, ry + 13 * u, 24 * u, Theme.ACCENT, Gfx.ALIGN_CENTER, true);
+            double tx0 = x + 44 * u;
             double baseY = ry + 13 * u; // erste Zeile mittig zur Nummer, weitere darunter
             for (Tok t : toks) {
                 double ty = baseY + t.line * lh;
@@ -288,8 +273,12 @@ public final class InstallScene extends Scene {
                             Gfx.ALIGN_LEFT, t.bold);
                 }
             }
+            double next = ry + Math.max(26 * u, n * lh) + 30 * u;
+            if (i < steps.length - 1) {
+                Kit.hairline(g, tx0, next - 16 * u, w - 44 * u);
+            }
             g.restore();
-            ry += Math.max(26 * u, n * lh) + 14 * u;
+            ry = next;
         }
     }
 

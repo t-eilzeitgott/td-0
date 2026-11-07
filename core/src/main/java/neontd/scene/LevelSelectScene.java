@@ -19,6 +19,7 @@ import neontd.save.RunSave;
 import neontd.ui.Button;
 import neontd.ui.Draw;
 import neontd.ui.Fmt;
+import neontd.ui.Kit;
 
 /**
  * Levelauswahl in zwei Stufen: die Welten (Akzent, Sterne, Hürde) und je Welt die sechs Strecken mit Vorschau,
@@ -80,59 +81,62 @@ public final class LevelSelectScene extends PanelScene {
         return y - y0 + 16 * u;
     }
 
+    private double lift(String tag) {
+        return pressed(tag) ? 1 : (hovered(tag) ? 0.5 : 0);
+    }
+
     private double worlds(Gfx g, double x, double y, double w, double u) {
         Progress p = app.progress;
         int total = p.totalStars();
-        g.text(total + " von " + Worlds.maxStarsThrough(Worlds.COUNT) + " Sternen", x + 2 * u, y + 10 * u, 13 * u, Theme.MUTED,
-                Gfx.ALIGN_LEFT, false);
+        Kit.iconValue(g, x, y + 10 * u, Icon.STAR, total + " von " + Worlds.maxStarsThrough(Worlds.COUNT) + " Sternen",
+                Theme.STAR, Theme.MUTED, Kit.T_BODY * u, u);
         y += 30 * u;
         boolean wide = w > 560 * u;
-        double gap = 10 * u;
+        double gap = 28 * u;
         double cw = wide ? (w - gap) / 2 : w;
-        double ch = 84 * u;
+        double ch = 88 * u;
         for (int i = 0; i < Worlds.COUNT; i++) {
             int world = i + 1;
             double cx = wide ? x + (i % 2) * (cw + gap) : x;
-            double cy = wide ? y + (i / 2) * (ch + gap) : y + i * (ch + gap);
+            double cy = wide ? y + (i / 2) * ch : y + i * ch;
             boolean open = p.worldUnlocked(world);
             String tag = "world:" + world;
-            double lift = pressed(tag) ? 1 : (hovered(tag) ? 0.5 : 0);
             int accent = Worlds.accent(world);
-            Draw.accentCard(g, cx, cy, cw, ch, 18 * u, open ? accent : Theme.SURFACE3, open ? lift * 0.6 : 0);
             hit(cx, cy, cw, ch, tag);
+            Kit.rowPress(g, cx, cy, cw, ch, open ? lift(tag) : 0, u);
             g.save();
-            g.alpha(open ? 1 : 0.5);
-            g.fillCircle(cx + 28 * u, cy + ch / 2, 10 * u, Colors.withAlpha(accent, 0.25));
-            g.fillCircle(cx + 28 * u, cy + ch / 2, 5 * u, accent);
-            g.text(Worlds.name(world), cx + 52 * u, cy + ch / 2 - 14 * u, 17 * u, Theme.TEXT, Gfx.ALIGN_LEFT, true);
-            Draw.fit(g, Worlds.TAGLINES[i], cx + 52 * u, cy + ch / 2 + 6 * u, 12 * u, cw - 150 * u, Theme.MUTED, Gfx.ALIGN_LEFT,
-                    false);
+            g.alpha(open ? 1 : 0.45);
+            Kit.dot(g, cx + 8 * u, cy + 26 * u, 6 * u, accent);
+            double tx = cx + 30 * u;
+            double right = cx + cw - (open ? 22 * u : 0);
+            Draw.cut(g, Worlds.name(world), tx, cy + 26 * u, 20 * u, right - tx - 70 * u, Theme.TEXT, Gfx.ALIGN_LEFT, true);
+            Draw.cut(g, Worlds.TAGLINES[i], tx, cy + 50 * u, Kit.T_CAPTION * u, right - tx, Theme.MUTED, Gfx.ALIGN_LEFT, false);
             if (open) {
                 int stars = p.worldStars(world);
-                g.text(stars + " / " + (Worlds.LEVELS * 3) + " ★", cx + 52 * u, cy + ch / 2 + 24 * u, 11 * u, Theme.MUTED,
-                        Gfx.ALIGN_LEFT, false);
-                Draw.bar(g, cx + cw - 110 * u, cy + ch / 2 + 20 * u, 80 * u, 5 * u, stars / (double) (Worlds.LEVELS * 3), accent);
-                Draw.chevron(g, cx + cw - 18 * u, cy + ch / 2, 5 * u, Theme.MUTED, true);
+                g.text(stars + " / " + (Worlds.LEVELS * 3) + " ★", right, cy + 26 * u, Kit.T_BODY * u,
+                        stars > 0 ? Theme.STAR : Theme.MUTED, Gfx.ALIGN_RIGHT, true);
+                Kit.meter(g, tx, cy + 68 * u, right - tx, stars / (double) (Worlds.LEVELS * 3), accent, u);
+                Draw.chevron(g, cx + cw - 6 * u, cy + 26 * u, 5.5 * u, Colors.withAlpha(0xFFFFFF, 0.35), true);
             } else {
-                Draw.lock(g, cx + cw - 22 * u, cy + ch / 2 - 8 * u, 8 * u);
-                g.text("ab " + Worlds.REQUIRED_STARS[world - 1] + " ★", cx + cw - 22 * u, cy + ch / 2 + 16 * u, 11 * u,
-                        Theme.MUTED, Gfx.ALIGN_CENTER, false);
+                String req = "ab " + Worlds.REQUIRED_STARS[world - 1] + " ★";
+                g.text(req, right, cy + 26 * u, Kit.T_BODY * u, Theme.MUTED, Gfx.ALIGN_RIGHT, true);
+                Draw.lock(g, right - g.textWidth(req, Kit.T_BODY * u, true) - 14 * u, cy + 26 * u, 6 * u);
             }
             g.restore();
+            if (!wide && i < Worlds.COUNT - 1) {
+                Kit.hairline(g, cx + 30 * u, cy + ch - 1, cw - 30 * u);
+            }
         }
         int rows = wide ? (Worlds.COUNT + 1) / 2 : Worlds.COUNT;
-        y += rows * (ch + gap);
+        y += rows * ch + Kit.SECTION_GAP * u;
         // Eigene Level
-        double eh = 64 * u;
-        double lift = pressed("custom") ? 1 : (hovered("custom") ? 0.5 : 0);
-        Draw.card(g, x, y, w, eh, 18 * u, lift * 0.6);
+        y += Kit.section(g, "Eigene Level", null, 0, x, y, w, u);
+        double eh = Kit.ROW * u;
         hit(x, y, w, eh, "custom");
-        Draw.iconBadge(g, x + 30 * u, y + eh / 2, 16 * u, Icon.EDITOR, Theme.MAGENTA);
-        g.text("Eigene Level", x + 58 * u, y + eh / 2 - 8 * u, 15 * u, Theme.TEXT, Gfx.ALIGN_LEFT, true);
+        Icons.draw(g, Icon.EDITOR, x + 14 * u, y + eh / 2, 10 * u, Theme.MAGENTA, 0);
         int n = app.levels.loadAll().size();
-        g.text(n == 0 ? "Noch keine – zeichne eine im Editor" : n + (n == 1 ? " Level" : " Level") + " aus dem Editor",
-                x + 58 * u, y + eh / 2 + 10 * u, 12 * u, Theme.MUTED, Gfx.ALIGN_LEFT, false);
-        Draw.chevron(g, x + w - 18 * u, y + eh / 2, 5 * u, Theme.MUTED, true);
+        Kit.row(g, x, y, w, eh, 44 * u, "Aus dem Editor",
+                n == 0 ? "Noch keine – zeichne eine im Editor" : n + " Level", null, 0, true, false, lift("custom"), false, u);
         return y + eh;
     }
 
@@ -140,66 +144,79 @@ public final class LevelSelectScene extends PanelScene {
         Progress p = app.progress;
         int accent = Worlds.accent(chapter);
         int stars = p.worldStars(chapter);
-        g.text(Worlds.TAGLINES[chapter - 1] + "  ·  " + stars + " / " + (Worlds.LEVELS * 3) + " ★", x + 2 * u, y + 10 * u, 13 * u,
-                Theme.MUTED, Gfx.ALIGN_LEFT, false);
-        y += 30 * u;
+        Draw.cut(g, Worlds.TAGLINES[chapter - 1], x, y + 10 * u, Kit.T_BODY * u, w - 90 * u, Theme.MUTED, Gfx.ALIGN_LEFT, false);
+        g.text(stars + " / " + (Worlds.LEVELS * 3) + " ★", x + w, y + 10 * u, Kit.T_BODY * u, Theme.STAR, Gfx.ALIGN_RIGHT, true);
+        Kit.meter(g, x, y + 30 * u, w, stars / (double) (Worlds.LEVELS * 3), accent, u);
+        y += 52 * u;
+        return levelList(g, x, y, w, u, accent);
+    }
+
+    private double levelList(Gfx g, double x, double y, double w, double u, int accent) {
+        Progress p = app.progress;
         boolean wide = w > 560 * u;
-        double gap = 10 * u;
+        double gap = 28 * u;
         double cw = wide ? (w - gap) / 2 : w;
-        double previewH = Math.min(cw * 0.36, 150 * u);
-        double ch = 16 * u + previewH + 64 * u;
+        double previewH = Math.min(cw * 0.46, 200 * u);
+        double ch = previewH + 70 * u;
         for (int i = 0; i < levels.size(); i++) {
             LevelDef l = levels.get(i);
             double cx = wide ? x + (i % 2) * (cw + gap) : x;
             double cy = wide ? y + (i / 2) * (ch + gap) : y + i * (ch + gap);
-            boolean open = p.levelUnlocked(l.id);
-            levelCard(g, cx, cy, cw, ch, previewH, l, paths.get(i), open, accent, u, "level:" + i);
+            boolean open = !l.builtin || p.levelUnlocked(l.id);
+            levelItem(g, cx, cy, cw, ch, previewH, l, paths.get(i), open, u, "level:" + i);
         }
         int rows = wide ? (levels.size() + 1) / 2 : levels.size();
         return y + rows * (ch + gap) - gap;
     }
 
-    private void levelCard(Gfx g, double cx, double cy, double cw, double ch, double previewH, LevelDef l, Path[] pp,
-                           boolean open, int accent, double u, String tag) {
+    /** Ein Level: Vorschau direkt auf Schwarz, darunter Nummer, Name, Sterne und eine Zeile Status. */
+    private void levelItem(Gfx g, double cx, double cy, double cw, double ch, double previewH, LevelDef l, Path[] pp,
+                           boolean open, double u, String tag) {
         Progress p = app.progress;
-        double lift = pressed(tag) ? 1 : (hovered(tag) ? 0.5 : 0);
-        Draw.card(g, cx, cy, cw, ch, 18 * u, open ? lift * 0.6 : 0);
         hit(cx, cy, cw, ch, tag);
-        double pad = 10 * u;
-        g.fillRoundRect(cx + pad, cy + pad, cw - 2 * pad, previewH, 12 * u, Theme.BG);
+        Kit.rowPress(g, cx, cy, cw, ch, open ? lift(tag) : 0, u);
+        int lane = l.builtin ? Worlds.lane(l.chapter) : 0x4A62FF;
         g.save();
-        g.alpha(open ? 1 : 0.35);
-        LevelPreview.draw(g, pp, l.width, l.height, cx + pad + 6 * u, cy + pad + 6 * u, cw - 2 * pad - 12 * u, previewH - 12 * u,
-                l.builtin ? Worlds.lane(l.chapter) : 0x4A62FF, open ? time : 0);
+        g.clipRect(cx - 10 * u, cy, cw + 20 * u, previewH);
+        if (open) {
+            g.radialGlow(cx + cw / 2, cy + previewH / 2, cw * 0.5, Colors.withAlpha(lane, 0.05));
+        }
+        g.alpha(open ? 1 : 0.3);
+        LevelPreview.draw(g, pp, l.width, l.height, cx + 6 * u, cy + 8 * u, cw - 12 * u, previewH - 16 * u, lane,
+                open ? time : 0);
         g.restore();
         if (!open) {
-            Draw.lock(g, cx + cw / 2, cy + pad + previewH / 2, 12 * u);
+            Draw.lock(g, cx + cw / 2, cy + previewH / 2, 14 * u);
         }
-        double ty = cy + pad + previewH + 18 * u;
-        String name = l.builtin ? l.number + "  ·  " + l.name : l.name;
-        Draw.fit(g, name, cx + pad + 4 * u, ty, 16 * u, cw - 2 * pad - 90 * u, open ? Theme.TEXT : Theme.MUTED, Gfx.ALIGN_LEFT, true);
+        double ty = cy + previewH + 22 * u;
+        double nx = cx;
         if (l.builtin) {
-            Draw.stars(g, cx + cw - pad - 32 * u, ty, 8 * u, p.stars(l.id), 3);
+            String num = Integer.toString(l.number);
+            g.text(num, nx, ty, 20 * u, open ? Colors.lighten(Worlds.accent(l.chapter), 0.1) : Theme.MUTED, Gfx.ALIGN_LEFT, true);
+            nx += g.textWidth(num, 20 * u, true) + 10 * u;
         }
-        ty += 20 * u;
+        Draw.cut(g, l.name, nx, ty, 20 * u, cx + cw - 90 * u - nx, open ? Theme.TEXT : Theme.MUTED, Gfx.ALIGN_LEFT, true);
+        if (l.builtin) {
+            Draw.stars(g, cx + cw - 30 * u, ty, 9 * u, p.stars(l.id), 3);
+        }
+        ty += 26 * u;
         String sub;
+        int subColor = Theme.MUTED;
         int best = p.bestOverall(l.id);
         int medal = p.medal(l.id);
         RunSave run = app.saves.resumable(l.id);
         if (!open) {
             sub = l.number == 1 ? "Welt gesperrt" : "Einen Stern in Level " + (l.number - 1) + " holen";
         } else if (run != null) {
-            sub = "Gespeichert · Welle " + (run.snapshot.waveIndex + 1) + "  ·  " + styleText(l);
+            sub = "Gespeichert  ·  Welle " + (run.snapshot.waveIndex + 1) + "  ·  " + styleText(l);
+            subColor = Theme.GREEN;
         } else if (best > 0) {
             sub = "Rekord Welle " + best + (medal > 0 ? "  ·  " + Medals.NAMES[medal - 1].charAt(0) + Medals.NAMES[medal - 1].substring(1).toLowerCase() : "")
                     + "  ·  " + styleText(l);
         } else {
             sub = styleText(l) + (l.blurb.isEmpty() ? "" : "  ·  " + l.blurb);
         }
-        Draw.cut(g, sub, cx + pad + 4 * u, ty, 12 * u, cw - 2 * pad - 8 * u, Theme.MUTED, Gfx.ALIGN_LEFT, false);
-        if (open && run != null) {
-            g.fillCircle(cx + cw - pad - 6 * u, ty, 3 * u, Theme.GREEN);
-        }
+        Draw.cut(g, sub, cx, ty, Kit.T_CAPTION * u, cw, subColor, Gfx.ALIGN_LEFT, false);
     }
 
     private static String styleText(LevelDef l) {
@@ -210,31 +227,15 @@ public final class LevelSelectScene extends PanelScene {
     }
 
     private double custom(Gfx g, double x, double y, double w, double u) {
-        double eh = 56 * u;
-        double lift = pressed("new") ? 1 : (hovered("new") ? 0.5 : 0);
-        g.fillRoundRect(x, y, w, eh, 16 * u, Colors.lerp(Theme.ACCENT, 0xFFFFFF, 0.15 * lift));
+        double eh = Kit.BUTTON * u;
         hit(x, y, w, eh, "new");
-        Icons.draw(g, Icon.PLUS, x + 26 * u, y + eh / 2, 8 * u, 0x000000, 0);
-        g.text("Neues Level zeichnen", x + 44 * u, y + eh / 2, 16 * u, 0x000000, Gfx.ALIGN_LEFT, true);
-        y += eh + 12 * u;
+        Kit.primary(g, x, y, w, eh, "Neues Level zeichnen", Icon.PLUS, Theme.ACCENT, lift("new"), u);
+        y += eh + Kit.SECTION_GAP * u;
         if (levels.isEmpty()) {
-            double h = 80 * u;
-            Draw.card(g, x, y, w, h, 16 * u, 0);
-            g.text("Noch keine eigenen Level.", x + w / 2, y + h / 2, 14 * u, Theme.MUTED, Gfx.ALIGN_CENTER, false);
-            return y + h;
+            g.text("Noch keine eigenen Level.", x + w / 2, y + 20 * u, Kit.T_BODY * u, Theme.MUTED, Gfx.ALIGN_CENTER, false);
+            return y + 40 * u;
         }
-        boolean wide = w > 560 * u;
-        double gap = 10 * u;
-        double cw = wide ? (w - gap) / 2 : w;
-        double previewH = Math.min(cw * 0.36, 150 * u);
-        double ch = 16 * u + previewH + 64 * u;
-        for (int i = 0; i < levels.size(); i++) {
-            double cx = wide ? x + (i % 2) * (cw + gap) : x;
-            double cy = wide ? y + (i / 2) * (ch + gap) : y + i * (ch + gap);
-            levelCard(g, cx, cy, cw, ch, previewH, levels.get(i), paths.get(i), true, Theme.ACCENT, u, "level:" + i);
-        }
-        int rows = wide ? (levels.size() + 1) / 2 : levels.size();
-        return y + rows * (ch + gap) - gap;
+        return levelList(g, x, y, w, u, Theme.ACCENT);
     }
 
     // ------------------------------------------------------------------------------------- Aktionen

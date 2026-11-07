@@ -15,11 +15,11 @@ import neontd.render.LevelPreview;
 import neontd.render.TowerArt;
 import neontd.save.Leaderboard;
 import neontd.save.RunSave;
-import neontd.sim.Special;
 import neontd.sim.TowerType;
 import neontd.ui.Button;
 import neontd.ui.Draw;
 import neontd.ui.Fmt;
+import neontd.ui.Kit;
 
 /**
  * Die Arena der Woche: Karte, Regeln und Restzeit, der eigene Stand, die Rangliste (bester Lauf je Spieler mit
@@ -55,6 +55,8 @@ public final class ArenaScene extends PanelScene {
         play = ui.add(new Button(run != null ? "Fortsetzen · Welle " + (run.snapshot.waveIndex + 1) : "Antreten", Icon.PLAY,
                 Theme.ACCENT, this::start));
         play.style = Button.Style.PRIMARY;
+        play.painter = (g, b) -> Kit.primary(g, -b.w / 2, -b.h / 2, b.w, b.h, b.label, Icon.PLAY, Theme.ACCENT,
+                Math.max(b.hover.value, b.press.value), app.vp.u);
         setTabs("Rangliste", "Verlauf", "Ruhmeshalle");
         loadList(true);
         loadPrevious();
@@ -166,22 +168,26 @@ public final class ArenaScene extends PanelScene {
     public void layout() {
         super.layout();
         double u = app.vp.u;
-        double bh = 52 * u;
+        double bh = Kit.BUTTON * u;
         play.bounds(contentX, contentBottom - bh - 8 * u, contentW, bh);
-        contentBottom -= bh + 20 * u;
+        contentBottom -= bh + 24 * u;
     }
 
     // ------------------------------------------------------------------------------------------ Inhalt
+
+    private double lift(String tag) {
+        return pressed(tag) ? 1 : (hovered(tag) ? 0.5 : 0);
+    }
 
     @Override
     protected double drawContent(Gfx g, double x, double y0, double w, double u) {
         double y = y0;
         if (tab == 0) {
             if (prevRank > 0 && app.progress.stat(rewardKey()) <= 0) {
-                y += rewardCard(g, x, y, w, u) + 12 * u;
+                y += rewardRow(g, x, y, w, u) + 24 * u;
             }
-            y += heroCard(g, x, y, w, u) + 12 * u;
-            y += statusCard(g, x, y, w, u) + 18 * u;
+            y += hero(g, x, y, w, u) + Kit.SECTION_GAP * u;
+            y += status(g, x, y, w, u) + Kit.SECTION_GAP * u;
             y += ranking(g, x, y, w, u);
         } else if (tab == 1) {
             y += feedList(g, x, y, w, u);
@@ -191,101 +197,133 @@ public final class ArenaScene extends PanelScene {
         return y - y0 + 16 * u;
     }
 
-    private double rewardCard(Gfx g, double x, double y, double w, double u) {
-        double h = 64 * u;
+    private double rewardRow(Gfx g, double x, double y, double w, double u) {
+        double h = Kit.ROW * u;
         int c = prevRank == 1 ? Theme.STAR : (prevRank <= 3 ? Theme.ACCENT : Theme.POS);
-        Draw.accentCard(g, x, y, w, h, 16 * u, c, pressed("reward") ? 0.6 : 0);
         hit(x, y, w, h, "reward");
-        Draw.iconBadge(g, x + 30 * u, y + h / 2, 16 * u, Icon.TROPHY, c);
-        String head = previous.label() + " abgeschlossen: Platz " + prevRank + (prevPlayers > 0 ? " von " + prevPlayers : "");
-        Draw.fit(g, head, x + 56 * u, y + h / 2 - 9 * u, 14 * u, w - 160 * u, Theme.TEXT, Gfx.ALIGN_LEFT, true);
-        g.text(prevRank <= 3 ? "Podium – danke fürs Mitkämpfen!" : "Danke fürs Mitmachen!", x + 56 * u, y + h / 2 + 10 * u,
-                12 * u, Theme.MUTED, Gfx.ALIGN_LEFT, false);
-        double bw = 84 * u;
-        g.fillRoundRect(x + w - 14 * u - bw, y + h / 2 - 15 * u, bw, 30 * u, 10 * u, Colors.withAlpha(c, 0.2));
-        g.text("+" + rewardCrystals() + " ◆", x + w - 14 * u - bw / 2, y + h / 2, 13 * u, Colors.lighten(c, 0.3),
-                Gfx.ALIGN_CENTER, true);
+        Kit.rowPress(g, x, y, w, h, lift("reward"), u);
+        Icons.draw(g, Icon.TROPHY, x + 14 * u, y + h / 2, 11 * u, c, 0);
+        double pw = Kit.pill(g, "Abholen  +" + rewardCrystals() + " ◆", x + w, y + h / 2, c, lift("reward"), u);
+        String head = previous.label() + ": Platz " + prevRank + (prevPlayers > 0 ? " von " + prevPlayers : "");
+        Draw.cut(g, head, x + 44 * u, y + h / 2 - 10 * u, Kit.T_ROW * u, w - pw - 56 * u, Theme.TEXT, Gfx.ALIGN_LEFT, true);
+        Draw.cut(g, prevRank <= 3 ? "Podium – danke fürs Mitkämpfen!" : "Danke fürs Mitmachen!", x + 44 * u,
+                y + h / 2 + 12 * u, Kit.T_CAPTION * u, w - pw - 56 * u, Theme.MUTED, Gfx.ALIGN_LEFT, false);
         return h;
     }
 
-    /** Karte der Woche: Name, Restzeit, Vorschau, Regelzeile, Turm-Pool, Joker. */
-    private double heroCard(Gfx g, double x, double y, double w, double u) {
+    /** Karte der Woche: Kicker, Name, große Vorschau direkt auf Schwarz, Regeln, Turm-Pool, Joker. */
+    private double hero(Gfx g, double x, double y, double w, double u) {
+        double y0 = y;
         int accent = Worlds.accent(level.chapter);
-        double pad = 16 * u;
-        double previewH = Math.min(w * 0.38, 210 * u);
-        double h = pad + 18 * u + 28 * u + previewH + 14 * u + 20 * u + 16 * u + 40 * u + 14 * u + pad;
-        Draw.accentCard(g, x, y, w, h, 22 * u, Theme.ACCENT, 0);
-        double tx = x + pad;
-        double ty = y + pad + 8 * u;
         String left = Arena.remainingText(arena.remainingMillis(app.platform.nowMillis(), app.platform.localOffsetMillis()));
-        double rw = 80 * u;
-        double rx = x + w - pad - rw;
-        Draw.fit(g, "ARENA  ·  " + arena.label() + "  ·  noch " + left, tx, ty, 11 * u, rx - tx - 8 * u,
-                Colors.lighten(Theme.ACCENT, 0.15), Gfx.ALIGN_LEFT, true);
-        g.fillRoundRect(rx, ty - 4 * u, rw, 30 * u, 10 * u, pressed("rules") ? Theme.SURFACE3 : Theme.SURFACE2);
-        hit(rx, ty - 4 * u, rw, 30 * u, "rules");
-        g.text("Regeln", rx + rw / 2, ty + 11 * u, 13 * u, Theme.TEXT, Gfx.ALIGN_CENTER, true);
-        ty += 26 * u;
-        Draw.fit(g, level.name, tx, ty, 24 * u, rx - tx - 10 * u, Theme.TEXT, Gfx.ALIGN_LEFT, true);
-        ty += 22 * u;
-        g.fillRoundRect(tx, ty, w - 2 * pad, previewH, 14 * u, Theme.BG);
+        Kit.kicker(g, arena.label() + "  ·  noch " + left, x, y + 8 * u, u, Colors.lighten(Theme.ACCENT, 0.1));
+        // Regeln als Textlink rechts
+        double lw = g.textWidth("Regeln", Kit.T_BODY * u, true);
+        hit(x + w - lw - 30 * u, y - 6 * u, lw + 30 * u, 30 * u, "rules");
+        Kit.link(g, "Regeln", x + w - 16 * u, y + 8 * u, Theme.ACCENT, lift("rules"), u);
+        Draw.chevron(g, x + w - 4 * u, y + 8 * u, 5 * u, Theme.ACCENT, true);
+        y += 30 * u;
+        Draw.fit(g, level.name, x, y + 4 * u, Kit.T_HERO * u, w, Theme.TEXT, Gfx.ALIGN_LEFT, true);
+        y += 36 * u;
+        y += Kit.paragraph(g, arena.def.rule, x, y - 9 * u, w, Kit.T_BODY * u, Theme.MUTED, u) + 4 * u;
+        double previewH = Math.min(w * 0.58, 280 * u);
         g.save();
-        g.clipRect(tx, ty, w - 2 * pad, previewH);
-        LevelPreview.draw(g, paths, level.width, level.height, tx + 8 * u, ty + 8 * u, w - 2 * pad - 16 * u, previewH - 16 * u,
+        g.clipRect(x - 10 * u, y, w + 20 * u, previewH);
+        g.radialGlow(x + w / 2, y + previewH / 2, w * 0.6, Colors.withAlpha(accent, 0.07));
+        LevelPreview.draw(g, paths, level.width, level.height, x + 6 * u, y + 10 * u, w - 12 * u, previewH - 20 * u,
                 Worlds.lane(level.chapter), time);
         g.restore();
-        g.strokeRoundRect(tx, ty, w - 2 * pad, previewH, 14 * u, 1, Theme.LINE);
-        ty += previewH + 18 * u;
-        Draw.fit(g, arena.def.rule, tx, ty, 14 * u, w - 2 * pad, Theme.TEXT, Gfx.ALIGN_LEFT, false);
-        ty += 20 * u;
-        g.text(Arena.LIVES + " Leben  ·  " + arena.def.money + " Startgeld  ·  " + (level.style != null ? level.style.label : "")
-                + (arena.def.speedMul > 1 ? "  ·  Tempo +" + Math.round((arena.def.speedMul - 1) * 100) + " %" : ""),
-                tx, ty, 12 * u, Theme.MUTED, Gfx.ALIGN_LEFT, false);
-        ty += 16 * u;
-        // Turm-Pool als Symbole
-        double ir = 15 * u;
-        double ix = tx + ir;
+        y += previewH + 14 * u;
+        // Eckdaten als Kennzahlen
+        double cw = w / 3;
+        Kit.stat(g, Integer.toString(Arena.LIVES), "Leben", x, y, Theme.LIFE, u);
+        Kit.stat(g, Fmt.compact(arena.def.money), "Startgeld", x + cw, y, Theme.MONEY, u);
+        String third = arena.def.speedMul > 1 ? "+" + Math.round((arena.def.speedMul - 1) * 100) + " %"
+                : (level.style != null ? level.style.label : "–");
+        Draw.fit(g, third, x + 2 * cw, y + 15 * u, Kit.T_STAT * u, cw, Theme.TEXT, Gfx.ALIGN_LEFT, true);
+        g.text(arena.def.speedMul > 1 ? "Tempo" : "Stil", x + 2 * cw, y + 42 * u, Kit.T_CAPTION * u, Theme.MUTED,
+                Gfx.ALIGN_LEFT, false);
+        y += 66 * u;
+        // Turm-Pool: Symbole frei nebeneinander
+        g.text("Türme", x, y + 8 * u, Kit.T_CAPTION * u, Theme.MUTED, Gfx.ALIGN_LEFT, false);
+        y += 22 * u;
+        double ir = 17 * u;
+        double ix = x + ir;
         for (TowerType t : arena.def.pool) {
-            g.fillCircle(ix, ty + ir + 4 * u, ir + 4 * u, Theme.SURFACE2);
-            TowerArt.drawIcon(g, t, ix, ty + ir + 4 * u, ir * 0.78, time);
-            ix += (ir + 4 * u) * 2 + 6 * u;
+            TowerArt.drawIcon(g, t, ix, y + ir, ir, time);
+            ix += ir * 2 + 14 * u;
         }
-        ty += 40 * u + 6 * u;
-        StringBuilder jokers = new StringBuilder("Joker: ");
+        y += ir * 2 + 18 * u;
+        StringBuilder jokers = new StringBuilder();
         for (int i = 0; i < arena.def.jokers.length; i++) {
-            Special sp = arena.def.jokers[i];
-            jokers.append(i > 0 ? " · " : "").append(sp.label);
+            jokers.append(i > 0 ? "  ·  " : "").append(arena.def.jokers[i].label);
         }
-        Draw.fit(g, jokers.toString(), tx, ty, 12 * u, w - 2 * pad, Theme.MUTED, Gfx.ALIGN_LEFT, true);
-        return h;
+        g.text("Joker", x, y + 8 * u, Kit.T_CAPTION * u, Theme.MUTED, Gfx.ALIGN_LEFT, false);
+        Draw.cut(g, jokers.toString(), x + 52 * u, y + 8 * u, Kit.T_BODY * u, w - 52 * u, Theme.TEXT, Gfx.ALIGN_LEFT, true);
+        y += 20 * u;
+        return y - y0;
     }
 
-    /** Eigener Stand: Bestwert, Platz, Abstand nach vorn – und die Taste zum Herausfordern. */
-    private double statusCard(Gfx g, double x, double y, double w, double u) {
-        double h = 72 * u;
-        Draw.card(g, x, y, w, h, 16 * u, 0);
+    /** Eigener Stand: Bestwert groß, Platz und Abstand – Herausfordern als Textlink. */
+    private double status(Gfx g, double x, double y, double w, double u) {
+        double y0 = y;
+        y += Kit.section(g, "Dein Stand", null, 0, x, y, w, u);
         Leaderboard.ArenaEntry mine = mine();
         long best = Math.max(app.board.arenaBest(arena.id), mine != null ? mine.score : 0);
-        double tx = x + 16 * u;
-        double cy = y + h / 2;
-        double bw = 120 * u;
+        double lw = g.textWidth("Herausfordern", Kit.T_BODY * u, true) + 30 * u;
         if (best <= 0) {
-            Draw.fit(g, "Noch kein Lauf diese Woche", tx, cy - 9 * u, 15 * u, w - bw - 40 * u, Theme.TEXT, Gfx.ALIGN_LEFT, true);
-            Draw.cut(g, "Jeder Versuch zählt – nur der beste bleibt stehen.", tx, cy + 11 * u, 12 * u, w - bw - 40 * u,
+            g.text("Noch kein Lauf", x, y + 15 * u, Kit.T_STAT * 0.8 * u, Theme.TEXT, Gfx.ALIGN_LEFT, true);
+            Draw.cut(g, "Jeder Versuch zählt – nur der beste bleibt stehen.", x, y + 42 * u, Kit.T_CAPTION * u, w,
                     Theme.MUTED, Gfx.ALIGN_LEFT, false);
         } else {
             String rank = mine != null ? "Platz " + mine.rank + " von " + (list == null ? "?" : list.size()) : "Dein Bestwert";
-            Draw.fit(g, Fmt.points(best) + " Punkte", tx, cy - 9 * u, 16 * u, w - bw - 40 * u, Theme.TEXT, Gfx.ALIGN_LEFT, true);
             String gap = gapText(mine);
-            Draw.fit(g, rank + (gap != null ? "  ·  " + gap : ""), tx, cy + 11 * u, 12 * u, w - bw - 40 * u,
-                    mine != null && mine.rank == 1 ? Theme.STAR : Theme.MUTED, Gfx.ALIGN_LEFT, false);
+            g.text(Fmt.points(best), x, y + 15 * u, Kit.T_STAT * u, mine != null && mine.rank == 1 ? Theme.STAR : Theme.TEXT,
+                    Gfx.ALIGN_LEFT, true);
+            Draw.cut(g, rank + (gap != null ? "  ·  " + gap : ""), x, y + 42 * u, Kit.T_CAPTION * u, w, Theme.MUTED,
+                    Gfx.ALIGN_LEFT, false);
         }
-        double bx = x + w - 12 * u - bw;
-        g.fillRoundRect(bx, cy - 17 * u, bw, 34 * u, 12 * u, pressed("share") ? Theme.SURFACE3 : Theme.SURFACE2);
-        hit(bx, cy - 17 * u, bw, 34 * u, "share");
-        Icons.draw(g, Icon.FLAG, bx + 18 * u, cy, 6 * u, Theme.ACCENT, 0);
-        g.text("Herausfordern", bx + 30 * u, cy, 12 * u, Theme.TEXT, Gfx.ALIGN_LEFT, true);
-        return h;
+        hit(x + w - lw, y, lw, 52 * u, "share");
+        Icons.draw(g, Icon.FLAG, x + w - lw + 8 * u, y + 24 * u, 7 * u, Theme.ACCENT, 0);
+        Kit.link(g, "Herausfordern", x + w, y + 24 * u, Theme.ACCENT, lift("share"), u);
+        y += 56 * u;
+        return y - y0;
+    }
+
+    /** Rangfarbe: Gold, Silber, Bronze, sonst gedämpft. */
+    private static int rankColor(int rank) {
+        return rank == 1 ? Theme.STAR : (rank == 2 ? 0xC9D1E6 : (rank == 3 ? 0xE08A3C : Theme.MUTED));
+    }
+
+    /** Leerer Zustand: zentrierter, gedämpfter Hinweis ohne Kasten. */
+    private double empty(Gfx g, String msg, double x, double y, double w, double u) {
+        g.text(msg, x + w / 2, y + 40 * u, Kit.T_BODY * u, Theme.MUTED, Gfx.ALIGN_CENTER, false);
+        return 80 * u;
+    }
+
+    /** Eine Ranglistenzeile: Rang, Name, Untertitel, Wert rechts; eigener Eintrag in Akzentfarbe mit Punkt. */
+    private void rankRow(Gfx g, double x, double y, double w, double h, String rank, int rankColor, String name, String sub,
+                         String value, String value2, int value2Color, boolean mine, boolean divider, double u) {
+        g.text(rank, x + 14 * u, y + h / 2, Kit.T_ROW * u, rankColor, Gfx.ALIGN_CENTER, true);
+        double nx = x + 44 * u;
+        double vw = g.textWidth(value, Kit.T_ROW * u, true) + 16 * u;
+        int nc = mine ? Colors.lighten(Theme.ACCENT, 0.2) : Theme.TEXT;
+        double nameW = w - vw - (nx - x) - (mine ? 16 * u : 0);
+        Draw.cut(g, name, nx, y + h / 2 - 10 * u, Kit.T_ROW * u, nameW, nc, Gfx.ALIGN_LEFT, true);
+        if (mine) {
+            double tw = Math.min(nameW, g.textWidth(name, Kit.T_ROW * u, true));
+            g.fillCircle(nx + tw + 10 * u, y + h / 2 - 10 * u, 3.5 * u, Theme.ACCENT);
+        }
+        Draw.cut(g, sub, nx, y + h / 2 + 12 * u, Kit.T_CAPTION * u, w - vw - (nx - x), Theme.MUTED, Gfx.ALIGN_LEFT, false);
+        if (value2 != null) {
+            g.text(value, x + w, y + h / 2 - 10 * u, Kit.T_ROW * u, Theme.TEXT, Gfx.ALIGN_RIGHT, true);
+            g.text(value2, x + w, y + h / 2 + 12 * u, Kit.T_CAPTION * u, value2Color, Gfx.ALIGN_RIGHT, true);
+        } else {
+            g.text(value, x + w, y + h / 2, Kit.T_ROW * u, Theme.TEXT, Gfx.ALIGN_RIGHT, true);
+        }
+        if (divider) {
+            Kit.hairline(g, nx, y + h - 1, w - (nx - x));
+        }
     }
 
     private Leaderboard.ArenaEntry mine() {
@@ -318,93 +356,54 @@ public final class ArenaScene extends PanelScene {
 
     private double ranking(Gfx g, double x, double y, double w, double u) {
         double y0 = y;
-        g.text("Rangliste " + arena.label(), x + 2 * u, y, 13 * u, Theme.MUTED, Gfx.ALIGN_LEFT, false);
+        String trailing = null;
         if (list != null && !list.isEmpty()) {
             int tries = 0;
             for (Leaderboard.ArenaEntry e : list) {
                 tries += e.attempts;
             }
-            g.text(list.size() + " Spieler · " + tries + " Läufe", x + w - 2 * u, y, 12 * u, Theme.MUTED, Gfx.ALIGN_RIGHT, false);
+            trailing = list.size() + " Spieler  ·  " + tries + " Läufe";
         }
-        y += 18 * u;
+        y += Kit.section(g, "Rangliste", trailing, Theme.MUTED, x, y, w, u);
         if (list == null || list.isEmpty()) {
-            double h = 80 * u;
-            Draw.card(g, x, y, w, h, 16 * u, 0);
             String msg = listLoading ? "Lädt …" : (listFailed ? "Keine Verbindung – antippen zum Neuladen."
                     : "Noch niemand angetreten – sei der Erste!");
-            g.text(msg, x + w / 2, y + h / 2, 14 * u, Theme.MUTED, Gfx.ALIGN_CENTER, false);
             if (listFailed && app.board.available()) {
-                hit(x, y, w, h, "retry");
+                hit(x, y, w, 80 * u, "retry");
             }
-            return y + h - y0;
+            return y + empty(g, msg, x, y, w, u) - y0;
         }
-        double rowH = 56 * u;
-        double h = list.size() * rowH;
-        Draw.card(g, x, y, w, h, 16 * u, 0);
-        double pad = 14 * u;
+        double rowH = Kit.ROW * u;
         for (int i = 0; i < list.size(); i++) {
             Leaderboard.ArenaEntry e = list.get(i);
-            double ry = y + i * rowH;
-            if (e.mine) {
-                g.fillRoundRect(x + 4 * u, ry + 3 * u, w - 8 * u, rowH - 6 * u, 12 * u, Colors.withAlpha(Theme.ACCENT, 0.12));
-            }
-            int c = e.rank == 1 ? Theme.STAR : (e.rank == 2 ? 0xC9D1E6 : (e.rank == 3 ? 0xE08A3C : Theme.MUTED));
-            if (e.rank <= 3) {
-                g.fillCircle(x + pad + 12 * u, ry + rowH / 2, 13 * u, Colors.withAlpha(c, 0.16));
-            }
-            g.text(Integer.toString(e.rank), x + pad + 12 * u, ry + rowH / 2, 14 * u, c, Gfx.ALIGN_CENTER, true);
-            double nx = x + pad + 36 * u;
-            double nameW = w - 170 * u;
-            Draw.fit(g, e.name, nx, ry + rowH / 2 - 9 * u, 15 * u, nameW, e.mine ? Colors.lighten(Theme.ACCENT, 0.4) : Theme.TEXT,
-                    Gfx.ALIGN_LEFT, true);
             String sub = "Welle " + e.wave + "  ·  Serie " + e.streak + "  ·  " + e.attempts + (e.attempts == 1 ? " Lauf" : " Läufe");
-            Draw.fit(g, sub, nx, ry + rowH / 2 + 10 * u, 11 * u, nameW, Theme.MUTED, Gfx.ALIGN_LEFT, false);
-            g.text(Fmt.points(e.score), x + w - pad, ry + rowH / 2 - 1 * u, 15 * u, Theme.TEXT, Gfx.ALIGN_RIGHT, true);
-            if (i < list.size() - 1) {
-                Draw.divider(g, nx, ry + rowH, w - (nx - x));
-            }
+            rankRow(g, x, y, w, rowH, Integer.toString(e.rank), rankColor(e.rank), e.name, sub, Fmt.points(e.score), null, 0,
+                    e.mine, i < list.size() - 1, u);
+            y += rowH;
         }
-        y += h + 14 * u;
-        g.text("Gezählt wird je Spieler der beste Lauf der Woche.", x + w / 2, y + 6 * u, 11 * u, Theme.MUTED,
+        y += 18 * u;
+        g.text("Gezählt wird je Spieler der beste Lauf der Woche.", x + w / 2, y, Kit.T_CAPTION * u, Theme.MUTED,
                 Gfx.ALIGN_CENTER, false);
-        return y + 24 * u - y0;
+        return y + 20 * u - y0;
     }
 
     private double feedList(Gfx g, double x, double y, double w, double u) {
         double y0 = y;
-        y += 10 * u;
-        g.text("Die letzten Läufe in " + arena.label(), x + 2 * u, y, 13 * u, Theme.MUTED, Gfx.ALIGN_LEFT, false);
-        y += 18 * u;
+        y += Kit.section(g, "Letzte Läufe", arena.label(), Theme.MUTED, x, y, w, u);
         if (feed == null || feed.isEmpty()) {
-            double h = 80 * u;
-            Draw.card(g, x, y, w, h, 16 * u, 0);
             String msg = feedLoading ? "Lädt …" : (feedFailed ? "Keine Verbindung." : "Noch keine Läufe diese Woche.");
-            g.text(msg, x + w / 2, y + h / 2, 14 * u, Theme.MUTED, Gfx.ALIGN_CENTER, false);
-            return y + h - y0;
+            return y + empty(g, msg, x, y, w, u) - y0;
         }
-        double rowH = 52 * u;
-        double h = feed.size() * rowH;
-        Draw.card(g, x, y, w, h, 16 * u, 0);
+        double rowH = Kit.ROW * u;
         double now = app.platform.nowMillis();
         for (int i = 0; i < feed.size(); i++) {
             Leaderboard.FeedEntry e = feed.get(i);
-            double ry = y + i * rowH;
-            double cx = x + 26 * u;
-            g.fillCircle(cx, ry + rowH / 2, 5 * u, e.record ? Theme.POS : Theme.SURFACE3);
-            double nx = x + 44 * u;
-            Draw.fit(g, e.name, nx, ry + rowH / 2 - 9 * u, 14 * u, w * 0.45, e.mine ? Colors.lighten(Theme.ACCENT, 0.4)
-                    : Theme.TEXT, Gfx.ALIGN_LEFT, true);
-            String sub = "Welle " + e.wave + "  ·  " + ago(now - e.at);
-            g.text(sub, nx, ry + rowH / 2 + 10 * u, 11 * u, Theme.MUTED, Gfx.ALIGN_LEFT, false);
-            g.text(Fmt.points(e.score), x + w - 14 * u, ry + rowH / 2 - 8 * u, 14 * u, Theme.TEXT, Gfx.ALIGN_RIGHT, true);
-            if (e.record) {
-                g.text("Rekord", x + w - 14 * u, ry + rowH / 2 + 10 * u, 11 * u, Theme.POS, Gfx.ALIGN_RIGHT, true);
-            }
-            if (i < feed.size() - 1) {
-                Draw.divider(g, nx, ry + rowH, w - (nx - x));
-            }
+            g.fillCircle(x + 14 * u, y + rowH / 2, 4.5 * u, e.record ? Theme.POS : Colors.withAlpha(0xFFFFFF, 0.2));
+            rankRow(g, x, y, w, rowH, "", 0, e.name, "Welle " + e.wave + "  ·  " + ago(now - e.at), Fmt.points(e.score),
+                    e.record ? "Rekord" : null, Theme.POS, e.mine, i < feed.size() - 1, u);
+            y += rowH;
         }
-        return y + h + 10 * u - y0;
+        return y + 10 * u - y0;
     }
 
     static String ago(double ms) {
@@ -425,41 +424,27 @@ public final class ArenaScene extends PanelScene {
 
     private double hallList(Gfx g, double x, double y, double w, double u) {
         double y0 = y;
-        y += 10 * u;
-        g.text("Wochensieger", x + 2 * u, y, 13 * u, Theme.MUTED, Gfx.ALIGN_LEFT, false);
-        y += 18 * u;
+        y += Kit.section(g, "Wochensieger", null, 0, x, y, w, u);
         if (hall == null || hall.isEmpty()) {
-            double h = 80 * u;
-            Draw.card(g, x, y, w, h, 16 * u, 0);
             String msg = hallLoading ? "Lädt …" : (hallFailed ? "Keine Verbindung." : "Die erste Woche läuft noch – wer holt sie?");
-            g.text(msg, x + w / 2, y + h / 2, 14 * u, Theme.MUTED, Gfx.ALIGN_CENTER, false);
-            return y + h - y0;
+            return y + empty(g, msg, x, y, w, u) - y0;
         }
-        // Titel je Spieler zählen
         java.util.Map<String, Integer> wins = new java.util.LinkedHashMap<>();
         for (Leaderboard.HallEntry e : hall) {
             wins.put(e.name, wins.getOrDefault(e.name, 0) + 1);
         }
-        double rowH = 56 * u;
-        double h = hall.size() * rowH;
-        Draw.card(g, x, y, w, h, 16 * u, 0);
+        double rowH = Kit.ROW * u;
         for (int i = 0; i < hall.size(); i++) {
             Leaderboard.HallEntry e = hall.get(i);
-            double ry = y + i * rowH;
-            Draw.iconBadge(g, x + 28 * u, ry + rowH / 2, 14 * u, Icon.TROPHY, Theme.STAR);
-            double nx = x + 52 * u;
+            Icons.draw(g, Icon.TROPHY, x + 14 * u, y + rowH / 2, 10 * u, Theme.STAR, 0);
             String wk = "KW " + (e.week.length() >= 8 ? Integer.parseInt(e.week.substring(6)) : 0);
             int n = wins.getOrDefault(e.name, 1);
-            Draw.fit(g, e.name + (n > 1 ? "  ·  " + n + "× Sieger" : ""), nx, ry + rowH / 2 - 9 * u, 14 * u, w * 0.5,
-                    e.mine ? Colors.lighten(Theme.ACCENT, 0.4) : Theme.TEXT, Gfx.ALIGN_LEFT, true);
-            g.text(wk + "  ·  Welle " + e.wave + "  ·  " + e.players + " Spieler", nx, ry + rowH / 2 + 10 * u, 11 * u,
-                    Theme.MUTED, Gfx.ALIGN_LEFT, false);
-            g.text(Fmt.points(e.score), x + w - 14 * u, ry + rowH / 2, 14 * u, Theme.TEXT, Gfx.ALIGN_RIGHT, true);
-            if (i < hall.size() - 1) {
-                Draw.divider(g, nx, ry + rowH, w - (nx - x));
-            }
+            rankRow(g, x, y, w, rowH, "", 0, e.name + (n > 1 ? "  ·  " + n + "× Sieger" : ""),
+                    wk + "  ·  Welle " + e.wave + "  ·  " + e.players + " Spieler", Fmt.points(e.score), null, 0, e.mine,
+                    i < hall.size() - 1, u);
+            y += rowH;
         }
-        return y + h + 10 * u - y0;
+        return y + 10 * u - y0;
     }
 
     // ---------------------------------------------------------------------------------------- Aktionen

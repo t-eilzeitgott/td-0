@@ -166,8 +166,7 @@ class MetaFlowTest {
         h.run(1.5);
         MissionsScene ms = (MissionsScene) h.app.scene();
         // "Alle abholen" sitzt rechts im Kopf der Season
-        double u = h.app.vp.u;
-        h.tap(ms.contentX + ms.contentW - 60 * u, ms.contentTop + 96 * u * 0.75);
+        h.tap(ms.hitAnchor("claimAll"));
         assertEquals(0, h.app.progress.claimable() - openMonthlyReady(h.app.progress));
         assertTrue(h.app.progress.seasonClaimed[1] && h.app.progress.seasonClaimed[3]);
     }
@@ -201,9 +200,10 @@ class MetaFlowTest {
         h.app.goTo(new SettingsScene(h.app));
         h.run(1.5);
         SettingsScene st = (SettingsScene) h.app.scene();
-        double u = h.app.vp.u;
-        double rowLevel = st.contentTop + 130 * u + 35 * u;
-        double rowAll = rowLevel + 82 * u;
+        double[] lv = st.hitAnchor(SettingsScene.RESET_LEVEL);
+        double[] all = st.hitAnchor(SettingsScene.RESET_ALL);
+        double rowLevel = lv[1];
+        double rowAll = all[1];
         // Level zurücksetzen: erst abbrechen, dann bestätigen
         h.tap(300, rowLevel);
         assertTrue(st.modalVisible());
