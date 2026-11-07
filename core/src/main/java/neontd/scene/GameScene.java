@@ -1327,7 +1327,7 @@ public final class GameScene extends Scene {
         g.translate(sx, sy);
         int accent = level.builtin && level.chapter >= 1 ? Worlds.accent(level.chapter) : Theme.CYAN;
         int lane = level.builtin && level.chapter >= 1 ? Worlds.lane(level.chapter) : neontd.render.PathArt.LANE;
-        WorldView.drawBackground(g, world.width, world.height);
+        WorldView.drawBackground(g, world.width, world.height, level.builtin ? level.chapter : 0, accent, time);
         neontd.render.PathArt.drawZones(g, level.zones, accent, time);
         WorldView.drawPaths(g, world.paths, time, listener.baseFlash, lane);
         if (selected != null) {
@@ -1356,10 +1356,6 @@ public final class GameScene extends Scene {
         WorldView.drawEffects(wg, fx);
         Neon.quality = savedQuality;
         drawGhost(g);
-        g.restore();
-        g.save();
-        mapTransform(g);
-        WorldView.drawFrame(g, world.width, world.height, accent);
         g.restore();
         TowerArt.uprightAngle = 0;
 

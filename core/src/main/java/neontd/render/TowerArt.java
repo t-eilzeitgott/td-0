@@ -9,7 +9,10 @@ import neontd.sim.TowerType;
 import neontd.sim.UpgradeTrack;
 import neontd.ui.Easing;
 
-/** Die fünf Turm-Symbole: klare geometrische Formen, jede in ihrer eigenen Neonfarbe. */
+/**
+ * Die Turm-Symbole: klare geometrische Formen in ihrer Neonfarbe, auf einem gestalteten Körper. Je weiter ein Turm
+ * ausgebaut ist, desto aufwendiger wird er (Stufen 0–5, siehe {@link #tierOf}).
+ */
 public final class TowerArt {
     private TowerArt() {
     }
@@ -31,6 +34,8 @@ public final class TowerArt {
             // Upgrade: kurz aufplustern und zurückfedern
             pop *= 1 + 0.16 * Math.sin(t.pulse * Math.PI) * t.pulse;
         }
+        int tier = tierOf(t.totalLevels());
+        int c = t.type.color;
         g.save();
         g.translate(t.x, t.y);
         g.scale(pop, pop);
@@ -38,14 +43,151 @@ public final class TowerArt {
         if (t.pad != null) {
             padAura(g, t.pad, time);
         }
-        symbol(g, t.type, 28, t.aim, t.recoil, time);
-        for (int k = 0; k < 3; k++) {
-            if (t.level[k] > 0) {
-                levelArc(g, k, t.level[k], 28 + 8);
-            }
+        // Stufe 5: pulsierende Aura (einziger radialer Schein pro Turm, nur für voll ausgebaute Türme)
+        if (tier >= 5) {
+            double p = 0.5 + 0.5 * Math.sin(time * 2.4 + t.x * 0.01);
+            Neon.halo(g, 0, 0, 70 + 6 * p, c, 0.16 + 0.1 * p);
         }
+        if (tier >= 3) {
+            outerHalo(g, c, tier, time);
+        }
+        if (tier >= 4) {
+            crown(g, c, time);
+        }
+        body(g, t.type, 28, tier, time);
+        inner(g, t.type, 28, t.aim, t.recoil, time);
+        if (tier >= 3) {
+            // hellerer Kern
+            g.fillCircle(0, 0, tier >= 5 ? 5.2 : 3.6, tier >= 5 ? 0xFFFFFF : Colors.lighten(c, 0.6));
+        }
+        trackTicks(g, t);
+        if (tier >= 2) {
+            satellites(g, c, tier, time);
+        }
+        if (tier >= 5) {
+            sparks(g, c, time);
+        }
+        marks(g, t, tier);
         if (t.pad != null) {
             padBadge(g, t.pad, time);
+        }
+        g.restore();
+    }
+
+    /** Sichtbare Ausbaustufe 0–5 aus der Summe aller Upgrade-Stufen (0–15, im Endlosmodus mehr). */
+    public static int tierOf(int totalLevels) {
+        if (totalLevels >= 15) {
+            return 5;
+        }
+        return Math.max(0, totalLevels / 3);
+    }
+
+    /** Stufe 3+: segmentierter Außenring, der sich langsam dreht. */
+    private static void outerHalo(Gfx g, int c, int tier, double time) {
+        int n = 12;
+        double r = 41;
+        double rot = time * 0.35;
+        double seg = Math.PI * 2 / n;
+        for (int i = 0; i < n; i++) {
+            double a = rot + i * seg;
+            g.beginPath();
+            g.arc(0, 0, r, a + seg * 0.18, a + seg * 0.82);
+            if (i % 3 == 0) {
+                Neon.stroke(g, 2.2, Colors.withAlpha(c, 0.95), 4);
+            } else {
+                g.stroke(1.6, Colors.withAlpha(c, 0.5));
+            }
+        }
+    }
+
+    /** Stufe 4+: gegenläufiger Ring mit Kerben und sechs Kronenzacken. */
+    private static void crown(Gfx g, int c, double time) {
+        double rot = -time * 0.5;
+        g.beginPath();
+        g.circle(0, 0, 46);
+        g.strokeDashed(1.2, Colors.withAlpha(c, 0.45), 3, 5, rot * 20);
+        g.save();
+        g.rotate(rot * 0.6);
+        g.beginPath();
+        for (int i = 0; i < 6; i++) {
+            double a = i * Math.PI / 3;
+            double ca = Math.cos(a);
+            double sa = Math.sin(a);
+            double w = 0.13;
+            g.moveTo(Math.cos(a - w) * 33, Math.sin(a - w) * 33);
+            g.lineTo(ca * 39, sa * 39);
+            g.lineTo(Math.cos(a + w) * 33, Math.sin(a + w) * 33);
+            g.closePath();
+        }
+        g.fill(Colors.withAlpha(Colors.lighten(c, 0.35), 0.9));
+        g.restore();
+    }
+
+    /** Stufe 2+: kreisende Knoten (2, ab Stufe 3 drei) in Turmfarbe. */
+    private static void satellites(Gfx g, int c, int tier, double time) {
+        int n = tier >= 3 ? 3 : 2;
+        double r = 35;
+        double rot = time * 1.1;
+        int lc = Colors.lighten(c, 0.45);
+        for (int i = 0; i < n; i++) {
+            double a = rot + i * Math.PI * 2 / n;
+            double x = Math.cos(a) * r;
+            double y = Math.sin(a) * r;
+            g.save();
+            g.translate(x, y);
+            g.rotate(a);
+            g.beginPath();
+            g.moveTo(4.2, 0);
+            g.lineTo(0, -3.2);
+            g.lineTo(-4.2, 0);
+            g.lineTo(0, 3.2);
+            g.closePath();
+            g.fill(lc);
+            if (Neon.quality >= 2) {
+                g.stroke(3.5, Colors.withAlpha(c, 0.25));
+            }
+            g.restore();
+        }
+    }
+
+    /** Stufe 5: winzige, schnell kreisende Funken. */
+    private static void sparks(Gfx g, int c, double time) {
+        for (int i = 0; i < 5; i++) {
+            double a = time * (2.2 + i * 0.13) + i * 1.257;
+            double r = 50 + 3 * Math.sin(time * 3 + i);
+            g.fillCircle(Math.cos(a) * r, Math.sin(a) * r, 1.6, i % 2 == 0 ? 0xFFFFFF : Colors.lighten(c, 0.6));
+        }
+    }
+
+    /** Ausbaupfad-Ränge und Spezialausbau als kleine, aufrecht stehende Marken unter dem Turm. */
+    private static void marks(Gfx g, Tower t, int tier) {
+        boolean sp = t.special != null;
+        int ranks = t.branch > 0 ? t.rank : 0;
+        if (!sp && ranks <= 0) {
+            return;
+        }
+        g.save();
+        g.rotate(uprightAngle);
+        double y = tier >= 3 ? 53 : 42;
+        double x0 = -(ranks * 9 + (sp ? 12 : 0)) / 2.0 + 4.5;
+        for (int i = 0; i < ranks; i++) {
+            double x = x0 + i * 9;
+            g.beginPath();
+            g.moveTo(x - 3.5, y + 2);
+            g.lineTo(x, y - 2);
+            g.lineTo(x + 3.5, y + 2);
+            g.stroke(2, 0xFFD60A);
+        }
+        if (sp) {
+            double x = x0 + ranks * 9 + 3;
+            g.beginPath();
+            g.moveTo(x, y - 4.5);
+            g.lineTo(x + 4.5, y);
+            g.lineTo(x, y + 4.5);
+            g.lineTo(x - 4.5, y);
+            g.closePath();
+            g.fill(t.special.color);
+            g.stroke(1.2, 0x0B0B12);
         }
         g.restore();
     }
@@ -89,28 +231,77 @@ public final class TowerArt {
         g.translate(cx, cy);
         double s = r / 28.0;
         g.scale(s, s);
-        symbol(g, type, 28, -Math.PI / 2, 0, time);
+        body(g, type, 28, 0, time);
+        inner(g, type, 28, -Math.PI / 2, 0, time);
         g.restore();
     }
 
-    private static void levelArc(Gfx g, int track, int level, double radius) {
-        UpgradeTrack ut = UpgradeTrack.values()[track];
-        double a0 = TRACK_ANGLE[track] - TRACK_SPAN / 2;
-        g.beginPath();
-        g.arc(0, 0, radius, a0, a0 + TRACK_SPAN);
-        g.stroke(2.6, Colors.withAlpha(ut.color, 0.16));
-        double lit = TRACK_SPAN * level / UpgradeTrack.MAX_LEVEL;
-        g.beginPath();
-        g.arc(0, 0, radius, a0, a0 + lit);
-        Neon.stroke(g, 2.8, ut.color, 5);
+    /**
+     * Upgrade-Stände der drei Pfade als segmentierte Bögen knapp außerhalb des Körpers: je Stufe ein Segment in der
+     * Pfadfarbe, offene Stufen als feine Andeutung. Reichweite oben, Schaden rechts unten, Tempo links unten.
+     */
+    private static void trackTicks(Gfx g, Tower t) {
+        double r = 33;
+        int max = UpgradeTrack.MAX_LEVEL;
+        double seg = TRACK_SPAN / max;
+        for (int k = 0; k < 3; k++) {
+            int lvl = t.level[k];
+            if (lvl <= 0) {
+                continue;
+            }
+            int col = UpgradeTrack.values()[k].color;
+            double a0 = TRACK_ANGLE[k] - TRACK_SPAN / 2;
+            for (int i = 0; i < max; i++) {
+                double a = a0 + i * seg;
+                g.beginPath();
+                g.arc(0, 0, r, a + seg * 0.12, a + seg * 0.88);
+                if (i < lvl) {
+                    if (Neon.quality >= 2) {
+                        g.stroke(5, Colors.withAlpha(col, 0.18));
+                    }
+                    g.stroke(2.6, col);
+                } else {
+                    g.stroke(1.2, Colors.withAlpha(col, 0.2));
+                }
+            }
+            if (lvl > max) {
+                // Meisterstufen (Endlos): kleiner Punkt am Bogenende
+                double a = a0 + TRACK_SPAN + 0.12;
+                g.fillCircle(Math.cos(a) * r, Math.sin(a) * r, 2.2, 0xFFD60A);
+            }
+        }
     }
 
-    /** Zeichnet das Symbol im Ursprung; r = Radius des Turmkörpers. */
-    private static void symbol(Gfx g, TowerType type, double r, double aim, double recoil, double time) {
+    /**
+     * Turmkörper: dunkler Kern mit leichtem Verlauf zur Mitte, Fase-Ring, klare Neon-Kontur und vier Kerben; ab
+     * Stufe 1 ein langsam drehender Zierring im Inneren.
+     */
+    private static void body(Gfx g, TowerType type, double r, int tier, double time) {
         int c = type.color;
-        g.fillCircle(0, 0, r, Colors.withAlpha(Colors.darken(c, 0.82), 0.96));
-        Neon.circle(g, 0, 0, r, 2.6, c, 9);
-        g.strokeCircle(0, 0, r * 0.74, 1.1, Colors.withAlpha(c, 0.28));
+        int dark = Colors.darken(c, 0.86);
+        g.fillCircle(0, 0, r, Colors.withAlpha(dark, 0.97));
+        g.fillCircle(0, 0, r * 0.8, Colors.withAlpha(Colors.darken(c, 0.74), 0.55));
+        g.fillCircle(0, 0, r * 0.52, Colors.withAlpha(Colors.darken(c, 0.62), 0.45));
+        g.strokeCircle(0, 0, r * 0.86, 1, Colors.withAlpha(c, 0.3));
+        Neon.circle(g, 0, 0, r, 2.4, c, 8);
+        // vier feine Kerben auf der Kontur
+        g.beginPath();
+        for (int i = 0; i < 4; i++) {
+            double a = Math.PI / 4 + i * Math.PI / 2;
+            g.moveTo(Math.cos(a) * (r - 4.5), Math.sin(a) * (r - 4.5));
+            g.lineTo(Math.cos(a) * (r - 1), Math.sin(a) * (r - 1));
+        }
+        g.stroke(1.6, Colors.withAlpha(Colors.lighten(c, 0.4), 0.8));
+        if (tier >= 1) {
+            g.beginPath();
+            g.circle(0, 0, r * 0.68);
+            g.strokeDashed(1.4, Colors.withAlpha(Colors.lighten(c, 0.2), 0.75), 4, 3.2, time * 6);
+        }
+    }
+
+    /** Zeichnet das typische Innenleben (Lauf, Kristall, Spule …) im Ursprung; r = Radius des Turmkörpers. */
+    private static void inner(Gfx g, TowerType type, double r, double aim, double recoil, double time) {
+        int c = type.color;
 
         g.save();
         switch (type) {
