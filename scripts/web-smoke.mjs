@@ -369,7 +369,14 @@ console.log('4. Cloud: Profil, Token, Abgleich zwischen zwei Geräten, Code …'
   check((await state(A.page)).scene === 'NameScene', 'Name antippen öffnet die Namensseite');
   await A.page.fill('#ntd-input', 'Tester');
   await A.page.press('#ntd-input', 'Enter');
-  await A.page.waitForTimeout(1500);
+  // auf langsamen CI-Rechnern dauert der Seitenwechsel nach der Anmeldung länger als 1,5 s
+  await A.page.waitForFunction(() => /scene=ProfileScene/.test(window.__ntd.call('state')), null, { timeout: 8000 }).catch(() => {});
+  await A.page.waitForTimeout(300);
+  if ((await profile(A.page)).name !== 'Tester') {
+    console.log('    Diagnose: state=' + (await call(A.page, 'state')) + ' | profile=' + (await call(A.page, 'profile'))
+      + ' | input=' + (await A.page.evaluate(() => { const el = document.getElementById('ntd-input'); return el ? JSON.stringify(el.value) : 'fehlt'; }))
+      + ' | rpc=' + supa.calls.slice(-6).join(','));
+  }
   check((await profile(A.page)).name === 'Tester', 'Name über das Eingabefeld geändert');
   check((await state(A.page)).scene === 'ProfileScene', 'zurück im Profil');
   check((await store(A.page, 'neontd.profile')).includes('"Tester"'), 'Name gespeichert');
