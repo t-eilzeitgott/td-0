@@ -68,7 +68,7 @@ jobs:
   # ein nachgebautes GitHub). Fängt Fehler ab, die nur im JavaScript-Build auftreten – die Veröffentlichung wartet darauf.
   browser-test:
     needs: build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
 
@@ -83,7 +83,7 @@ jobs:
 
       - name: Playwright und Chromium installieren
         run: |
-          npm install --no-save playwright
+          npm install --no-save playwright@1.63.0
           npx playwright install --with-deps chromium
 
       - name: Browser-Test
