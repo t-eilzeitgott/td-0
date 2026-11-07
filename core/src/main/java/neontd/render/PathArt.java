@@ -30,24 +30,68 @@ public final class PathArt {
         drawLane(g, p, time, alpha, LANE);
     }
 
-    /** Die Bahn in der Farbe der Welt. */
+    /**
+     * Die Bahn in der Farbe der Welt: leuchtende Kante, ein Fahrbahnbett mit leichter Tiefe (heller Rand, dunkle
+     * Mitte) und in Laufrichtung fließende Pfeile statt einer gestrichelten Linie.
+     */
     public static void drawLane(Gfx g, Path p, double time, double alpha, int lane) {
         double half = World.LANE_HALF_WIDTH;
+        int edge = Colors.lighten(lane, 0.35);
+        int bedOuter = Colors.lerp(0x06060B, lane, 0.16);
+        int bedInner = Colors.lerp(0x040408, lane, 0.05);
         g.save();
         g.alpha(alpha);
         polyline(g, p);
         if (Neon.quality >= 1) {
             g.additive(true);
             if (Neon.quality >= 2) {
-                g.stroke(half * 2 + 30, Colors.withAlpha(lane, 0.035));
+                g.stroke(half * 2 + 34, Colors.withAlpha(lane, 0.03));
             }
-            g.stroke(half * 2 + 16, Colors.withAlpha(lane, 0.07));
+            g.stroke(half * 2 + 14, Colors.withAlpha(lane, 0.08));
             g.additive(false);
         }
-        g.stroke(half * 2 + 3.5, Colors.withAlpha(lane, 0.9));
-        g.stroke(half * 2 - 1.5, Theme.LANE_FILL);
-        g.strokeDashed(2, Colors.withAlpha(lane, 0.40), 10, 30, -time * 38);
+        g.stroke(half * 2 + 3, Colors.withAlpha(edge, 0.95));
+        g.stroke(half * 2 - 0.5, bedOuter);
+        g.stroke(half * 2 - 7, Colors.lerp(bedOuter, bedInner, 0.6));
+        g.stroke(half * 2 - 13, bedInner);
+        flow(g, p, time, lane);
         g.restore();
+    }
+
+    private static final neontd.math.Vec2 A = new neontd.math.Vec2();
+    private static final neontd.math.Vec2 B = new neontd.math.Vec2();
+
+    /** In Laufrichtung wandernde Pfeile auf der Mittellinie; zum Ende hin heller (Richtung Basis). */
+    private static void flow(Gfx g, Path p, double time, int lane) {
+        double len = p.length();
+        double step = 46;
+        double off = (time * 34) % step;
+        int c = Colors.lighten(lane, 0.4);
+        g.beginPath();
+        int n = 0;
+        for (double s = off + 20; s < len - 26; s += step) {
+            p.positionAt(s, A);
+            p.positionAt(Math.max(0, s - 4), B);
+            double dx = A.x - B.x;
+            double dy = A.y - B.y;
+            double d = Math.hypot(dx, dy);
+            if (d < 1e-6) {
+                continue;
+            }
+            dx /= d;
+            dy /= d;
+            double nx = -dy;
+            double ny = dx;
+            double tipX = A.x + dx * 4.5;
+            double tipY = A.y + dy * 4.5;
+            g.moveTo(tipX - dx * 8 + nx * 6.5, tipY - dy * 8 + ny * 6.5);
+            g.lineTo(tipX, tipY);
+            g.lineTo(tipX - dx * 8 - nx * 6.5, tipY - dy * 8 - ny * 6.5);
+            n++;
+        }
+        if (n > 0) {
+            g.stroke(2.2, Colors.withAlpha(c, 0.32));
+        }
     }
 
     /** Hindernisse und Bonus-Pads. */
@@ -77,16 +121,17 @@ public final class PathArt {
                 g.strokeCircle(z.x, z.y, z.w * 0.62, 1.2, Colors.withAlpha(c, 0.5));
                 neontd.gfx.Icons.draw(g, padIcon(z.kind), z.x, z.y, z.w * 0.3, Colors.withAlpha(c, 0.8), 0);
             } else if (z.round()) {
-                g.fillCircle(z.x, z.y, z.w, 0x0C0C16);
-                g.strokeCircle(z.x, z.y, z.w, 1.4, Colors.withAlpha(accent, 0.22));
-                g.beginPath();
-                g.circle(z.x, z.y, z.w * 0.55);
-                g.strokeDashed(1, Colors.withAlpha(accent, 0.16), 4, 6, 0);
+                // Hindernis: ein dunkles „Loch“ im Untergrund mit weichem Innenschatten und feiner Kante
+                g.fillCircle(z.x, z.y, z.w + 6, Colors.withAlpha(0x000000, 0.5));
+                g.fillCircle(z.x, z.y, z.w, 0x020205);
+                g.strokeCircle(z.x, z.y, z.w, 1.2, Colors.withAlpha(accent, 0.18));
+                g.strokeCircle(z.x, z.y, z.w - 5, 4, Colors.withAlpha(accent, 0.035));
             } else {
                 double x = z.x - z.w;
                 double y = z.y - z.h;
-                g.fillRoundRect(x, y, z.w * 2, z.h * 2, 10, 0x0C0C16);
-                g.strokeRoundRect(x, y, z.w * 2, z.h * 2, 10, 1.4, Colors.withAlpha(accent, 0.22));
+                g.fillRoundRect(x - 6, y - 6, z.w * 2 + 12, z.h * 2 + 12, 16, Colors.withAlpha(0x000000, 0.5));
+                g.fillRoundRect(x, y, z.w * 2, z.h * 2, 10, 0x020205);
+                g.strokeRoundRect(x, y, z.w * 2, z.h * 2, 10, 1.2, Colors.withAlpha(accent, 0.18));
                 // Schraffur
                 g.beginPath();
                 for (double d = -z.h * 2; d < z.w * 2; d += 14) {
@@ -99,7 +144,7 @@ public final class PathArt {
                         g.lineTo(x1, y1);
                     }
                 }
-                g.stroke(1, Colors.withAlpha(accent, 0.07));
+                g.stroke(1, Colors.withAlpha(accent, 0.045));
             }
         }
     }

@@ -19,6 +19,11 @@ public final class WorldView {
     }
 
     /** Karte: tiefes Schwarz mit sehr dezentem Raster und Rahmen. */
+    /** Untergrund mit dem Motiv der Welt (siehe {@link Backdrop}). */
+    public static void drawBackground(Gfx g, double w, double h, int world, int accent, double time) {
+        Backdrop.draw(g, world, accent, w, h, time);
+    }
+
     public static void drawBackground(Gfx g, double w, double h) {
         g.fillRect(0, 0, w, h, Theme.BLACK);
         g.beginPath();
