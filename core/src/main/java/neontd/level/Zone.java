@@ -29,6 +29,25 @@ public final class Zone {
         public boolean pad() {
             return this != VOID;
         }
+
+        /** Bonus des Pads als Anteil (0,25 = +25 %), 0 für Hindernisse. */
+        public double bonus() {
+            switch (this) {
+                case PAD_DAMAGE:
+                    return PAD_DAMAGE_BONUS;
+                case PAD_RANGE:
+                    return PAD_RANGE_BONUS;
+                case PAD_SPEED:
+                    return PAD_SPEED_BONUS;
+                default:
+                    return 0;
+            }
+        }
+
+        /** Bonus als Anzeigetext, z. B. „+25 %“. */
+        public String bonusText() {
+            return "+" + Math.round(bonus() * 100) + " %";
+        }
     }
 
     /** Radius aller Bonus-Pads (ein Turm passt genau darauf). */

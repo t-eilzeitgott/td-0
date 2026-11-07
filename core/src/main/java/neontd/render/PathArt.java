@@ -51,6 +51,18 @@ public final class PathArt {
     }
 
     /** Hindernisse und Bonus-Pads. */
+    /** Symbol eines Bonus-Pads (Schaden, Reichweite, Tempo). */
+    public static neontd.gfx.Icons.Icon padIcon(neontd.level.Zone.Kind pad) {
+        switch (pad) {
+            case PAD_DAMAGE:
+                return neontd.gfx.Icons.Icon.DAMAGE;
+            case PAD_RANGE:
+                return neontd.gfx.Icons.Icon.RANGE;
+            default:
+                return neontd.gfx.Icons.Icon.SPEED;
+        }
+    }
+
     public static void drawZones(Gfx g, java.util.List<neontd.level.Zone> zones, int accent, double time) {
         for (int i = 0; i < zones.size(); i++) {
             neontd.level.Zone z = zones.get(i);
@@ -63,9 +75,7 @@ public final class PathArt {
                 g.circle(z.x, z.y, z.w);
                 g.strokeDashed(2.2, Colors.withAlpha(c, 0.95), 7, 6, time * 10);
                 g.strokeCircle(z.x, z.y, z.w * 0.62, 1.2, Colors.withAlpha(c, 0.5));
-                neontd.gfx.Icons.Icon icon = z.kind == neontd.level.Zone.Kind.PAD_DAMAGE ? neontd.gfx.Icons.Icon.DAMAGE
-                        : (z.kind == neontd.level.Zone.Kind.PAD_RANGE ? neontd.gfx.Icons.Icon.RANGE : neontd.gfx.Icons.Icon.SPEED);
-                neontd.gfx.Icons.draw(g, icon, z.x, z.y, z.w * 0.3, Colors.withAlpha(c, 0.8), 0);
+                neontd.gfx.Icons.draw(g, padIcon(z.kind), z.x, z.y, z.w * 0.3, Colors.withAlpha(c, 0.8), 0);
             } else if (z.round()) {
                 g.fillCircle(z.x, z.y, z.w, 0x0C0C16);
                 g.strokeCircle(z.x, z.y, z.w, 1.4, Colors.withAlpha(accent, 0.22));

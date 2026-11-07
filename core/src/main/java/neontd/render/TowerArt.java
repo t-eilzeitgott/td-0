@@ -35,12 +35,51 @@ public final class TowerArt {
         g.translate(t.x, t.y);
         g.scale(pop, pop);
         g.alpha(Math.min(1, t.age * 6));
+        if (t.pad != null) {
+            padAura(g, t.pad, time);
+        }
         symbol(g, t.type, 28, t.aim, t.recoil, time);
         for (int k = 0; k < 3; k++) {
             if (t.level[k] > 0) {
                 levelArc(g, k, t.level[k], 28 + 8);
             }
         }
+        if (t.pad != null) {
+            padBadge(g, t.pad, time);
+        }
+        g.restore();
+    }
+
+    /**
+     * Aura eines Turms auf einem Bonus-Pad: leuchtender Ring außerhalb der Upgrade-Bögen und darüber kreisende
+     * Lichtsegmente in Pad-Farbe – damit der Bonus sichtbar bleibt, obwohl der Turm das Pad verdeckt.
+     */
+    private static void padAura(Gfx g, neontd.level.Zone.Kind pad, double time) {
+        int c = pad.color;
+        double pulse = 0.5 + 0.5 * Math.sin(time * 3.2);
+        Neon.halo(g, 0, 0, 62, c, 0.2 + 0.12 * pulse);
+        g.fillCircle(0, 0, 44, Colors.withAlpha(c, 0.12 + 0.06 * pulse));
+        Neon.circle(g, 0, 0, 44, 2.2, Colors.withAlpha(c, 0.85), 8);
+        for (int i = 0; i < 3; i++) {
+            double a = time * 1.6 + i * Math.PI * 2 / 3;
+            g.beginPath();
+            g.arc(0, 0, 49, a, a + 0.75);
+            Neon.stroke(g, 2.6, c, 7);
+        }
+    }
+
+    /** Abzeichen oben rechts am Turm (bildschirmbezogen aufrecht) mit dem Symbol des Pad-Bonus. */
+    private static void padBadge(Gfx g, neontd.level.Zone.Kind pad, double time) {
+        int c = pad.color;
+        double s = 1 + 0.08 * Math.sin(time * 3.2);
+        g.save();
+        g.rotate(uprightAngle);
+        g.translate(24, -24);
+        g.scale(s, s);
+        Neon.halo(g, 0, 0, 20, c, 0.45);
+        g.fillCircle(0, 0, 12.5, c);
+        g.strokeCircle(0, 0, 12.5, 2, 0x0B0B12);
+        neontd.gfx.Icons.draw(g, PathArt.padIcon(pad), 0, 0, 6.4, 0x0B0B12, 0);
         g.restore();
     }
 

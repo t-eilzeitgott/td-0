@@ -1752,7 +1752,7 @@ public final class GameScene extends Scene {
         }
         Tower t = selected;
         String stufe = "Stufe " + t.totalLevels() + (world.endless ? "" : "/15")
-                + (t.pad != null ? "  ·  " + t.pad.label : "");
+                + (t.pad != null ? "  ·  " + t.pad.label + " " + t.pad.bonusText() : "");
         switch (lay.mode) {
             case COMPACT_LAND: {
                 GameLayout.Rect p = lay.panel;
@@ -1780,6 +1780,15 @@ public final class GameScene extends Scene {
                 String lv = world.endless ? Integer.toString(t.totalLevels()) : t.totalLevels() + "/15";
                 double ls = Math.max(8, Math.min(rh * 0.36, (bw - rh * 1.0) / Math.max(1, lv.length() * 0.62)));
                 g.text(lv, bx + rh * 0.95, modeBtn.y + rh / 2, ls, Theme.TEXT, Gfx.ALIGN_LEFT, true);
+                if (t.pad != null) {
+                    // Abzeichen oben rechts am Turmsymbol
+                    double cr = rh * 0.15;
+                    double cx = bx + rh * 0.5 + rh * 0.24;
+                    double cy = modeBtn.y + rh * 0.27;
+                    Neon.halo(g, cx, cy, cr * 2, t.pad.color, 0.35);
+                    g.fillCircle(cx, cy, cr, t.pad.color);
+                    Icons.draw(g, neontd.render.PathArt.padIcon(t.pad), cx, cy, cr * 0.5, 0x0B0B12, 0);
+                }
                 break;
             }
             default: {
@@ -1884,13 +1893,13 @@ public final class GameScene extends Scene {
                     return "–";
                 }
                 return Integer.toString(Mathx.roundToInt(type.range * track.multAt(lvl) * t.perkRange
-                        * (t.special == Special.LONGSHOT ? Special.LONGSHOT_RANGE : 1)));
+                        * (t.special == Special.LONGSHOT ? Special.LONGSHOT_RANGE : 1) * padFactor(t, track)));
             case DAMAGE:
                 if (type == TowerType.BEACON) {
                     return "+" + Mathx.roundToInt(100 * Math.min(TowerType.BEACON_CAP,
                             TowerType.BEACON_DAMAGE + TowerType.BEACON_DAMAGE_PER_LEVEL * lvl)) + "%";
                 }
-                double d = type.damage * track.multAt(lvl) * t.perkDamage;
+                double d = type.damage * track.multAt(lvl) * t.perkDamage * padFactor(t, track);
                 return Fmt.compact(d >= Tower.MAX_DAMAGE ? Tower.MAX_DAMAGE : Math.max(1, Mathx.roundToInt(d)));
             case SPEED:
             default: {
@@ -1898,7 +1907,8 @@ public final class GameScene extends Scene {
                     return "+" + Mathx.roundToInt(100 * Math.min(TowerType.BEACON_CAP,
                             TowerType.BEACON_SPEED + TowerType.BEACON_SPEED_PER_LEVEL * lvl)) + "%";
                 }
-                double speed = UpgradeTrack.SPEED.multAt(lvl) * (t.special == Special.OVERCLOCK ? Special.OVERCLOCK_SPEED : 1);
+                double speed = UpgradeTrack.SPEED.multAt(lvl) * (t.special == Special.OVERCLOCK ? Special.OVERCLOCK_SPEED : 1)
+                        * padFactor(t, track);
                 return Mathx.round1(speed / type.interval) + "/s";
             }
         }
@@ -1932,6 +1942,14 @@ public final class GameScene extends Scene {
         int c = track.color;
         double r = h * 0.24;
         g.fillRoundRect(-w / 2, -h / 2, w, h, r, Colors.lerp(Theme.SURFACE2, Theme.SURFACE3, hv * 0.7 + b.press.value));
+        boolean boosted = padTrack(t.pad) == track;
+        int statColor = Theme.MUTED;
+        if (boosted) {
+            double pulse = 0.5 + 0.5 * Math.sin(app.time * 3.2);
+            g.fillRoundRect(-w / 2, -h / 2, w, h, r, Colors.withAlpha(t.pad.color, 0.10 + 0.05 * pulse));
+            g.strokeRoundRect(-w / 2 + 1, -h / 2 + 1, w - 2, h - 2, r, 2, Colors.withAlpha(t.pad.color, 0.75 + 0.25 * pulse));
+            statColor = Colors.lighten(t.pad.color, 0.25);
+        }
         boolean tile = w < h * 2.6;
         int pips = Math.min(lvl, UpgradeTrack.MAX_LEVEL);
         String master = lvl > UpgradeTrack.MAX_LEVEL ? "+" + (lvl - UpgradeTrack.MAX_LEVEL) : "";
@@ -1940,6 +1958,13 @@ public final class GameScene extends Scene {
             double labelSize = Math.max(8, h * 0.17);
             Icons.draw(g, trackIcon(track), -w / 2 + h * 0.2, -h * 0.31, h * 0.12, c, 0);
             g.text(label, -w / 2 + h * 0.38, -h * 0.31, labelSize, Theme.TEXT, Gfx.ALIGN_LEFT, true);
+            if (boosted) {
+                // als Plakette auf der oberen Kante, damit sie die Beschriftung nicht verdeckt
+                double ph = Math.max(10, h * 0.2);
+                String txt = t.pad.bonusText();
+                double pw = ph * 1.4 + g.textWidth(txt, ph * 0.62, true);
+                padPill(g, t.pad, w / 2 - h * 0.06 - pw, -h / 2, ph);
+            }
             double pip = h * 0.05;
             double px0 = -w / 2 + h * 0.14;
             for (int i = 0; i < UpgradeTrack.MAX_LEVEL; i++) {
@@ -1951,7 +1976,7 @@ public final class GameScene extends Scene {
                         Gfx.ALIGN_LEFT, true);
             }
             g.text(maxed ? statText(t, track, false) : "› " + statText(t, track, true), w / 2 - h * 0.1, -h * 0.04,
-                    Math.max(8, h * 0.16), Theme.MUTED, Gfx.ALIGN_RIGHT, false);
+                    Math.max(8, h * 0.16), statColor, Gfx.ALIGN_RIGHT, boosted);
             double bh = h * 0.30;
             double by = h * 0.31;
             if (maxed) {
@@ -1977,6 +2002,9 @@ public final class GameScene extends Scene {
         double avail = (w / 2 - priceW - h * 0.12) - h * 0.1 - tx;
         double labelSize = Math.max(8, Math.min(h * 0.23, avail / Math.max(1, label.length() * 0.64)));
         g.text(label, tx, -h * 0.25, labelSize, Theme.TEXT, Gfx.ALIGN_LEFT, true);
+        if (boosted) {
+            padPill(g, t.pad, tx + g.textWidth(label, labelSize, true) + h * 0.12, -h * 0.25, Math.max(10, h * 0.26));
+        }
         double pip = Math.min(h * 0.08, avail / (5 * 2.9 + (lvl > UpgradeTrack.MAX_LEVEL ? 3.5 : 0)));
         for (int i = 0; i < UpgradeTrack.MAX_LEVEL; i++) {
             double px = tx + pip + i * pip * 2.9;
@@ -1988,8 +2016,8 @@ public final class GameScene extends Scene {
         }
         String cur = statText(t, track, false);
         String txt = maxed ? cur : cur + " › " + statText(t, track, true);
-        g.text(txt, tx, h * 0.31, Math.max(8, Math.min(h * 0.2, avail / Math.max(1, txt.length() * 0.58))), Theme.MUTED,
-                Gfx.ALIGN_LEFT, false);
+        g.text(txt, tx, h * 0.31, Math.max(8, Math.min(h * 0.2, avail / Math.max(1, txt.length() * 0.58))), statColor,
+                Gfx.ALIGN_LEFT, boosted);
 
         double bw = priceW;
         double bh = h * 0.62;
@@ -2005,6 +2033,40 @@ public final class GameScene extends Scene {
             g.text(cs, bx + bw * 0.4, 0, Math.max(8, fs), can ? Theme.TEXT : Colors.withAlpha(Theme.RED, 0.9),
                     Gfx.ALIGN_LEFT, true);
         }
+    }
+
+    /** Welche Fähigkeit verstärkt dieses Pad? */
+    private static UpgradeTrack padTrack(neontd.level.Zone.Kind pad) {
+        if (pad == null) {
+            return null;
+        }
+        switch (pad) {
+            case PAD_DAMAGE:
+                return UpgradeTrack.DAMAGE;
+            case PAD_RANGE:
+                return UpgradeTrack.RANGE;
+            case PAD_SPEED:
+                return UpgradeTrack.SPEED;
+            default:
+                return null;
+        }
+    }
+
+    /** Faktor, um den das Pad unter dem Turm diesen Wert erhöht (1 = kein Pad-Bonus). */
+    private static double padFactor(Tower t, UpgradeTrack track) {
+        return t.pad != null && padTrack(t.pad) == track ? 1 + t.pad.bonus() : 1;
+    }
+
+    /** Kleine Plakette „+25 %“ mit Pad-Symbol, links ausgerichtet bei (x, y). Liefert die Breite. */
+    private static double padPill(Gfx g, neontd.level.Zone.Kind pad, double x, double y, double h) {
+        String txt = pad.bonusText();
+        double fs = h * 0.62;
+        double tw = g.textWidth(txt, fs, true);
+        double w = h * 1.05 + tw + h * 0.35;
+        g.fillRoundRect(x, y - h / 2, w, h, h / 2, pad.color);
+        Icons.draw(g, neontd.render.PathArt.padIcon(pad), x + h * 0.52, y, h * 0.24, 0x0B0B12, 0);
+        g.text(txt, x + h * 0.95, y, fs, 0x0B0B12, Gfx.ALIGN_LEFT, true);
+        return w;
     }
 
     private static Icon trackIcon(UpgradeTrack t) {
