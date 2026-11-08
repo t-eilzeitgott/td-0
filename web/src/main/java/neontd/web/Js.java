@@ -167,6 +167,11 @@ final class Js {
     @JSBody(params = {"url"}, script = "try { window.open(url, '_blank', 'noopener'); } catch (e) {}")
     static native void openUrl(String url);
 
+    /** Unterstützen-Sheet (Ko-fi) als Overlay über dem Spielfeld; Aufbau und Stil liegen in index.html. */
+    @JSBody(params = {"url", "embed"}, script = "try { if (window.ntdSupport) { window.ntdSupport(url, embed); }"
+            + " else { window.open(url, '_blank', 'noopener'); } } catch (e) {}")
+    static native void openSupport(String url, String embed);
+
     /** Bittet den Browser, den Speicher nicht automatisch zu räumen (hilft gegen das Löschen nach Inaktivität). */
     @JSBody(params = {}, script = "try { if (navigator.storage && navigator.storage.persist) { navigator.storage.persist(); } }"
             + " catch (e) {}")

@@ -48,6 +48,11 @@ public interface Platform {
     default void openUrl(String url) {
     }
 
+    /** Zeigt die Unterstützen-Seite (Ko-fi); Plattformen ohne eigene Darstellung öffnen den Link im Browser. */
+    default void openSupport(String url, String embedUrl) {
+        openUrl(url);
+    }
+
     /** Bittet den Browser, den Speicher dauerhaft zu halten (verhindert das Aufräumen durch das System). */
     default void requestPersistentStorage() {
     }

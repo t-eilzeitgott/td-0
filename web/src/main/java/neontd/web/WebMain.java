@@ -86,6 +86,11 @@ public final class WebMain {
             }
 
             @Override
+            public void openSupport(String url, String embedUrl) {
+                Js.openSupport(url, embedUrl);
+            }
+
+            @Override
             public void requestPersistentStorage() {
                 Js.persistStorage();
             }

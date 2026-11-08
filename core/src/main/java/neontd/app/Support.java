@@ -7,6 +7,11 @@ public final class Support {
     private Support() {
     }
 
+    /** Adresse des eingebetteten Formulars (ohne Feed, für ein Sheet in der App). */
+    public static String embedUrl() {
+        return URL + "/?hidefeed=true&widget=true&embed=true&preview=true";
+    }
+
     public static boolean enabled() {
         return !URL.isEmpty();
     }

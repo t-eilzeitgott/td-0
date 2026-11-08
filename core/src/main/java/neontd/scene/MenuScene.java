@@ -461,7 +461,7 @@ public final class MenuScene extends PanelScene {
         } else if (t.equals("editor")) {
             app.goTo(new EditorScene(app, null));
         } else if (t.equals("support")) {
-            app.platform.openUrl(neontd.app.Support.URL);
+            app.platform.openSupport(neontd.app.Support.URL, neontd.app.Support.embedUrl());
         }
     }
 
