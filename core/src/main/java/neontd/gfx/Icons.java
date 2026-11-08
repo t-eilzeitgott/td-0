@@ -8,7 +8,7 @@ public final class Icons {
     public enum Icon {
         PLAY, PAUSE, FAST, HEART, GEM, BACK, HOME, PLUS, CROSS, CHECK, TRASH, UNDO, PENCIL, NODE, DRAW, UP,
         RANGE, DAMAGE, SPEED, LOCK, FLAG, LOOP, TARGET, SAVE, STAR, EDITOR, WAVES, CRYSTAL, GEAR, TROPHY, FLAME,
-        BOARD, CALENDAR, BRANCH, CHEVRON
+        BOARD, CALENDAR, BRANCH, CHEVRON, COFFEE
     }
 
     private static final double TAU = Math.PI * 2;
@@ -380,6 +380,25 @@ public final class Icons {
                 g.circle(0.6, -0.62, 0.22);
                 g.circle(0, 0.9, 0.2);
                 g.fill(color);
+                break;
+            case COFFEE:
+                // Tasse: Becher mit Henkel, darüber zwei Dampffäden
+                g.moveTo(-0.7, -0.15);
+                g.lineTo(0.35, -0.15);
+                g.lineTo(0.35, 0.35);
+                g.arc(-0.175, 0.35, 0.525, 0, Math.PI);
+                g.closePath();
+                line(g, lw, color, gl);
+                g.beginPath();
+                g.moveTo(0.35, 0.0);
+                g.arc(0.55, 0.22, 0.26, -Math.PI / 2, Math.PI / 2);
+                line(g, lw, color, gl);
+                g.beginPath();
+                g.moveTo(-0.4, -0.85);
+                g.lineTo(-0.4, -0.45);
+                g.moveTo(0.0, -0.85);
+                g.lineTo(0.0, -0.45);
+                line(g, lw, color, gl);
                 break;
             case CHEVRON:
                 g.moveTo(-0.3, -0.7);

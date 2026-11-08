@@ -45,6 +45,7 @@ cleane Oberfläche. Die gesamte Spiellogik ist in **Java** geschrieben und läuf
   Partikel – auf 120-Hz-Displays läuft jedes Bild mit.
 - **Wellen wie bei Bloons TD**: Welle manuell (auch früher) starten, Tempo 1×/2×/3× (Endlos 5×), Auto-Start, Pause.
 - **Endlosmodus bis Welle 1000** mit Meisterstufen für alle Upgrades – siehe [Endlosmodus](#endlosmodus).
+- **Unterstützen**: unten auf der Startseite eine Kachel „Gefällt dir Neon TD?“, die die Ko-fi-Seite öffnet (`app/Support.java`, Link leer = Kachel weg). Freiwillig, ohne Gegenleistung.
 - **Level-Editor** für eigene Strecken, **Speichern und Fortsetzen**, **Cloud-Speicher** über ein privates GitHub-Gist.
 - **Physik-Fundament**: Pfade nach Bogenlänge, Broad-Phase, kontinuierliche Kollision, Zielvorhersage, deterministische
   Simulation (siehe [docs/ENTWICKLUNG.md](docs/ENTWICKLUNG.md)).

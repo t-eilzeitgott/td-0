@@ -151,7 +151,10 @@ public final class MenuScene extends PanelScene {
         y += arena(g, x, y, w, u) + Kit.SECTION_GAP * u;
         y += today(g, x, y, w, u) + Kit.SECTION_GAP * u;
         y += worlds(g, x, y, w, u) + Kit.SECTION_GAP * u;
-        y += more(g, x, y, w, u) + 24 * u;
+        y += more(g, x, y, w, u) + Kit.SECTION_GAP * u;
+        if (neontd.app.Support.enabled()) {
+            y += support(g, x, y, w, u) + 24 * u;
+        }
         g.text("Neon TD  ·  v" + neontd.app.Version.NAME, x + w / 2, y, Kit.T_CAPTION * u, Colors.withAlpha(0xFFFFFF, 0.3),
                 Gfx.ALIGN_CENTER, false);
         y += 30 * u;
@@ -401,6 +404,19 @@ public final class MenuScene extends PanelScene {
         return y - y0;
     }
 
+    /** Kachel „Gefällt dir Neon TD?“ – öffnet die Ko-fi-Seite im Browser. */
+    private double support(Gfx g, double x, double y, double w, double u) {
+        double h = Kit.ROW * u + 8 * u;
+        hit(x, y, w, h, "support");
+        double k = lift("support");
+        g.fillRoundRect(x, y, w, h, 16 * u, Colors.withAlpha(Theme.YELLOW, 0.08 + 0.06 * k));
+        g.strokeRoundRect(x, y, w, h, 16 * u, 1, Colors.withAlpha(Theme.YELLOW, 0.4));
+        Icons.draw(g, Icon.COFFEE, x + 26 * u, y + h / 2, 10 * u, Theme.YELLOW, 2 * u);
+        Kit.row(g, x + 12 * u, y, w - 12 * u, h, 44 * u, "Gefällt dir Neon TD?",
+                "Kostenlos – ein Kaffee hilft beim Weiterbauen", null, 0, true, false, 0, false, u);
+        return h;
+    }
+
     // ---------------------------------------------------------------------------------------- Aktionen
 
     @Override
@@ -444,6 +460,8 @@ public final class MenuScene extends PanelScene {
             app.goTo(new LeaderboardScene(app));
         } else if (t.equals("editor")) {
             app.goTo(new EditorScene(app, null));
+        } else if (t.equals("support")) {
+            app.platform.openUrl(neontd.app.Support.URL);
         }
     }
 
