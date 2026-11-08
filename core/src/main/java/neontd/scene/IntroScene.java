@@ -120,6 +120,8 @@ public final class IntroScene extends Scene {
                     Gfx.ALIGN_CENTER, true);
             g.restore();
         }
+        // Dezent unten: „talfahrt“-Zeichen, kommt mit dem Untertitel und geht mit dem Flug
+        Wordmark.byTalfahrt(g, vp.w / 2, vp.h - vp.insetB - 34 * vp.u, 15 * vp.u, 0.7 * sub);
     }
 
     @Override

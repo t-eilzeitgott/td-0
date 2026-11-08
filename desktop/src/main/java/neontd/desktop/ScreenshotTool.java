@@ -17,7 +17,7 @@ import neontd.platform.Platform;
  * java -Djava.awt.headless=true neontd.desktop.ScreenshotTool OUT_DIR "size 1280 720; wait 2; shot menu"
  * </pre>
  *
- * Befehle: size W H [touch] · insets L T R B · open game|gamerich|select|editor|menu · wait SEK · wheel DY (Inhalt scrollen, erst nach einem shot wirksam) · shot NAME · click X Y · down X Y · move X Y · up X Y ·
+ * Befehle: size W H [touch] · insets L T R B · open game|gamerich|select|editor|menu · wait SEK · open intro|profile|select|… · wheel DY (Inhalt scrollen, erst nach einem shot wirksam) · shot NAME · click X Y · down X Y · move X Y · up X Y ·
  * drag X1 Y1 X2 Y2 SEK · key CODE [ctrl] · back
  */
 public final class ScreenshotTool {
@@ -151,6 +151,9 @@ public final class ScreenshotTool {
                 app.goTo(neontd.scene.GameScene.endless(app, rich));
                 break;
             }
+            case "intro":
+                app.goTo(new neontd.scene.IntroScene(app));
+                break;
             case "profile":
                 app.goTo(new neontd.scene.ProfileScene(app));
                 break;

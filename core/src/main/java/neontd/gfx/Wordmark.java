@@ -54,4 +54,35 @@ public final class Wordmark {
             x += gw + NeonText.width("AA", h) - 2 * NeonText.width("A", h);
         }
     }
+
+    /** Kleines „talfahrt“-Zeichen (t-Glyphe mit grünem Strich) samt Schriftzug, zentriert um {@code cx}; {@code h} ist die Zeichenhöhe. */
+    public static void byTalfahrt(Gfx g, double cx, double cy, double h, double alpha) {
+        if (alpha <= 0.01) {
+            return;
+        }
+        double s = h / 64;
+        double textSize = h * 0.78;
+        double gap = h * 0.35;
+        double tw = g.textWidth("talfahrt", textSize, true);
+        double total = h + gap + tw;
+        double x0 = cx - total / 2;
+        double y0 = cy - h / 2;
+        g.save();
+        g.alpha(alpha);
+        // t: Stamm mit Fuß nach rechts, Querstrich
+        g.beginPath();
+        g.moveTo(x0 + 20 * s, y0 + 14 * s);
+        g.lineTo(x0 + 20 * s, y0 + 38 * s);
+        g.arc(x0 + 30 * s, y0 + 38 * s, 10 * s, Math.PI, Math.PI / 2);
+        g.moveTo(x0 + 11.5 * s, y0 + 24.5 * s);
+        g.lineTo(x0 + 28.5 * s, y0 + 24.5 * s);
+        g.stroke(6 * s, 0xFFFFFF);
+        // grüner Schrägstrich
+        g.beginPath();
+        g.moveTo(x0 + 38.5 * s, y0 + 13 * s);
+        g.lineTo(x0 + 51.5 * s, y0 + 50 * s);
+        g.stroke(6 * s, 0xD7F24B);
+        g.text("talfahrt", x0 + h + gap, cy, textSize, 0xFFFFFF, Gfx.ALIGN_LEFT, true);
+        g.restore();
+    }
 }
