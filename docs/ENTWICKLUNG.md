@@ -101,9 +101,9 @@ Speicherbereinigung des Browsers. Ein Partikel vom Typ `POP` zerplatzt am Lebens
 | Modus | Wann | Aufbau |
 |---|---|---|
 | `DOCKED` | Laptop/Tablet quer | Karte links, feste Seitenleiste rechts (Kopf mit Level-Balken, Shop, Panel, Steuerung) |
-| `STACKED` | Tablet hoch | Karte oben, darunter Shop und Panel |
-| `COMPACT_LAND` | kleinste Fensterkante < 480 (Handy quer) | schmale Leiste rechts (Türme │ Steuerung), Kopfzeile schwebt über der Karte, Upgrade-Panel als Popover neben dem Turm (wechselt die Seite, wenn es ihn verdecken würde) |
-| `COMPACT_PORT` | Handy hoch | **Karte um 90° gedreht** (Pfad von oben nach unten) in voller Breite; Kopfzeile mit Pause darüber (reicht der Platz nicht, schwebt sie über der Karte: `hudOverlay`), Steuerzeile darunter (START, Tempo, Auto, Pfeil). Die Turmleiste (`tray`) schwebt über dem unteren Kartenrand; ein gewählter Turm bekommt dort das Panel – oder oben unter der Kopfzeile, wenn es ihn sonst verdecken würde (`panelAtTop`) |
+| `STACKED` | Tablet hoch | Karte oben, darunter Shop und Wellen-Vorschau; ein gewählter Turm bekommt den ganzen Platz unter der Karte (`panelReplacesTiles`) |
+| `COMPACT_LAND` | kleinste Fensterkante < 480 (Handy quer) | schmale Leiste rechts (Türme │ Steuerung), Kopfzeile schwebt als zwei Glas-Inseln über der Karte, Upgrade-Popover schwebt links oder rechts direkt neben dem Turm und zeigt mit einem Zeiger auf ihn (`panelSide` 2/3, `anchorX/Y`) |
+| `COMPACT_PORT` | Handy hoch | **Karte um 90° gedreht** (Pfad von oben nach unten) in voller Breite; Kopfzeile mit Pause darüber (reicht der Platz nicht, schwebt sie über der Karte: `hudOverlay`), Steuerzeile darunter (START, Tempo, Auto, Pfeil). Die Turmleiste (`tray`) schwebt als Glas-Dock über dem unteren Kartenrand. Ein gewählter Turm bekommt ein **schwebendes Popover direkt am Turm** – darunter oder darüber, wo mehr Platz ist (`panelAtTop`, Zeiger `panelSide` 0/1) –, Kopf- und Steuerzeile bleiben frei; das Dock gleitet währenddessen weg |
 
 In den kompakten Modi klappt der Pfeil-Knopf die Leiste ein (animiert über `railT`, gemerkt unter
 `neontd.ui.rail`): quer bleiben nur START und der Knopf als Überlagerung; hoch gleitet die Turmleiste nach unten weg
@@ -111,6 +111,27 @@ und die ganze Karte ist frei (die Karte selbst ändert ihre Größe dabei nicht)
 frei sichtbaren Kartenbereich an – dort sitzen Banner, Hinweise und Arena-Zwischenzeiten. Mit weniger Türmen (Arena:
 Wochen-Pool) wird die Leiste schmaler und steht mittig. Das Ergebnis in Zahlen steht in `GameLayoutTest` (iPhone 15
 quer: Kartenmaßstab 0,41 → 0,49/0,50; hoch: 0,30 → 0,53).
+
+### Schwebende Oberfläche (ab v3.3)
+
+Im Spiel liegt alles Bedienbare als **schwebende Glasfläche** über dem Spielfeld (`ui.Draw.glass`: weicher Schatten,
+leicht durchscheinende Fläche, Haarlinie, Lichtsaum oben; `Draw.glassPointer` mit Zeiger in Turmfarbe). Bewegt wird
+mit **Federn** (`ui.Spring`: Steifigkeit und Dämpfung, halbimplizit in Teilschritten, framerate-unabhängig) statt
+linearer Übergänge:
+
+- **Turm-Popover** wächst aus dem Turm heraus (`popT`), gleitet beim Turmwechsel zur neuen Position (`popDX/popDY`),
+  die Inhalte erscheinen nacheinander; der Reichweitenkreis blüht auf (`rangeT`), der Auswahlring zieht sich zusammen.
+- **Kopfzeile** als zwei Inseln: Leben (Herz hüpft bei Verlust), Geld (hüpft und leuchtet bei Gewinn, schüttelt bei
+  zu wenig Geld), Spielerlevel mit Fortschrittsring; rechts die Welle mit einem Ring, der sich mit den besiegten
+  Gegnern füllt (`waveProg`).
+- **Turm-Dock**: Kacheln heben sich dem Finger entgegen (`cardLift`), ein **Spar-Ring** zeigt, wie nah das Geld am
+  Preis ist; wird ein Turm bezahlbar, ploppt die Kachel mit einem Lichtring.
+- **Start-Pille** atmet, wenn die nächste Welle bereitsteht, und füllt sich während einer Welle mit deren Fortschritt;
+  Upgrade-Kacheln hüpfen und leuchten beim Kauf (neuer Punkt ploppt), schütteln, wenn das Geld fehlt.
+- Hinweise, Haken/Kreuz am schwebenden Turm und das Blatt für Pause/Sieg federn herein.
+
+Die Popover-Geometrie prüft `GameLayoutTest.popoverStaysOnScreenAndOffTheTowerEverywhere` für alle Testgeräte und
+Turmpositionen (im sicheren Bereich, mit Zeiger, ohne den Turm zu verdecken).
 
 **iPhone-App mit verkürztem Fenster:** iOS gibt Web-Apps auf dem Home-Bildschirm manchmal ein Fenster, das unten
 kürzer ist als der Bildschirm (`innerHeight` < `screen.height`); darunter kann keine Seite zeichnen. Die Zeichenfläche

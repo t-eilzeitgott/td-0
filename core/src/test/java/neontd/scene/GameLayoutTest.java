@@ -161,32 +161,74 @@ class GameLayoutTest {
     @Test
     void landscapePanelAvoidsTheSelectedTower() {
         Viewport v = vp(852, 393, 59, 0, 59, 21);
-        // Turm weit rechts (unter dem rechten Panel) → Panel wechselt nach links
+        // Turm weit rechts (nahe der Leiste) → Popover schwebt links daneben, Zeiger rechts
         GameLayout gl = new GameLayout();
         gl.compute(v, WW, WH, 1, true, 1150, 360);
         double tx = gl.screenX(1150, 360, WH);
         double ty = gl.screenY(1150, 360);
         assertFalse(gl.panel.intersectsCircle(tx, ty, 20));
-        // Turm links → Panel darf rechts bleiben
+        assertTrue(gl.panel.x + gl.panel.w < tx);
+        assertEquals(3, gl.panelSide);
+        // Turm links → Popover rechts daneben, Zeiger links
         GameLayout gl2 = new GameLayout();
         gl2.compute(v, WW, WH, 1, true, 150, 360);
-        assertTrue(gl2.panel.x > gl2.mapX + gl2.mapW / 2);
+        double tx2 = gl2.screenX(150, 360, WH);
+        assertTrue(gl2.panel.x > tx2);
+        assertEquals(2, gl2.panelSide);
+        assertFalse(gl2.panel.intersectsCircle(tx2, gl2.screenY(150, 360), 20));
     }
 
     @Test
-    void portraitPanelMovesUpWhenItWouldCoverTheSelectedTower() {
+    void portraitPopoverFloatsRightAtTheSelectedTower() {
         Viewport v = vp(393, 852, 0, 59, 0, 34);
-        // Turm unten auf dem Bildschirm (Welt-x groß) → Panel oben
+        // Turm unten auf dem Bildschirm (Welt-x groß) → Popover schwebt darüber, Zeiger unten
         GameLayout low = new GameLayout();
         low.compute(v, WW, WH, 1, true, 1200, 360);
+        double ly = low.screenY(1200, 360);
         assertTrue(low.panelAtTop);
-        assertFalse(low.panel.intersectsCircle(low.screenX(1200, 360, WH), low.screenY(1200, 360), 24));
-        // Turm oben → Panel bleibt unten (über der Steuerzeile)
+        assertEquals(1, low.panelSide);
+        assertFalse(low.panel.intersectsCircle(low.screenX(1200, 360, WH), ly, 24));
+        assertTrue(ly - (low.panel.y + low.panel.h) < 90, "dicht am Turm");
+        // Turm oben → Popover schwebt direkt darunter, Zeiger oben
         GameLayout high = new GameLayout();
         high.compute(v, WW, WH, 1, true, 200, 360);
+        double hy = high.screenY(200, 360);
         assertFalse(high.panelAtTop);
-        assertTrue(high.panel.y > high.mapY + high.mapH / 2);
-        assertFalse(high.panel.intersectsCircle(high.screenX(200, 360, WH), high.screenY(200, 360), 24));
+        assertEquals(0, high.panelSide);
+        assertTrue(high.panel.y > hy && high.panel.y - hy < 90, "dicht am Turm");
+        assertFalse(high.panel.intersectsCircle(high.screenX(200, 360, WH), hy, 24));
+        // Kopf- und Steuerzeile bleiben frei
+        for (GameLayout gl : new GameLayout[] {low, high}) {
+            assertTrue(gl.panel.y - gl.panelPad >= gl.hud.y + gl.hud.h);
+            assertTrue(gl.panel.y + gl.panel.h + gl.panelPad <= gl.start.y);
+        }
+    }
+
+    @Test
+    void popoverStaysOnScreenAndOffTheTowerEverywhere() {
+        for (double[] d : DEVICES) {
+            Viewport v = vp(d[0], d[1], d[2], d[3], d[4], d[5]);
+            for (double wx = 60; wx <= WW - 60; wx += 140) {
+                for (double wy = 60; wy <= WH - 60; wy += 110) {
+                    GameLayout gl = new GameLayout();
+                    gl.compute(v, WW, WH, 1, true, wx, wy);
+                    if (!gl.compact()) {
+                        continue;
+                    }
+                    String id = d[0] + "x" + d[1] + " " + gl.mode + " @" + wx + "," + wy;
+                    double p = gl.panelPad;
+                    assertTrue(gl.panel.x - p >= v.insetL - 0.5 && gl.panel.y - p >= v.insetT - 0.5
+                            && gl.panel.x + gl.panel.w + p <= v.w - v.insetR + 0.5
+                            && gl.panel.y + gl.panel.h + p <= v.h - v.insetB + 0.5, id + ": Popover außerhalb");
+                    assertTrue(gl.panelSide >= 0, id + ": ohne Zeiger");
+                    double tx = gl.screenX(wx, wy, WH);
+                    double ty = gl.screenY(wx, wy);
+                    if (v.h >= 640 || v.w >= 640) {
+                        assertFalse(gl.panel.intersectsCircle(tx, ty, 14), id + ": Popover verdeckt den Turm");
+                    }
+                }
+            }
+        }
     }
 
     @Test

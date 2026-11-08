@@ -54,6 +54,10 @@ final class GameLayout {
     static final double COMPACT_BELOW = 480;
     /** Kacheln pro Seite im Turm-Shop; weitere Türme (Elite-Türme aus dem Shop) liegen auf Folgeseiten. */
     static final int TOWERS = 8;
+    /** Zeilenhöhen des schwebenden Turm-Popovers im Hochformat (× {@link #k}): Kopf, Upgrade-Kacheln, Aktionen. */
+    static final double POP_HEAD = 30;
+    static final double POP_TRACK = 62;
+    static final double POP_ACTION = 40;
 
     Mode mode = Mode.DOCKED;
     /** Karte um 90° im Uhrzeigersinn gedreht (Welt-x läuft nach unten). */
@@ -84,8 +88,16 @@ final class GameLayout {
     final Rect tray = new Rect();
     /** Hochformat-Handy: Die Kopfzeile schwebt über der Karte (zu wenig Platz darüber). */
     boolean hudOverlay;
-    /** Hochformat-Handy: Das Upgrade-Panel steht oben, weil es unten den gewählten Turm verdecken würde. */
+    /** Handy: Das schwebende Turm-Popover steht über dem gewählten Turm (sonst darunter bzw. daneben). */
     boolean panelAtTop;
+    /**
+     * Handy: Seite des Zeigers, mit dem das schwebende Popover auf den gewählten Turm zeigt (0 = oben, 1 = unten,
+     * 2 = links, 3 = rechts) oder -1 ohne Zeiger (feste Seitenleiste am PC und Tablet).
+     */
+    int panelSide = -1;
+    /** Bildschirmposition des gewählten Turms – dorthin zeigt das Popover, von dort wächst es heraus. */
+    double anchorX;
+    double anchorY;
     /** Frei sichtbarer Kartenbereich (ohne Kopfzeile, Turmleiste und Panel) – für Banner, Hinweise, Zwischenzeiten. */
     double clearTop;
     double clearBottom;
@@ -133,6 +145,7 @@ final class GameLayout {
         open = Mathx.clamp01(openness);
         hudOverlay = false;
         panelAtTop = false;
+        panelSide = -1;
         tray.set(0, 0, 0, 0);
         panelPad = 0;
         switch (mode) {
@@ -140,7 +153,7 @@ final class GameLayout {
                 docked(vp, ww, wh);
                 break;
             case STACKED:
-                stacked(vp, ww, wh);
+                stacked(vp, ww, wh, selected);
                 break;
             case COMPACT_LAND:
                 compactLand(vp, ww, wh, selected, selX, selY);
@@ -207,7 +220,7 @@ final class GameLayout {
         pause.set(x + wStart + gap * 3 + wRest * 2, y, wRest, h);
     }
 
-    private void stacked(Viewport vp, double ww, double wh) {
+    private void stacked(Viewport vp, double ww, double wh, boolean selected) {
         double u = vp.u;
         double m = 8 * u;
         double ctrlH = 52 * u;
@@ -237,7 +250,11 @@ final class GameLayout {
         showTiles = true;
         showExtras = true;
         showToggle = false;
-        panelReplacesTiles = false;
+        panelReplacesTiles = selected;
+        if (selected) {
+            // Gewählter Turm: das Panel bekommt den ganzen Platz unter der Karte (statt Shop und Info)
+            panel.set(hx, panelY, hw, Math.min(panelH, 360 * u));
+        }
         fitMap(hx, mapAvY, hw, mapAvH, ww, wh, false);
     }
 
@@ -289,19 +306,50 @@ final class GameLayout {
         // Kopfzeile schwebt über der Karte (oben links)
         hud.set(mapX + 4 * k, mapY + 4 * k, Math.min(mapW - 8 * k, 330 * k), 24 * k);
 
-        // Upgrade-Panel neben dem Turm: rechts neben der Leiste, sonst am linken Rand
+        // Upgrade-Popover schwebt neben dem Turm (Zeiger auf den Turm) – auf der Seite mit mehr Platz, nie unter der
+        // Leiste und nie über dem Turm selbst.
         double rows = 34 + 3 * 52 + 34 + 34 + 38 + 6 * 4;
-        double rs = Math.min(1, availH / (rows * k));
+        double rs = Math.min(1, (availH - 8 * k) / (rows * k));
         double pw = Math.min(178 * k, Math.max(150, (sx1 - sx0) * 0.3));
         double ph = rows * k * rs;
+        double right = (open > 0.5 ? tx : cx) - gap;
+        double pad = 6 * k;
+        panelPad = pad;
         double py = sy0 + (availH - ph) / 2;
-        double rightX = (open > 0.5 ? tx : cx) - gap - pw;
-        panel.set(rightX, py, pw, ph);
+        panel.set(right - pw - pad, py, pw, ph);
         if (selected) {
             double sxs = mapX + (selX * mapScale);
             double sys = mapY + (selY * mapScale);
-            if (panel.intersectsCircle(sxs, sys, 34 * mapScale + 6)) {
-                panel.set(sx0, py, pw, ph);
+            anchorX = sxs;
+            anchorY = sys;
+            double rr = 34 * mapScale + 6;
+            double arrow = 9 * k;
+            double minX = sx0 + pad;
+            double maxX = right - pad - pw;
+            double popY = Mathx.clamp(sys - ph / 2, sy0 + pad, sy1 - pad - ph);
+            // erst links vom Turm (Blick wandert vom Turm zum Panel), sonst rechts, sonst an den freien Rand
+            double leftX = sxs - rr - arrow - pad - pw;
+            double rightX = sxs + rr + arrow + pad;
+            boolean preferLeft = sxs > (sx0 + right) / 2;
+            double[] tries = preferLeft ? new double[] {leftX, rightX} : new double[] {rightX, leftX};
+            boolean placed = false;
+            for (double cand : tries) {
+                if (cand >= minX - 0.5 && cand <= maxX + 0.5) {
+                    panel.set(Mathx.clamp(cand, minX, maxX), popY, pw, ph);
+                    panelSide = cand == leftX ? 3 : 2;
+                    placed = true;
+                    break;
+                }
+            }
+            if (!placed) {
+                // kein Platz direkt daneben: an den Rand, der weiter vom Turm entfernt ist
+                double far = Math.abs(sxs - minX) > Math.abs(sxs - maxX) ? minX : maxX;
+                panel.set(far, popY, pw, ph);
+                panelSide = far + pw / 2 < sxs ? 3 : 2;
+                if (panel.intersectsCircle(sxs, sys, rr)) {
+                    panel.set(far == minX ? maxX : minX, popY, pw, ph);
+                    panelSide = panel.x + pw / 2 < sxs ? 3 : 2;
+                }
             }
         }
         info.set(panel.x, panel.y, panel.w, panel.h);
@@ -368,29 +416,61 @@ final class GameLayout {
         showTiles = open > 0.02;
         panelReplacesTiles = selected;
 
-        // Upgrade-Panel: unten über der Karte (statt Turmleiste und Steuerzeile) – oder oben, wenn es sonst den
-        // gewählten Turm verdeckt. {@code panel} ist die Innenfläche, der Hintergrund steht {@code pad} darüber hinaus.
-        double ph = towerRow + gap + ctrlRow;
-        panelPad = pad;
-        panel.set(sx0 + pad, sy1 - pad - ph, w - 2 * pad, ph);
-        panelAtTop = false;
-        if (selected && screenY(selX, selY) + 34 * mapScale + 10 * k > panel.y - pad) {
-            panel.set(sx0 + pad, hud.y + hudH + gap + pad, w - 2 * pad, ph);
-            panelAtTop = true;
+        // Upgrade-Popover: schwebt direkt am gewählten Turm – darunter oder darüber, je nachdem, wo mehr Platz ist –
+        // und zeigt mit einem Zeiger auf ihn. Kopf- und Steuerzeile bleiben frei. {@code panel} ist die Innenfläche,
+        // die Glasfläche steht {@code pad} darüber hinaus.
+        double ppad = 8 * k;
+        panelPad = ppad;
+        double ph = POP_HEAD * k + gap + POP_TRACK * k + 6 * k + POP_ACTION * k;
+        double pw = Math.min(w - 2 * ppad, 430 * k);
+        double top = hud.y + hudH + 6 * k + ppad;
+        double floor = cy - gap - ppad;
+        double px = sx0 + (w - pw) / 2;
+        panel.set(px, floor - ph, pw, ph);
+        if (selected) {
+            double tx = screenX(selX, selY, wh);
+            double ty = screenY(selX, selY);
+            anchorX = tx;
+            anchorY = ty;
+            double rr = 30 * mapScale + 6 * k;
+            double arrow = 10 * k;
+            panel.x = Mathx.clamp(tx - pw / 2, sx0 + ppad, sx1 - ppad - pw);
+            double below = ty + rr + arrow + ppad;
+            double above = ty - rr - arrow - ppad - ph;
+            boolean fitsBelow = below + ph <= floor + 0.5;
+            boolean fitsAbove = above >= top - 0.5;
+            boolean preferAbove = ty > (top + floor) * 0.5;
+            if (fitsAbove && (preferAbove || !fitsBelow)) {
+                panel.y = above;
+                panelAtTop = true;
+                panelSide = 1;
+            } else if (fitsBelow) {
+                panel.y = below;
+                panelSide = 0;
+            } else {
+                // sehr kleiner Bildschirm: an den Rand mit mehr Abstand zum Turm, der Zeiger reicht so weit er kann
+                boolean up = ty - top > floor - ty;
+                panel.y = up ? top : floor - ph;
+                panelAtTop = up;
+                panelSide = up ? 1 : 0;
+            }
         }
         info.set(panel.x, panel.y, panel.w, panel.h);
 
-        // Frei sichtbarer Bereich der Karte
+        // Frei sichtbarer Bereich der Karte (für Banner und Hinweise): neben dem Popover, wo mehr Platz bleibt
         clearTop = Math.max(mapY, hudOverlay ? hud.y + hudH : mapY);
         double bottom = mapY + mapH;
         if (showTiles && !selected) {
             bottom = Math.min(bottom, trayY);
         }
-        if (selected && !panelAtTop) {
-            bottom = Math.min(bottom, panel.y - pad);
-        }
-        if (selected && panelAtTop) {
-            clearTop = Math.max(clearTop, panel.y + panel.h + pad);
+        if (selected) {
+            double upper = panel.y - ppad - clearTop;
+            double lower = Math.min(bottom, cy) - (panel.y + panel.h + ppad);
+            if (upper >= lower) {
+                bottom = Math.min(bottom, panel.y - ppad);
+            } else {
+                clearTop = Math.max(clearTop, panel.y + panel.h + ppad);
+            }
         }
         clearBottom = Math.min(bottom, cy);
     }

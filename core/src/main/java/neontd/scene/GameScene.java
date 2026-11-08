@@ -41,6 +41,7 @@ import neontd.ui.Easing;
 import neontd.ui.Fmt;
 import neontd.ui.Kit;
 import neontd.ui.Smooth;
+import neontd.ui.Spring;
 import neontd.ui.Ui;
 import neontd.ui.Viewport;
 
@@ -198,6 +199,44 @@ public final class GameScene extends Scene {
     private int toastColor;
     private double toastTime;
 
+    // Schwebende Oberfläche: Federn für organische Bewegungen
+    /** Auftritt des Turm-Popovers (wächst aus dem Turm heraus). */
+    private final Spring popT = Spring.soft(0);
+    /** Gleiten des Popovers, wenn ein anderer Turm gewählt wird (Versatz zur Zielposition). */
+    private final Spring popDX = Spring.calm(0);
+    private final Spring popDY = Spring.calm(0);
+    /** Reichweitenkreis blüht beim Wählen auf. */
+    private final Spring rangeT = Spring.soft(0);
+    /** Turmleiste gleitet weg, solange ein Turm gewählt ist. */
+    private final Spring dockT = Spring.soft(1);
+    /** Kacheln heben sich dem Finger entgegen; Leiste der Kacheln merkt sich, ob sich ein Turm leisten lässt. */
+    private final Spring[] cardLift = new Spring[GameLayout.TOWERS];
+    private final boolean[] cardCan = new boolean[GameLayout.TOWERS];
+    private final double[] cardFlash = new double[GameLayout.TOWERS];
+    /** Kleiner Hüpfer der Start-Pille, wenn sich ihre Beschriftung ändert, und der Tempo-Taste. */
+    private final Spring startPop = Spring.bouncy(0);
+    private final Spring speedPop = Spring.bouncy(0);
+    /** Aufleuchten einer Upgrade-Kachel nach dem Kauf. */
+    private final double[] trackFlash = new double[3];
+    private final Spring[] trackPop = new Spring[3];
+    private final double[] trackShake = new double[3];
+    /** Hinweis-Pille gleitet von unten herein. */
+    private final Spring toastT = Spring.soft(0);
+    /** Haken und Kreuz am schwebenden Turm springen auf. */
+    private final Spring confirmT = Spring.bouncy(0);
+    /** Blatt der Einblendung (Pause, Sieg, Niederlage) federt herein. */
+    private final Spring sheetT = Spring.soft(0);
+    /** Zahlen in der Kopfzeile hüpfen bei Gewinn. */
+    private final Spring moneyPop = Spring.bouncy(0);
+    private double moneyGain;
+    private double lastMoney;
+    private final Spring heartPop = Spring.bouncy(0);
+    private final Smooth hudFade = new Smooth(1, 12);
+    /** Fortschritt der laufenden Welle (größte Gegnerzahl seit dem Start). */
+    private int waveMax;
+    private final Smooth waveProg = new Smooth(0, 6);
+    private boolean confirmShown;
+
     public GameScene(App app, LevelDef level) {
         this(app, level, null, false, null);
     }
@@ -287,13 +326,18 @@ public final class GameScene extends Scene {
         railWanted = !"0".equals(saved);
         railT.snap(railWanted ? 1 : 0);
         moneyShown.snap(world.money);
+        lastMoney = world.money;
         buildUi();
     }
 
     // ------------------------------------------------------------------------------------------ Aufbau
 
     private void buildUi() {
+        for (int i = 0; i < 3; i++) {
+            trackPop[i] = Spring.bouncy(0);
+        }
         for (int i = 0; i < cards.length; i++) {
+            cardLift[i] = Spring.bouncy(0);
             final int idx = i;
             Button b = new Button("", null, Theme.CYAN, null);
             b.painter = (g, btn) -> {
@@ -324,10 +368,10 @@ public final class GameScene extends Scene {
         toggleBtn.painter = this::paintToggle;
         startBtn.fontScale = 0.9;
         speedBtn.fontScale = 0.9;
-        startBtn.painter = this::paintPill;
-        speedBtn.painter = this::paintPlain;
-        autoBtn.painter = this::paintPlain;
-        pauseBtn.painter = this::paintPlain;
+        startBtn.painter = this::paintStart;
+        speedBtn.painter = this::paintSpeed;
+        autoBtn.painter = this::paintAuto;
+        pauseBtn.painter = this::paintPause;
         for (int i = 0; i < 3; i++) {
             final UpgradeTrack track = UpgradeTrack.values()[i];
             Button b = new Button("", null, track.color, () -> buyUpgrade(track));
@@ -402,9 +446,9 @@ public final class GameScene extends Scene {
         autoBtn.bounds(lay.auto.x, lay.auto.y, lay.auto.w, lay.auto.h);
         pauseBtn.bounds(lay.pause.x, lay.pause.y, lay.pause.w, lay.pause.h);
         toggleBtn.bounds(lay.toggle.x, lay.toggle.y, lay.toggle.w, lay.toggle.h);
-        // Hochformat-Handy: Das Upgrade-Panel liegt unten über der Steuerzeile – außer es musste nach oben ausweichen.
-        boolean panelCoversCtrl = lay.mode == GameLayout.Mode.COMPACT_PORT && selected != null && !lay.panelAtTop;
-        boolean extras = lay.showExtras && !panelCoversCtrl;
+        // Das Upgrade-Popover schwebt am Turm – Kopf- und Steuerzeile bleiben immer erreichbar.
+        boolean panelCoversCtrl = false;
+        boolean extras = lay.showExtras;
         speedBtn.visible = extras;
         autoBtn.visible = extras;
         pauseBtn.visible = lay.mode == GameLayout.Mode.COMPACT_PORT || extras;
@@ -412,11 +456,12 @@ public final class GameScene extends Scene {
         startBtn.visible = startVisible;
         toggleBtn.visible = lay.showToggle && startVisible;
         // Schmale Kacheln bekommen eigene, kompakte Darstellung.
-        Button.Painter startPainter = compact && lay.start.w < lay.start.h * 1.2 ? this::paintStartTile : this::paintPill;
+        Button.Painter startPainter = compact && lay.start.w < lay.start.h * 1.2 ? this::paintStartTile : this::paintStart;
         startBtn.painter = startPainter;
         for (int i = 0; i < cards.length; i++) {
             cards[i].bounds(lay.tiles[i].x, lay.tiles[i].y, lay.tiles[i].w, lay.tiles[i].h);
-            cards[i].visible = tilesVisible() && cardType(i) != null;
+            boolean sliding = lay.mode == GameLayout.Mode.COMPACT_PORT && lay.showTiles;
+            cards[i].visible = (tilesVisible() || sliding) && cardType(i) != null;
         }
         pagerBtn.bounds(lay.pager.x, lay.pager.y, lay.pager.w, lay.pager.h);
         pagerBtn.visible = tilesVisible() && pageCount() > 1;
@@ -485,7 +530,7 @@ public final class GameScene extends Scene {
             case DOCKED:
                 return selected == null;
             case STACKED:
-                return true;
+                return !lay.panelReplacesTiles;
             case COMPACT_LAND:
                 return lay.showTiles;
             default:
@@ -514,23 +559,23 @@ public final class GameScene extends Scene {
                 break;
             }
             case COMPACT_PORT: {
+                // Popover: Kopf (Turm, Stufe, Zielmodus), drei Upgrade-Kacheln, darunter Ausbau und Verkaufen
                 double k = lay.k;
                 double gap = 4 * k;
+                double hh = GameLayout.POP_HEAD * k;
+                double th = GameLayout.POP_TRACK * k;
+                double ah = GameLayout.POP_ACTION * k;
+                double mw = Math.min(132 * k, p.w * 0.38);
+                modeBtn.bounds(p.x + p.w - mw, p.y, mw, hh);
+                double y = p.y + hh + gap;
                 double w = (p.w - 2 * gap) / 3;
-                double th = Math.min(64 * k, p.h * 0.6);
                 for (int i = 0; i < 3; i++) {
-                    trackBtns[i].bounds(p.x + i * (w + gap), p.y, w, th);
+                    trackBtns[i].bounds(p.x + i * (w + gap), y, w, th);
                 }
-                double y = p.y + th + gap;
-                double rh = p.h - th - gap;
-                double avail = p.w - 3 * gap;
-                double w1 = avail * 0.17;
-                double w2 = avail * 0.30;
-                double w3 = avail * 0.24;
-                double w4 = avail - w1 - w2 - w3;
-                specialBtn.bounds(p.x + w1 + gap, y, w2, rh);
-                modeBtn.bounds(p.x + w1 + w2 + 2 * gap, y, w3, rh);
-                sellBtn.bounds(p.x + w1 + w2 + w3 + 3 * gap, y, w4, rh);
+                y += th + 6 * k;
+                double sw = (p.w - gap) * 0.56;
+                specialBtn.bounds(p.x, y, sw, ah);
+                sellBtn.bounds(p.x + sw + gap, y, p.w - sw - gap, ah);
                 break;
             }
             default: {
@@ -632,6 +677,7 @@ public final class GameScene extends Scene {
     private void cycleSpeed() {
         speedIndex = (speedIndex + 1) % speeds().length;
         speedBtn.label = (int) speeds()[speedIndex] + "x";
+        speedPop.kick(9);
     }
 
     private void toggleRail() {
@@ -726,7 +772,117 @@ public final class GameScene extends Scene {
                 b.selected ? Colors.lighten(b.color, 0.3) : Theme.TEXT, Math.min(h * 0.36, Kit.T_ROW * app.vp.u));
     }
 
+    /** Start-Pille: atmet, wenn die nächste Welle bereitsteht; während einer Welle füllt sie sich mit dem Fortschritt. */
+    private void paintStart(Gfx g, Button b) {
+        double w = b.w;
+        double h = b.h;
+        double pop = 1 + 0.045 * startPop.value;
+        g.scale(pop, pop);
+        int c = b.color;
+        boolean running = world.activeWaves() > 0 && overlay == Overlay.NONE;
+        boolean ready = b.enabled && world.readyForNextWave() && overlay == Overlay.NONE;
+        double fs = Math.min(h * 0.34, Kit.T_ROW * 1.06 * app.vp.u);
+        if (ready) {
+            double br = 0.5 + 0.5 * Math.sin(time * 2.6);
+            g.radialGlow(0, 0, w * (0.58 + 0.05 * br), Colors.withAlpha(c, 0.10 + 0.12 * br));
+        }
+        if (running) {
+            // Glas mit Farbhauch, darin füllt sich die Welle von links
+            g.fillRoundRect(-w / 2, -h / 2, w, h, h / 2, Colors.withAlpha(Colors.darken(c, 0.55), 0.92));
+            double f = Mathx.clamp01(waveProg.value);
+            if (f > 0.01) {
+                g.fillRoundRect(-w / 2, -h / 2, Math.max(h, w * f), h, h / 2,
+                        Colors.withAlpha(c, 0.30 + 0.12 * b.hover.value + 0.1 * b.press.value));
+            }
+            g.strokeRoundRect(-w / 2 + 0.5, -h / 2 + 0.5, w - 1, h - 1, h / 2, 1, Colors.withAlpha(c, 0.45));
+            buttonLabel(g, b, Colors.lighten(c, 0.4), Colors.lighten(c, 0.55), fs);
+            return;
+        }
+        int fill = Colors.lerp(Colors.lerp(c, 0xFFFFFF, 0.12 * b.hover.value), Colors.darken(c, 0.18), b.press.value);
+        g.fillRoundRect(-w / 2, -h / 2 + 2.5 * app.vp.u, w, h, h / 2, Colors.withAlpha(Colors.darken(c, 0.6), 0.6));
+        g.fillRoundRect(-w / 2, -h / 2, w, h, h / 2, fill);
+        // weicher Glanz an der Oberkante
+        g.fillRoundRect(-w / 2 + h * 0.3, -h / 2 + 1.5, w - h * 0.6, h * 0.18, h * 0.09, Colors.withAlpha(0xFFFFFF, 0.16));
+        buttonLabel(g, b, 0x000000, 0x000000, fs);
+    }
+
+    /** Tempo: die Zahl hüpft beim Umschalten, ab 2x in Akzentfarbe. */
+    private void paintSpeed(Gfx g, Button b) {
+        double s = 1 + 0.08 * speedPop.value;
+        g.scale(s, s);
+        paintPlain(g, b);
+    }
+
+    /** Auto-Start: das Schleifen-Symbol dreht sich, solange die Wellen von selbst starten. */
+    private void paintAuto(Gfx g, Button b) {
+        double w = b.w;
+        double h = b.h;
+        double k = Math.max(b.hover.value * 0.6, b.press.value);
+        double r = Math.min(h / 2, 16 * app.vp.u);
+        if (b.selected) {
+            g.fillRoundRect(-w / 2 + 3, -h / 2 + 3, w - 6, h - 6, r, Colors.withAlpha(b.color, 0.12 + 0.06 * k));
+        } else if (k > 0.01) {
+            g.fillRoundRect(-w / 2, -h / 2, w, h, r, Colors.withAlpha(0xFFFFFF, 0.08 * k));
+        }
+        g.save();
+        g.rotate(b.selected ? time * 2.4 : 0);
+        Icons.draw(g, Icon.LOOP, 0, 0, Math.min(Math.min(w, h) * 0.3, 11 * app.vp.u), b.selected ? b.color : Theme.TEXT, 0);
+        g.restore();
+    }
+
+    /** Pause: im Hochformat ein runder, schwebender Knopf neben den Inseln. */
+    private void paintPause(Gfx g, Button b) {
+        if (lay.mode != GameLayout.Mode.COMPACT_PORT) {
+            paintPlain(g, b);
+            return;
+        }
+        double w = b.w;
+        double h = b.h;
+        double r = Math.min(w, h) / 2;
+        Draw.glass(g, -w / 2, -h / 2, w, h, r, Math.max(b.hover.value * 0.5, b.press.value), app.vp.u);
+        Icons.draw(g, Icon.PAUSE, 0, 0, r * 0.36, Theme.TEXT, 0);
+    }
+
+    /** Hochformat: die Turmleiste als schwebendes Dock aus Glas; sie gleitet weg, solange ein Turm gewählt ist. */
+    private void drawDock(Gfx g, double u) {
+        GameLayout.Rect t = lay.tray;
+        double show = dockT.value;
+        g.save();
+        g.alpha(Mathx.clamp01(show * 1.4));
+        if (placing != null && (dragging || pending)) {
+            g.alpha(0.4);
+        }
+        g.translate(0, (1 - show) * (t.h + 24 * u));
+        double top = t.y - 28 * u;
+        double bot = Math.min(t.y + t.h, lay.mapY + lay.mapH);
+        scrim(g, lay.mapX, top, lay.mapW, bot - top, 0, 0.5);
+        Draw.glass(g, t.x, t.y, t.w, t.h, Math.min(t.h * 0.36, 22 * u), 0, u);
+        for (Button c : cards) {
+            c.render(g);
+        }
+        g.restore();
+    }
+
+    /** Hochformat: Tempo, Auto-Start und Leiste ein/aus teilen sich eine schwebende Kapsel neben der Start-Pille. */
+    private void drawControlCapsule(Gfx g, double u) {
+        if (!speedBtn.visible) {
+            return;
+        }
+        double x0 = lay.speed.x;
+        double x1 = lay.toggle.x + lay.toggle.w;
+        Draw.glass(g, x0, lay.speed.y, x1 - x0, lay.speed.h, lay.speed.h / 2, 0, u);
+        int hair = Colors.withAlpha(0xFFFFFF, 0.07);
+        double hy = lay.speed.y + lay.speed.h * 0.28;
+        double hh = lay.speed.h * 0.44;
+        g.fillRect((lay.speed.x + lay.speed.w + lay.auto.x) / 2, hy, 1, hh, hair);
+        g.fillRect((lay.auto.x + lay.auto.w + lay.toggle.x) / 2, hy, 1, hh, hair);
+    }
+
     private void setOverlay(Overlay o) {
+        if (overlay != o) {
+            sheetT.snap(0);
+            sheetT.target = 1;
+        }
         overlay = o;
         overlayIn = 0;
         overlayUi.clear();
@@ -993,12 +1149,40 @@ public final class GameScene extends Scene {
     }
 
     private void select(Tower t) {
+        Tower prev = selected;
+        double oldX = lay.panel.x;
+        double oldY = lay.panel.y;
         selected = t;
         sellArmed = 0;
         if (t != null) {
             cancelPlacing();
         }
         applyLayout();
+        if (t == null || t == prev) {
+            return;
+        }
+        if (prev == null) {
+            // Auftritt: Das Popover wächst aus dem Turm, die Inhalte folgen nacheinander.
+            popT.snap(0);
+            popT.target = 1;
+            popDX.snap(0);
+            popDY.snap(0);
+            rangeT.snap(0);
+            rangeT.target = 1;
+            Button[] order = {trackBtns[0], trackBtns[1], trackBtns[2], specialBtn, modeBtn, sellBtn};
+            for (int i = 0; i < order.length; i++) {
+                order[i].appearAfter(0.05 + 0.035 * i);
+            }
+        } else {
+            // Wechsel: Das Popover gleitet zum neuen Turm, der Kreis blüht erneut auf.
+            popDX.snap(oldX - lay.panel.x);
+            popDY.snap(oldY - lay.panel.y);
+            popDX.target = 0;
+            popDY.target = 0;
+            popT.kick(-1.4);
+            rangeT.snap(0.5);
+            rangeT.target = 1;
+        }
     }
 
     private void cancelPlacing() {
@@ -1017,7 +1201,12 @@ public final class GameScene extends Scene {
         if (cost < 0) {
             return;
         }
-        if (!world.upgrade(selected, track)) {
+        int i = track.ordinal();
+        if (world.upgrade(selected, track)) {
+            trackFlash[i] = 1;
+            trackPop[i].kick(7);
+        } else {
+            trackShake[i] = 1;
             deny("Zu wenig Geld");
         }
     }
@@ -1041,6 +1230,12 @@ public final class GameScene extends Scene {
     }
 
     private void showToast(String msg, int color) {
+        if (toastTime <= 0) {
+            toastT.snap(0);
+        } else {
+            toastT.kick(-2.5);
+        }
+        toastT.target = 1;
         toast = msg;
         toastColor = color;
         toastTime = 1.8;
@@ -1186,6 +1381,8 @@ public final class GameScene extends Scene {
         }
         sellBtn.update(dt);
         modeBtn.update(dt);
+        specialBtn.update(dt);
+        updateFloating(dt);
         if (overlay != Overlay.NONE) {
             overlayIn = Math.min(1, overlayIn + dt * 3);
         }
@@ -1286,7 +1483,11 @@ public final class GameScene extends Scene {
             labelWave = world.waveIndex;
             labelEndless = world.endless;
             lastEarly = early;
-            startBtn.label = world.waveIndex == 0 ? "START" : (early ? "VORLAUF ×2" : "WELLE " + (world.waveIndex + 1));
+            String next = world.waveIndex == 0 ? "START" : (early ? "VORLAUF ×2" : "WELLE " + (world.waveIndex + 1));
+            if (startBtn.label != null && !startBtn.label.equals(next)) {
+                startPop.kick(6);
+            }
+            startBtn.label = next;
             if (speedIndex >= speeds().length) {
                 speedIndex = 0;
             }
@@ -1294,6 +1495,78 @@ public final class GameScene extends Scene {
         }
         autoBtn.selected = world.autoStart;
         speedBtn.selected = speedIndex > 0;
+    }
+
+    /** Federn und kleine Reaktionen der schwebenden Oberfläche (unabhängig vom Spieltempo). */
+    private void updateFloating(double dt) {
+        popT.update(dt);
+        popDX.update(dt);
+        popDY.update(dt);
+        rangeT.update(dt);
+        dockT.target = selected != null ? 0 : 1;
+        dockT.update(dt);
+        startPop.update(dt);
+        speedPop.update(dt);
+        sheetT.update(dt);
+        moneyPop.update(dt);
+        heartPop.update(dt);
+        GameLayout.Rect hr = lay.hud;
+        boolean under = lay.mode == GameLayout.Mode.COMPACT_LAND && selected != null
+                && lay.panel.x - lay.panelPad < hr.x + hr.w && lay.panel.x + lay.panel.w + lay.panelPad > hr.x;
+        hudFade.target = under ? 0.18 : 1;
+        hudFade.update(dt);
+        boolean showConfirm = pending && placing != null && ghostOnMap && !mapPressed;
+        if (showConfirm && !confirmShown) {
+            confirmT.snap(0);
+        }
+        confirmShown = showConfirm;
+        confirmT.target = showConfirm ? 1 : 0;
+        confirmT.update(dt);
+        if (toastTime <= 0.35) {
+            toastT.target = 0;
+        }
+        toastT.update(dt);
+        for (int i = 0; i < 3; i++) {
+            trackPop[i].update(dt);
+            trackFlash[i] = Math.max(0, trackFlash[i] - dt * 2.2);
+            trackShake[i] = Math.max(0, trackShake[i] - dt * 2.6);
+        }
+        // Kacheln: heben sich beim Drücken und für den gewählten Turm; ein Turm, der gerade bezahlbar wird, ploppt auf.
+        for (int i = 0; i < cards.length; i++) {
+            TowerType type = cardType(i);
+            Button c = cards[i];
+            double want = Math.max(c.press.value > 0.05 ? 1 : 0, Math.max(placing == type && type != null ? 0.75 : 0,
+                    c.hover.value * 0.55));
+            cardLift[i].target = want;
+            cardLift[i].update(dt);
+            cardFlash[i] = Math.max(0, cardFlash[i] - dt * 1.8);
+            boolean can = type != null && canBuild(type) && world.money >= world.buildCost(type);
+            if (can && !cardCan[i] && time > 0.6) {
+                cardFlash[i] = 1;
+                cardLift[i].kick(6);
+            }
+            cardCan[i] = can;
+        }
+        // Geld: Zuwachs lässt die Zahl kurz hüpfen und grün aufleuchten
+        double dm = world.money - lastMoney;
+        if (dm >= 1) {
+            moneyGain = Math.min(1, moneyGain + 0.35 + dm / 400.0);
+            if (moneyPop.value < 0.25) {
+                moneyPop.kick(Math.min(4, 1.2 + dm / 60.0));
+            }
+        }
+        lastMoney = world.money;
+        moneyGain = Math.max(0, moneyGain - dt * 2.2);
+        // Wellenfortschritt: Anteil der schon besiegten Gegner der laufenden Wellen
+        int left = world.enemiesRemaining();
+        if (left <= 0) {
+            waveMax = 0;
+            waveProg.target = world.activeWaves() > 0 ? 0 : 1;
+        } else {
+            waveMax = Math.max(waveMax, left);
+            waveProg.target = 1 - left / (double) waveMax;
+        }
+        waveProg.update(dt);
     }
 
     // ----------------------------------------------------------------------------------------- Zeichnen
@@ -1331,14 +1604,21 @@ public final class GameScene extends Scene {
         neontd.render.PathArt.drawZones(g, level.zones, accent, time);
         WorldView.drawPaths(g, world.paths, time, listener.baseFlash, lane);
         if (selected != null) {
-            WorldView.drawRange(g, selected.x, selected.y, selected.range, selected.type.color, time, true);
+            double bloom = Math.max(0, rangeT.value);
+            WorldView.drawRange(g, selected.x, selected.y, selected.range * (0.55 + 0.45 * bloom), selected.type.color, time, true);
         } else if (hoverTower != null && !touchMode) {
             WorldView.drawRange(g, hoverTower.x, hoverTower.y, hoverTower.range, hoverTower.type.color, time, true);
         }
         WorldView.drawTowers(g, world, time);
         if (selected != null) {
-            double pulse = 0.5 + 0.5 * Math.sin(time * 5);
-            Neon.circle(g, selected.x, selected.y, 47 + 2 * pulse, 1.6, Colors.withAlpha(0xFFFFFF, 0.7), 4);
+            // Auswahlring: zieht sich beim Wählen von außen zusammen und atmet dann ruhig
+            double pulse = 0.5 + 0.5 * Math.sin(time * 3.2);
+            double in = Mathx.clamp01(rangeT.value);
+            double rr = 44 + 2 * pulse + (1 - in) * 26;
+            Neon.circle(g, selected.x, selected.y, rr, 1.6, Colors.withAlpha(0xFFFFFF, 0.25 + 0.45 * in), 4);
+            g.beginPath();
+            g.circle(selected.x, selected.y, rr + 7);
+            g.strokeDashed(1.2, Colors.withAlpha(selected.type.color, 0.5 * in), 4, 10, time * 9);
         }
         // Auf kleinen Bildschirmen (Handy) die Gegner optisch vergrößern und die HP-Zahl lesbar halten.
         double enemyScale = Mathx.clamp(10.5 / (17 * mapScale), 1, 1.5);
@@ -1362,40 +1642,38 @@ public final class GameScene extends Scene {
         // Wellen-Banner und Zwischenzeit über der Karte
         drawBanner(g);
         drawSplit(g, u);
-        if (pending && placing != null && ghostOnMap && !mapPressed) {
+        if (confirmT.value > 0.01 && placing != null && ghostOnMap) {
             drawConfirm(g);
         }
 
-        // --- HUD, Panel, Steuerung ---
+        // --- HUD, Dock, Steuerung, Popover: alles schwebt über dem Spielfeld ---
         drawHud(g, u);
         double open = lay.compact() ? railT.value : 1;
-        if (selected != null) {
-            drawUpgradePanel(g, u);
-        }
-        if (tilesVisible()) {
+        boolean portraitDock = lay.mode == GameLayout.Mode.COMPACT_PORT;
+        if (tilesVisible() || (portraitDock && lay.showTiles && dockT.value > 0.02)) {
             g.save();
             if (lay.compact()) {
                 g.alpha(Mathx.clamp01(open * 1.4));
             }
-            if (lay.mode == GameLayout.Mode.COMPACT_PORT) {
-                // Schwebende Turmleiste: beim Ziehen eines Turms durchscheinend, damit man darunter bauen kann
-                if (placing != null && (dragging || pending)) {
-                    g.alpha(0.4);
+            if (portraitDock) {
+                drawDock(g, u);
+            } else {
+                for (Button c : cards) {
+                    c.render(g);
                 }
-                GameLayout.Rect t = lay.tray;
-                double top = t.y - 30 * u;
-                double bot = Math.min(t.y + t.h, lay.mapY + lay.mapH);
-                scrim(g, lay.mapX, top, lay.mapW, bot - top, 0, 0.9);
-            }
-            for (Button c : cards) {
-                c.render(g);
             }
             g.restore();
         }
         if (selected == null && lay.mode == GameLayout.Mode.STACKED) {
             drawInfoPanel(g, u);
         }
+        if (portraitDock) {
+            drawControlCapsule(g, u);
+        }
         ui.render(g);
+        if (selected != null) {
+            drawUpgradePanel(g, u);
+        }
         drawToast(g, u);
 
         if (overlay != Overlay.NONE) {
@@ -1432,13 +1710,31 @@ public final class GameScene extends Scene {
     private void drawConfirm(Gfx g) {
         double[] c = confirmButtons();
         double r = c[4];
+        double t = Math.max(0, confirmT.value);
+        double sx = lay.screenX(shownInit ? shownX : ghostX, shownInit ? shownY : ghostY, world.height);
+        double sy = lay.screenY(shownInit ? shownX : ghostX, shownInit ? shownY : ghostY);
+        double spread = Mathx.clamp01(t);
+        double okX = sx + (c[0] - sx) * spread;
+        double noX = sx + (c[2] - sx) * spread;
+        double y = sy + (c[1] - sy) * spread;
+        double breathe = ghostValid ? 1 + 0.045 * Math.sin(time * 4.2) : 1;
+        double ro = r * t * breathe;
+        double rn = r * t;
+        g.save();
+        g.alpha(Mathx.clamp01(t * 1.6));
         int ok = ghostValid ? Theme.GREEN : Colors.withAlpha(Theme.GREEN, 0.3);
-        g.fillCircle(c[0], c[1], r, Colors.withAlpha(0x000000, 0.85));
-        Neon.circle(g, c[0], c[1], r, 2.2, ok, ghostValid ? 7 : 0);
-        Icons.draw(g, Icon.CHECK, c[0], c[1], r * 0.5, ok, ghostValid ? 4 : 0);
-        g.fillCircle(c[2], c[3], r, Colors.withAlpha(0x000000, 0.85));
-        Neon.circle(g, c[2], c[3], r, 2.2, Theme.RED, 7);
-        Icons.draw(g, Icon.CROSS, c[2], c[3], r * 0.45, Theme.RED, 4);
+        if (ghostValid) {
+            g.radialGlow(okX, y, ro * 1.9, Colors.withAlpha(Theme.GREEN, 0.18));
+        }
+        g.fillCircle(okX, y + 3 * app.vp.u, ro * 1.08, Colors.withAlpha(0x000000, 0.35));
+        g.fillCircle(okX, y, ro, Colors.withAlpha(0x0B0B10, 0.9));
+        Neon.circle(g, okX, y, ro, 2.2, ok, ghostValid ? 7 : 0);
+        Icons.draw(g, Icon.CHECK, okX, y, ro * 0.5, ok, ghostValid ? 4 : 0);
+        g.fillCircle(noX, y + 3 * app.vp.u, rn * 1.08, Colors.withAlpha(0x000000, 0.35));
+        g.fillCircle(noX, y, rn, Colors.withAlpha(0x0B0B10, 0.9));
+        Neon.circle(g, noX, y, rn, 2.2, Theme.RED, 7);
+        Icons.draw(g, Icon.CROSS, noX, y, rn * 0.45, Theme.RED, 4);
+        g.restore();
     }
 
     private void drawGhost(Gfx g) {
@@ -1504,18 +1800,24 @@ public final class GameScene extends Scene {
         if (toastTime <= 0 || toast == null) {
             return;
         }
-        double a = Mathx.clamp01(toastTime / 0.4);
+        double t = toastT.value;
+        double a = Math.min(Mathx.clamp01(toastTime / 0.35), Mathx.clamp01(t * 1.8));
         double fs = Math.max(12, 14 * u);
-        double h = 34 * u;
-        double w = Math.min(lay.mapW + 10, g.textWidth(toast, fs, true) + 30 * u + h * 0.5);
+        double h = 36 * u;
+        double w = Math.min(lay.mapW - 8 * u, g.textWidth(toast, fs, true) + 32 * u + h * 0.5);
         double cx = lay.mapX + lay.mapW / 2;
-        double y = lay.clearBottom - h - 12 * u;
+        double y = lay.clearBottom - h - 12 * u + (1 - t) * 22 * u;
+        double sc = 0.9 + 0.1 * t;
         g.save();
         g.alpha(a);
-        g.fillRoundRect(cx - w / 2, y, w, h, h / 2, Colors.withAlpha(Theme.SURFACE3, 0.96));
-        g.fillCircle(cx - w / 2 + h * 0.5, y + h / 2, h * 0.12, toastColor);
-        double shrink = Math.min(1, (w - 26 * u - h * 0.5) / Math.max(1, g.textWidth(toast, fs, true)));
-        g.text(toast, cx + h * 0.25, y + h / 2, fs * shrink, Theme.TEXT, Gfx.ALIGN_CENTER, true);
+        g.translate(cx, y + h / 2);
+        g.scale(sc, sc);
+        Draw.glass(g, -w / 2, -h / 2, w, h, h / 2, 0, u);
+        double dot = h * 0.12 * (1 + 0.25 * Math.max(0, Math.sin(time * 6)));
+        g.radialGlow(-w / 2 + h * 0.5, 0, h * 0.42, Colors.withAlpha(toastColor, 0.35));
+        g.fillCircle(-w / 2 + h * 0.5, 0, dot, toastColor);
+        double shrink = Math.min(1, (w - 28 * u - h * 0.5) / Math.max(1, g.textWidth(toast, fs, true)));
+        g.text(toast, h * 0.25, 0, fs * shrink, Theme.TEXT, Gfx.ALIGN_CENTER, true);
         g.restore();
     }
 
@@ -1551,30 +1853,136 @@ public final class GameScene extends Scene {
                 break;
             }
             case STACKED:
-            case COMPACT_PORT: {
-                // Werte direkt über der Karte, ohne Kästen; ein weicher Schleier hält sie lesbar
-                double top = Math.min(h.y, lay.mapY);
-                double fullW = lay.pause.x + lay.pause.w - h.x;
-                scrim(g, h.x - 8 * u, top - 2 * u, fullW + 16 * u, h.y + h.h + 26 * u - top, 0.82, 0);
-                hudLine(g, h.x, h.y + h.h / 2, h.w, Math.min(h.h * 0.56, 18 * u), u);
-                // feine Linie: Spielerlevel (bzw. Serie in der Arena)
-                double ly = h.y + h.h + 3 * u;
-                double f = arena != null ? Math.min(1, world.streak / (double) World.STREAK_MAX)
-                        : (progressOn ? progress.levelFraction() : 0);
-                int lc = arena != null ? Theme.STAR : Theme.MAGENTA;
-                g.fillRoundRect(h.x, ly, fullW, 2 * u, u, Colors.withAlpha(0xFFFFFF, 0.08));
-                if (f > 0) {
-                    g.fillRoundRect(h.x, ly, Math.max(2 * u, fullW * f), 2 * u, u, Colors.withAlpha(lc, 0.9));
-                }
+            case COMPACT_PORT:
+                drawIslands(g, h.x, h.y, h.w, h.h, u, false);
                 break;
-            }
             default: {
-                // Handy quer: Werte schweben über der Karte, nur ein weicher Schleier dahinter
-                scrim(g, h.x - 6 * u, h.y - 4 * u, h.w + 12 * u, h.h + 20 * u, 0.75, 0);
-                hudLine(g, h.x + 4 * u, h.y + h.h / 2, h.w - 8 * u, h.h * 0.56, u);
+                // Handy quer: zwei kleine Inseln schweben oben links auf der Karte; liegt das Popover darüber, treten
+                // sie zurück, damit nichts durchscheint
+                g.save();
+                g.alpha(hudFade.value);
+                drawIslands(g, h.x, h.y, h.w, h.h, u, true);
+                g.restore();
                 break;
             }
         }
+    }
+
+    // ------------------------------------------------------------------------------------ HUD-Inseln
+
+    /** Breite (und auf Wunsch Zeichnung) eines Wertes einer Insel: Symbol mit optionalem Fortschrittsring, dann Zahl. */
+    private double islandValue(Gfx g, double x, double cy, Icon icon, int iconColor, String value, int textColor,
+                               double fs, double pop, double ring, int ringColor, double u, boolean draw) {
+        double is = fs * 0.42;
+        double lead = ring >= 0 ? is * 0.5 : 0;
+        double w = lead + is * 2 + 6 * u + g.textWidth(value, fs, true);
+        if (!draw) {
+            return w;
+        }
+        double ix = x + lead + is;
+        double sc = 1 + 0.14 * pop;
+        g.save();
+        g.translate(ix, cy);
+        g.scale(sc, sc);
+        if (ring >= 0) {
+            double rr = is * 1.52;
+            g.strokeCircle(0, 0, rr, 1.5 * u, Colors.withAlpha(0xFFFFFF, 0.12));
+            if (ring > 0.001) {
+                g.beginPath();
+                g.arc(0, 0, rr, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * Mathx.clamp01(ring));
+                g.stroke(1.7 * u, ringColor);
+            }
+            Icons.draw(g, icon, 0, 0, is * 0.8, iconColor, 0);
+        } else {
+            Icons.draw(g, icon, 0, 0, is, iconColor, 0);
+        }
+        g.restore();
+        g.text(value, x + lead + is * 2 + 6 * u + (ring >= 0 ? is * 0.15 : 0), cy, fs * (1 + 0.05 * pop), textColor,
+                Gfx.ALIGN_LEFT, true);
+        return w;
+    }
+
+    /**
+     * Kopfzeile als zwei schwebende Glas-Inseln: links Leben, Geld und Spielerlevel (Arena: Punkte mit Multiplikator),
+     * rechts die Welle mit einem Ring, der sich mit den besiegten Gegnern füllt. Werte hüpfen bei Änderungen.
+     * {@code packed}: die Wellen-Insel folgt direkt auf die linke (Handy quer, damit die Kartenmitte frei bleibt).
+     */
+    private void drawIslands(Gfx g, double x, double y, double w, double h, double u, boolean packed) {
+        String lives = Integer.toString(world.lives);
+        String money = Fmt.tight(moneyShown.value);
+        String third;
+        if (arena != null) {
+            third = Fmt.tight(scoreShown.value);
+        } else {
+            third = Integer.toString(progress.level());
+        }
+        String wave;
+        if (arena != null) {
+            wave = "W" + world.waveIndex + (liveRank > 0 ? "  #" + liveRank : "");
+        } else if (world.endless) {
+            wave = "Welle " + world.waveIndex;
+        } else {
+            wave = "Welle " + Math.min(world.waveIndex, world.totalWaves()) + "/" + world.totalWaves();
+        }
+        String waveShort = arena != null ? wave : (world.endless ? Integer.toString(world.waveIndex)
+                : Math.min(world.waveIndex, world.totalWaves()) + "/" + world.totalWaves());
+        double fs = Math.min(h * 0.5, 17 * u);
+        double padX = h * 0.4;
+        double gap = fs * 0.85;
+        double islandGap = 8 * u;
+        double levelRing = arena != null ? Math.min(1, world.streak / (double) World.STREAK_MAX)
+                : (progressOn ? progress.levelFraction() : 0);
+        String mult = arena != null ? "×" + Fmt.one(world.multiplier()) : null;
+        double leftW = 0;
+        double rightW = 0;
+        String waveText = wave;
+        for (int pass = 0; pass < 3; pass++) {
+            double multW = mult != null ? g.textWidth(mult, fs * 0.78, true) + 5 * u : 0;
+            leftW = padX * 2 + islandValue(g, 0, 0, Icon.HEART, 0, lives, 0, fs, 0, -1, 0, u, false) + gap
+                    + islandValue(g, 0, 0, Icon.GEM, 0, money, 0, fs, 0, -1, 0, u, false) + gap
+                    + (arena != null ? g.textWidth(third, fs, true) + multW
+                    : islandValue(g, 0, 0, Icon.STAR, 0, third, 0, fs, 0, levelRing, 0, u, false));
+            rightW = padX * 2 + islandValue(g, 0, 0, Icon.WAVES, 0, waveText, 0, fs, 0, 0, 0, u, false);
+            if (leftW + rightW + islandGap <= w) {
+                break;
+            }
+            if (pass == 0) {
+                waveText = waveShort;
+            } else {
+                double k = (w - islandGap) / (leftW + rightW);
+                fs *= k;
+                padX *= Math.max(0.7, k);
+                gap *= k;
+            }
+        }
+        double cy = y + h / 2;
+        double r = h / 2;
+        // linke Insel
+        Draw.glass(g, x, y, leftW, h, r, 0, u);
+        double xx = x + padX;
+        double lp = Math.max(livesPulse.value, 0);
+        int lc = Colors.lerp(Theme.TEXT, Theme.RED, lp);
+        xx += islandValue(g, xx, cy, Icon.HEART, Theme.LIFE, lives, lc, fs, heartPop.value, -1, 0, u, true) + gap;
+        double shake = moneyDeny > 0.05 ? Math.sin(time * 62) * moneyDeny * 3 * u : 0;
+        int mc = moneyDeny > 0.05 ? Colors.lerp(Theme.TEXT, Theme.RED, Math.min(1, moneyDeny))
+                : Colors.lerp(Theme.TEXT, Colors.lighten(Theme.MONEY, 0.35), Math.min(1, moneyGain) * 0.75);
+        xx += islandValue(g, xx + shake, cy, Icon.GEM, Theme.MONEY, money, mc, fs, moneyPop.value, -1, 0, u, true) + gap;
+        if (arena != null) {
+            double pop = 1 + 0.08 * scorePulse;
+            g.text(third, xx, cy, fs * pop, Theme.STAR, Gfx.ALIGN_LEFT, true);
+            xx += g.textWidth(third, fs * pop, true) + 5 * u;
+            g.text(mult, xx, cy + fs * 0.06, fs * 0.78, multColor(), Gfx.ALIGN_LEFT, true);
+        } else {
+            islandValue(g, xx, cy, Icon.STAR, Theme.MAGENTA, third, Theme.TEXT, fs, 0, levelRing, Theme.MAGENTA, u, true);
+        }
+        // rechte Insel: Welle mit Fortschrittsring
+        double rx = packed ? x + leftW + islandGap : x + w - rightW;
+        Draw.glass(g, rx, y, rightW, h, r, 0, u);
+        boolean running = world.activeWaves() > 0;
+        int wc = arena != null && liveRank == 1 ? Theme.STAR : Theme.TEXT;
+        int ringC = running ? Theme.ACCENT : Colors.withAlpha(Theme.GREEN, 0.9);
+        double ring = running ? waveProg.value : (world.waveIndex > 0 ? 1 : 0);
+        islandValue(g, rx + padX, cy, Icon.WAVES, running ? Theme.ACCENT : Theme.MUTED, waveText, wc, fs, 0, ring, ringC, u, true);
     }
 
     /**
@@ -1681,6 +2089,10 @@ public final class GameScene extends Scene {
         double h = b.h;
         boolean unlocked = canBuild(type);
         boolean can = unlocked && world.money >= world.buildCost(type);
+        // hebt sich dem Finger entgegen (Feder) – der gewählte Turm schwebt etwas höher
+        double lift = cardLift[index].value;
+        g.translate(0, -lift * 4.5 * app.vp.u);
+        g.scale(1 + 0.07 * lift, 1 + 0.07 * lift);
         boolean active = placing == type;
         double hv = Math.max(b.hover.value, active ? 1 : 0);
         int c = type.color;
@@ -1716,6 +2128,17 @@ public final class GameScene extends Scene {
             if (active) {
                 g.fillRoundRect(-w * 0.18, h * 0.47, w * 0.36, 2.5 * app.vp.u, 1.2 * app.vp.u, c);
             }
+            if (unlocked && !can) {
+                // Spar-Ring: füllt sich, während das Geld auf den Preis zuwächst
+                double f = Mathx.clamp01(world.money / Math.max(1.0, world.buildCost(type)));
+                double rr = ir * 1.22;
+                g.strokeCircle(0, -h * 0.14, rr, 1.6 * app.vp.u, Colors.withAlpha(0xFFFFFF, 0.08));
+                if (f > 0.01) {
+                    g.beginPath();
+                    g.arc(0, -h * 0.14, rr, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * f);
+                    g.stroke(1.8 * app.vp.u, Colors.withAlpha(Theme.MONEY, 0.85));
+                }
+            }
             if (unlocked) {
                 double cs = Math.max(9, Math.min(w * 0.23, h * 0.2));
                 double tw = g.textWidth(cost, cs, true);
@@ -1740,6 +2163,14 @@ public final class GameScene extends Scene {
         }
         if (!app.platform.touchPrimary() && horizontal) {
             g.text(Integer.toString(index + 1), -w / 2 + 8, -h / 2 + 10, 10, Theme.MUTED, Gfx.ALIGN_LEFT, true);
+        }
+        if (cardFlash[index] > 0.01) {
+            // gerade bezahlbar geworden: ein Lichtring breitet sich aus
+            double f = cardFlash[index];
+            double cy = horizontal ? 0 : -h * 0.14;
+            double cx = horizontal ? -w / 2 + h * 0.52 : 0;
+            double base = horizontal ? h * 0.3 : Math.min(w * 0.36, h * 0.29);
+            g.strokeCircle(cx, cy, base * (1.1 + 0.9 * (1 - f)), 2 * app.vp.u * f, Colors.withAlpha(c, 0.8 * f));
         }
     }
 
@@ -1776,6 +2207,28 @@ public final class GameScene extends Scene {
         g.restore();
     }
 
+    /**
+     * Auf dem Handy wächst das Popover aus dem Turm heraus (Feder mit leichtem Überschwingen) und gleitet beim
+     * Turmwechsel weich zur neuen Position; am PC und Tablet gleitet die Seitenleiste ein.
+     */
+    private void popTransform(Gfx g, double u) {
+        double pt = popT.value;
+        GameLayout.Rect p = lay.panel;
+        if (lay.panelSide < 0) {
+            g.translate((1 - pt) * 18 * u, 0);
+            g.alpha(Mathx.clamp01(pt * 1.6));
+            return;
+        }
+        double sc = 0.8 + 0.2 * pt;
+        double ox = Mathx.clamp(lay.anchorX, p.x, p.x + p.w);
+        double oy = Mathx.clamp(lay.anchorY, p.y, p.y + p.h);
+        g.translate(popDX.value, popDY.value);
+        g.translate(ox, oy);
+        g.scale(sc, sc);
+        g.translate(-ox, -oy);
+        g.alpha(Mathx.clamp01(pt * 1.7));
+    }
+
     private void drawUpgradePanel(Gfx g, double u) {
         if (selected == null) {
             return;
@@ -1783,11 +2236,17 @@ public final class GameScene extends Scene {
         Tower t = selected;
         String stufe = "Stufe " + t.totalLevels() + (world.endless ? "" : "/15")
                 + (t.pad != null ? "  ·  " + t.pad.label + " " + t.pad.bonusText() : "");
+        g.save();
+        popTransform(g, u);
+        GameLayout.Rect p = lay.panel;
+        double pp = lay.panelPad;
+        double tipX = lay.anchorX - popDX.value;
+        double tipY = lay.anchorY - popDY.value;
         switch (lay.mode) {
             case COMPACT_LAND: {
-                GameLayout.Rect p = lay.panel;
                 double k = lay.k;
-                g.fillRoundRect(p.x - 6 * k, p.y - 6 * k, p.w + 12 * k, p.h + 12 * k, 18 * k, Colors.withAlpha(Theme.SURFACE, 0.97));
+                Draw.glassPointer(g, p.x - pp, p.y - pp, p.w + 2 * pp, p.h + 2 * pp, 18 * k, tipX, tipY,
+                        lay.panelSide < 0 ? 2 : lay.panelSide, 8 * k, u, t.type.color);
                 double hh = 34 * k * (p.h / ((34 + 3 * 52 + 34 + 34 + 38 + 6 * 4) * k));
                 TowerArt.drawIcon(g, t.type, p.x + hh * 0.5, p.y + hh / 2, hh * 0.34, app.time);
                 g.text(t.type.label, p.x + hh * 1.0, p.y + hh * 0.34, Math.max(11, hh * 0.34), Theme.TEXT,
@@ -1796,36 +2255,41 @@ public final class GameScene extends Scene {
                 break;
             }
             case COMPACT_PORT: {
-                GameLayout.Rect p = lay.panel;
                 double k = lay.k;
-                double pp = lay.panelPad;
-                // eine einzige Fläche; darin gliedern nur Haarlinien
-                g.fillRoundRect(p.x - pp, p.y - pp, p.w + 2 * pp, p.h + 2 * pp, 20 * k, Colors.withAlpha(Theme.SURFACE, 0.97));
-                int hair = Colors.withAlpha(0xFFFFFF, 0.08);
+                Draw.glassPointer(g, p.x - pp, p.y - pp, p.w + 2 * pp, p.h + 2 * pp, 22 * k, tipX, tipY,
+                        lay.panelSide < 0 ? 1 : lay.panelSide, 10 * k, u, t.type.color);
+                int hair = Colors.withAlpha(0xFFFFFF, 0.07);
                 for (int i = 1; i < 3; i++) {
                     Button tb = trackBtns[i];
-                    g.fillRect((trackBtns[i - 1].x + trackBtns[i - 1].w + tb.x) / 2, tb.y + tb.h * 0.12, 1, tb.h * 0.76, hair);
+                    g.fillRect((trackBtns[i - 1].x + trackBtns[i - 1].w + tb.x) / 2, tb.y + tb.h * 0.14, 1, tb.h * 0.72, hair);
                 }
-                double rh = modeBtn.h;
-                g.fillRect(p.x + 6 * k, modeBtn.y - 2 * k, p.w - 12 * k, 1, hair);
-                g.fillRect(specialBtn.x - 2 * k, modeBtn.y + rh * 0.22, 1, rh * 0.56, hair);
-                g.fillRect(modeBtn.x - 2 * k, modeBtn.y + rh * 0.22, 1, rh * 0.56, hair);
-                g.fillRect(sellBtn.x - 2 * k, modeBtn.y + rh * 0.22, 1, rh * 0.56, hair);
-                double bx = p.x;
-                double bw = specialBtn.x - 4 * k - p.x;
-                TowerArt.drawIcon(g, t.type, bx + rh * 0.5, modeBtn.y + rh / 2, rh * 0.3, app.time);
-                String lv = world.endless ? Integer.toString(t.totalLevels()) : t.totalLevels() + "/15";
-                double ls = Math.max(8, Math.min(rh * 0.36, (bw - rh * 1.0) / Math.max(1, lv.length() * 0.62)));
-                g.text(lv, bx + rh * 0.95, modeBtn.y + rh / 2, ls, Theme.TEXT, Gfx.ALIGN_LEFT, true);
+                double ay = specialBtn.y;
+                g.fillRect(p.x + 4 * k, ay - 3 * k, p.w - 8 * k, 1, hair);
+                g.fillRect(sellBtn.x - 2 * k, ay + specialBtn.h * 0.24, 1, specialBtn.h * 0.52, hair);
+                // Kopf: Turm, Name, Stufe (und Pad-Bonus)
+                double hh = GameLayout.POP_HEAD * k;
+                double cy = p.y + hh / 2;
+                double bob = Math.sin(time * 2.4) * 0.8 * k;
+                TowerArt.drawIcon(g, t.type, p.x + hh * 0.45, cy + bob, hh * 0.36, app.time);
                 if (t.pad != null) {
-                    // Abzeichen oben rechts am Turmsymbol
-                    double cr = rh * 0.15;
-                    double cx = bx + rh * 0.5 + rh * 0.24;
-                    double cy = modeBtn.y + rh * 0.27;
-                    Neon.halo(g, cx, cy, cr * 2, t.pad.color, 0.35);
-                    g.fillCircle(cx, cy, cr, t.pad.color);
-                    Icons.draw(g, neontd.render.PathArt.padIcon(t.pad), cx, cy, cr * 0.5, 0x0B0B12, 0);
+                    double cr = hh * 0.15;
+                    double bx = p.x + hh * 0.45 + hh * 0.3;
+                    double by = cy - hh * 0.26;
+                    Neon.halo(g, bx, by, cr * 2, t.pad.color, 0.35);
+                    g.fillCircle(bx, by, cr, t.pad.color);
+                    Icons.draw(g, neontd.render.PathArt.padIcon(t.pad), bx, by, cr * 0.5, 0x0B0B12, 0);
                 }
+                double tx = p.x + hh * 1.0;
+                double room = modeBtn.x - 8 * k - tx;
+                double ns = Math.max(11, Math.min(hh * 0.5, 17 * u));
+                double nw = Math.min(g.textWidth(t.type.label, ns, true), room);
+                Draw.fit(g, t.type.label, tx, cy, ns, room, Theme.TEXT, Gfx.ALIGN_LEFT, true);
+                String lv = world.endless ? "Stufe " + t.totalLevels() : "Stufe " + t.totalLevels() + "/15";
+                if (t.pad != null) {
+                    lv += "  ·  " + t.pad.bonusText();
+                }
+                Draw.cut(g, lv, tx + nw + 8 * k, cy + 0.5, Math.max(9, hh * 0.36), room - nw - 8 * k,
+                        t.pad != null ? Colors.lighten(t.pad.color, 0.2) : Theme.MUTED, Gfx.ALIGN_LEFT, false);
                 break;
             }
             default: {
@@ -1845,6 +2309,7 @@ public final class GameScene extends Scene {
         }
         specialBtn.render(g);
         modeBtn.render(g);
+        g.restore();
     }
 
     // ------------------------------------------------------------------------- Info-Panel (Hochformat)
@@ -1961,10 +2426,26 @@ public final class GameScene extends Scene {
         return track.label;
     }
 
+    /** Upgrade-Kachel mit Reaktion: kurzer Hüpfer und Aufleuchten beim Kauf, Schütteln, wenn das Geld fehlt. */
     private void paintTrackRow(Gfx g, Button b, UpgradeTrack track) {
         if (selected == null) {
             return;
         }
+        int i = track.ordinal();
+        double shake = trackShake[i] > 0.01 ? Math.sin(time * 70) * trackShake[i] * 4 * app.vp.u : 0;
+        double pop = 1 + 0.045 * trackPop[i].value;
+        g.save();
+        g.translate(shake, 0);
+        g.scale(pop, pop);
+        if (trackFlash[i] > 0.01) {
+            double f = trackFlash[i];
+            g.radialGlow(0, -b.h * 0.05, Math.max(b.w, b.h) * (0.45 + 0.25 * (1 - f)), Colors.withAlpha(track.color, 0.32 * f));
+        }
+        paintTrackBody(g, b, track);
+        g.restore();
+    }
+
+    private void paintTrackBody(Gfx g, Button b, UpgradeTrack track) {
         Tower t = selected;
         String label = trackLabel(t, track);
         double w = b.w;
@@ -2006,9 +2487,14 @@ public final class GameScene extends Scene {
             }
             double pip = h * 0.05;
             double px0 = -w / 2 + h * 0.14;
+            double fl = trackFlash[track.ordinal()];
             for (int i = 0; i < UpgradeTrack.MAX_LEVEL; i++) {
                 double px = px0 + pip + i * pip * 2.9;
-                g.fillCircle(px, -h * 0.04, pip, i < pips ? c : Theme.SURFACE3);
+                boolean newest = i == pips - 1 && fl > 0.01;
+                if (newest) {
+                    g.fillCircle(px, -h * 0.04, pip * (1.6 + 1.4 * (1 - fl)), Colors.withAlpha(c, 0.35 * fl));
+                }
+                g.fillCircle(px, -h * 0.04, pip * (newest ? 1 + 0.6 * fl : 1), i < pips ? c : Theme.SURFACE3);
             }
             if (!master.isEmpty()) {
                 g.text(master, px0 + pip * 2 + 5 * pip * 2.9, -h * 0.04, Math.max(8, h * 0.17), Theme.YELLOW,
@@ -2143,7 +2629,7 @@ public final class GameScene extends Scene {
             g.text("Sicher?", 0, -h * 0.02, Math.max(11, h * 0.34), Theme.TEXT, Gfx.ALIGN_CENTER, true);
         } else if (flat) {
             String v = Fmt.compact(world.sellValue(selected));
-            double fs = Math.max(9, h * 0.4);
+            double fs = Math.max(9, h * (lay.panelSide >= 0 ? 0.34 : 0.4));
             double tw = g.textWidth("Verkaufen", fs, true) + g.textWidth(v, fs, true) + h * 0.9;
             if (tw > w * 0.9) {
                 fs *= w * 0.9 / tw;
@@ -2170,6 +2656,22 @@ public final class GameScene extends Scene {
         double h = b.h;
         double hv = b.hover.value;
         double pk = Math.max(hv * 0.6, b.press.value);
+        if (lay.mode == GameLayout.Mode.COMPACT_PORT) {
+            // Kopf des Popovers: Zielmodus als kleine Pille rechts, Tippen schaltet weiter
+            double ch = h * 0.78;
+            String lbl = selected.mode.label;
+            double fs = Math.max(9, ch * 0.42);
+            double cw = Math.min(w, ch * 1.25 + g.textWidth(lbl, fs, true) + ch * 0.5);
+            double x0 = w / 2 - cw;
+            g.fillRoundRect(x0, -ch / 2, cw, ch, ch / 2, Colors.withAlpha(0xFFFFFF, 0.07 + 0.06 * pk));
+            g.save();
+            g.translate(x0 + ch * 0.6, 0);
+            g.rotate(b.press.value * 0.9);
+            Icons.draw(g, Icon.TARGET, 0, 0, ch * 0.24, Theme.ACCENT, 0);
+            g.restore();
+            Draw.fit(g, lbl, x0 + ch * 1.05, 0, fs, cw - ch * 1.3, Theme.TEXT, Gfx.ALIGN_LEFT, true);
+            return;
+        }
         if (pk > 0.01) {
             g.fillRoundRect(-w / 2, -h / 2, w, h, Math.min(h / 2, 14 * app.vp.u), Colors.withAlpha(0xFFFFFF, 0.07 * pk));
         }
@@ -2485,7 +2987,7 @@ public final class GameScene extends Scene {
         g.restore();
         double[] box = sheetBox();
         double sx = box[0];
-        double sy = box[1] + (1 - a) * 40 * u;
+        double sy = box[1] + (1 - sheetT.value) * 70 * u;
         double sw = box[2];
         double sh = box[3];
         g.save();
@@ -3287,6 +3789,7 @@ public final class GameScene extends Scene {
         public void onEnemyLeaked(neontd.sim.Enemy e, int livesLost) {
             super.onEnemyLeaked(e, livesLost);
             livesPulse.snap(1);
+            heartPop.kick(8);
         }
 
         @Override

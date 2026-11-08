@@ -98,7 +98,8 @@ Vollbild wie eine App und funktioniert nach dem ersten Laden auch **ohne Interne
 Platz jetzt gut: quer sitzt eine schmale Leiste am rechten Rand; hoch liegt die Karte gedreht (Pfad von oben nach
 unten) über die volle Breite – oben die Kopfzeile mit Pause, unten die Steuerzeile, dazwischen schweben die Türme über
 dem unteren Kartenrand. Der **Pfeil-Knopf** klappt die Leiste ein – dann ist die ganze Karte frei – und wieder aus; die
-Wahl wird gemerkt. Ein gewählter Turm bekommt sein Upgrade-Panel unten, oder oben, wenn es ihn sonst verdecken würde.
+Wahl wird gemerkt. Ein gewählter Turm bekommt sein Upgrade-Panel als **schwebendes Popover direkt am Turm** – mit Zeiger,
+weichen Feder-Animationen und ohne Kopf- oder Steuerzeile zu verdecken.
 
 > **Gut zu wissen:** Der Safari-Tab und die Home-Bildschirm-App haben auf dem iPhone **getrennte Speicher**. Wer
 > beides benutzt, sieht dort zunächst verschiedene Profile. Der [Cloud-Speicher](#speichern-fortsetzen-und-cloud)
